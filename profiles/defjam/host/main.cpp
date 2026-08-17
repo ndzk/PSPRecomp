@@ -171,6 +171,7 @@ int main(int argc, char **argv) {
         defjam::runtime_log_initialize((executable_directory / "DefJamNative.log").string());
         defjam::install_profile(runtime, user_arena_start);
         defjam::install_starvation_preemption();
+        defjam::install_dispatch_trace();
 
         // $gp is genuinely zero for this module: it was built without
         // small-data addressing, and .text contains no $gp-relative access.
@@ -209,6 +210,7 @@ int main(int argc, char **argv) {
         if (!guest_fault.empty()) {
             std::cerr << "\nGuest fault: " << guest_fault << "\n";
             defjam::runtime_log_line("guest fault: " + guest_fault);
+            defjam::dump_dispatch_trace(80u);
         }
         defjam::runtime_log_shutdown();
         if (!guest_fault.empty() || !runtime.stop_reason().empty()) return kExitGuestStopped;

@@ -37,6 +37,19 @@ struct HeadlessStats {
 [[nodiscard]] HeadlessStats headless_stats();
 void report_headless_stats();
 
+// Records the last N outer-dispatch guest PCs in a ring buffer so a fault can
+// be read as a control-flow trail instead of inferred from a register snapshot.
+//
+// The hook fires only on outer dispatches, never inside a chained call, so with
+// PSPRECOMP_NO_CHAIN=1 (every transfer through the dispatcher) this is close to
+// instruction granularity; without it, it is unit-entry granularity.
+//
+// Off unless PSPRECOMP_DEFJAM_TRACE is set, since it costs a call per dispatch.
+// The value, if numeric and non-zero, sets the ring size (default 256).
+void install_dispatch_trace();
+void dump_dispatch_trace(std::size_t limit = 64u);
+[[nodiscard]] bool dispatch_trace_enabled();
+
 void runtime_log_initialize(const std::string &path);
 void runtime_log_line(const std::string &line);
 void runtime_log_shutdown();

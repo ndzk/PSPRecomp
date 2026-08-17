@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <optional>
 #include <sstream>
@@ -62,6 +63,11 @@ struct ThreadRecord {
     std::uint32_t stack_size{};
     std::uint32_t stack_top{};     // highest address (stack grows down)
     std::uint32_t stack_bottom{};
+    // PSP keeps a per-thread control block at the top of the thread's stack and
+    // points $k0 at it while the thread runs. Guest code reaches thread-local
+    // data through $k0, so it must be a real address: leaving it zero turns the
+    // first such access into a store near address 0.
+    std::uint32_t kernel_context{};
     std::uint32_t exit_status{};
     ThreadState state{ThreadState::Created};
     AllegrexContext suspended{};
@@ -159,6 +165,27 @@ std::uint32_t g_ge_edram_translation = 0x400;
 std::map<std::int32_t, std::uint32_t> g_ge_lists;  // id -> stall address
 
 std::uint64_t g_starvation_tick_us = 0;
+
+// ---------------------------------------------------------------------------
+// Dispatch trace
+// ---------------------------------------------------------------------------
+struct DispatchTraceEntry {
+    std::uint32_t pc{};
+    std::int32_t thread_uid{};
+    std::uint64_t virtual_time_us{};
+};
+
+std::vector<DispatchTraceEntry> g_trace;
+std::size_t g_trace_head = 0;      // next slot to write
+std::uint64_t g_trace_total = 0;   // dispatches seen, for wraparound reporting
+
+void pre_dispatch_hook(Runtime &, AllegrexContext &, std::uint32_t dispatch_pc,
+                       std::int32_t dispatch_thread_uid) {
+    if (g_trace.empty()) return;
+    g_trace[g_trace_head] = DispatchTraceEntry{dispatch_pc, dispatch_thread_uid, g_virtual_time_us};
+    g_trace_head = (g_trace_head + 1u) % g_trace.size();
+    ++g_trace_total;
+}
 
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -297,6 +324,9 @@ void preempt_if_higher_priority(Runtime &rt, AllegrexContext &ctx) {
 // ---------------------------------------------------------------------------
 // Stacks
 // ---------------------------------------------------------------------------
+// Reserved at the top of every thread stack for the control block $k0 points at.
+constexpr std::uint32_t kKernelContextSize = 0x100u;
+
 std::uint32_t allocate_thread_stack(std::uint32_t size) {
     const std::uint32_t aligned = (size + 0xFFu) & ~0xFFu;
     if (g_threads.next_stack_top < aligned) return 0u;
@@ -394,6 +424,55 @@ HeadlessStats headless_stats() {
     return stats;
 }
 
+bool dispatch_trace_enabled() { return !g_trace.empty(); }
+
+void install_dispatch_trace() {
+    const char *text = std::getenv("PSPRECOMP_DEFJAM_TRACE");
+    if (text == nullptr || *text == '\0' || std::strcmp(text, "0") == 0) return;
+
+    std::size_t entries = 256u;
+    const unsigned long long parsed = std::strtoull(text, nullptr, 0);
+    if (parsed > 1ull) entries = static_cast<std::size_t>(std::min<unsigned long long>(parsed, 1u << 20u));
+
+    g_trace.assign(entries, DispatchTraceEntry{});
+    g_trace_head = 0;
+    g_trace_total = 0;
+    psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
+    runtime_log_line("dispatch trace enabled, " + std::to_string(entries) + " entries");
+}
+
+void dump_dispatch_trace(std::size_t limit) {
+    if (g_trace.empty()) {
+        std::cerr << "[trace] not enabled; set PSPRECOMP_DEFJAM_TRACE=1 (or a ring size)\n";
+        return;
+    }
+    const std::size_t recorded = static_cast<std::size_t>(
+        std::min<std::uint64_t>(g_trace_total, g_trace.size()));
+    const std::size_t show = std::min(limit, recorded);
+    std::cerr << "[trace] last " << show << " outer dispatches of " << g_trace_total
+              << " total (oldest first):\n";
+
+    // Walk back `show` slots from the write head.
+    std::size_t index = (g_trace_head + g_trace.size() - show) % g_trace.size();
+    std::uint32_t previous = 0u;
+    std::uint64_t repeat = 0u;
+    for (std::size_t i = 0; i < show; ++i) {
+        const DispatchTraceEntry &entry = g_trace[index];
+        index = (index + 1u) % g_trace.size();
+        if (i != 0u && entry.pc == previous) { ++repeat; continue; }
+        if (repeat != 0u) {
+            std::cerr << "           ... previous PC repeated " << repeat << " more time(s)\n";
+            repeat = 0u;
+        }
+        const std::uint32_t unit = entry.pc >= 0x08804000u ? (entry.pc - 0x08804000u) / 0x4000u : 0u;
+        std::cerr << "  " << psprecomp::hex32(entry.pc) << "  unit=" << unit
+                  << " thread=" << entry.thread_uid << " t=" << entry.virtual_time_us << "us\n";
+        previous = entry.pc;
+    }
+    if (repeat != 0u)
+        std::cerr << "           ... previous PC repeated " << repeat << " more time(s)\n";
+}
+
 void install_starvation_preemption() {
     const char *interval_text = std::getenv("PSPRECOMP_TIME_TICK_DISPATCHES");
     std::uint64_t interval = 256u;
@@ -435,13 +514,17 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     module_thread.stack_size = kModuleStackSize;
     module_thread.stack_bottom = allocate_thread_stack(kModuleStackSize);
     module_thread.stack_top = module_thread.stack_bottom + kModuleStackSize;
+    module_thread.kernel_context = module_thread.stack_top - kKernelContextSize;
     module_thread.state = ThreadState::Running;
     g_threads.threads[0] = module_thread;
     g_threads.current_uid = 0;
     psprecomp::set_runtime_thread_identity(0, "module_start");
 
-    // 16 bytes of o32 argument save area below the stack top.
-    runtime.cpu().set_gpr(29, module_thread.stack_top - 16u);
+    runtime.memory().zero(module_thread.kernel_context, kKernelContextSize);
+    // $k0 addresses the thread control block; the usable stack starts below it,
+    // leaving 16 bytes of o32 argument save area.
+    runtime.cpu().set_gpr(26, module_thread.kernel_context);
+    runtime.cpu().set_gpr(29, module_thread.kernel_context - 16u);
     runtime.cpu().set_gpr(31, kThreadReturnAddress);
 
     runtime.register_function(kThreadReturnAddress, &thread_return_trampoline, "psp_thread_return");
@@ -515,6 +598,8 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             return;
         }
         thread.stack_top = thread.stack_bottom + ((thread.stack_size + 0xFFu) & ~0xFFu);
+        thread.kernel_context = thread.stack_top - kKernelContextSize;
+        rt.memory().zero(thread.kernel_context, kKernelContextSize);
         thread.state = ThreadState::Created;
         const std::int32_t uid = g_threads.next_uid++;
         g_threads.threads[uid] = thread;
@@ -530,10 +615,11 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         if (thread == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
         AllegrexContext start{};
         start.pc = thread->entry;
-        start.set_gpr(4, ctx.gpr[5]);                    // a0 = arglen
-        start.set_gpr(5, ctx.gpr[6]);                    // a1 = argp
-        start.set_gpr(29, thread->stack_top - 16u);      // sp
-        start.set_gpr(31, kThreadReturnAddress);         // ra
+        start.set_gpr(4, ctx.gpr[5]);                        // a0 = arglen
+        start.set_gpr(5, ctx.gpr[6]);                        // a1 = argp
+        start.set_gpr(26, thread->kernel_context);           // k0 = thread control block
+        start.set_gpr(29, thread->kernel_context - 16u);     // sp, below the control block
+        start.set_gpr(31, kThreadReturnAddress);             // ra
         thread->suspended = start;
         make_ready(*thread);
         set_success(ctx);
