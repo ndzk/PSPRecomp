@@ -515,12 +515,8 @@ void install_mpeg_hle(Runtime &runtime) {
                 const auto count = static_cast<std::uint32_t>(filled);
                 const std::uint32_t write_index =
                     runtime.memory().load32(ringbuffer + kRingbufferWriteOffset);
-                const std::uint32_t available =
-                    runtime.memory().load32(ringbuffer + kRingbufferAvailableOffset);
                 runtime.memory().store32(ringbuffer + kRingbufferWriteOffset,
                                          (write_index + count) % std::max(1u, packets));
-                runtime.memory().store32(ringbuffer + kRingbufferAvailableOffset,
-                                         available > count ? available - count : 0u);
                 g_stats.packets_put += count;
 
                 // Feed what the guest just wrote to the demuxer. There is one
@@ -533,6 +529,12 @@ void install_mpeg_hle(Runtime &runtime) {
                         g_contexts.begin()->second.demuxer.append(staging.data(), staging.size());
                     }
                 }
+
+                // The demultiplexer took the packets as they arrived, so every
+                // slot is free again. Leaving them counted as occupied is what
+                // stops a title refilling: it asks how much room there is, is
+                // told none, and never puts anything in again.
+                runtime.memory().store32(ringbuffer + kRingbufferAvailableOffset, packets);
                 return returned;
             });
         if (!entered) set_return(ctx, static_cast<std::uint32_t>(-1));

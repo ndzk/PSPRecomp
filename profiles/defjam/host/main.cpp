@@ -278,6 +278,7 @@ int main(int argc, char **argv) {
                       << "  mpeg decoded:       " << mpeg.frames_decoded << " frames, "
                       << mpeg.audio_blocks_decoded << " audio blocks\n";
         }
+        std::cout << "  live thread states:\n" << defjam::thread_report();
         runtime.report_hle_histogram();
         if (!guest_fault.empty()) {
             std::cerr << "\nGuest fault: " << guest_fault << "\n";

@@ -60,6 +60,10 @@ struct HeadlessStats {
 [[nodiscard]] HeadlessStats headless_stats();
 void report_headless_stats();
 
+// Every thread that has not exited, with what it is waiting on. A stall reads
+// as a set of waits, not as a set of program counters.
+[[nodiscard]] std::string thread_report();
+
 // Records the last N outer-dispatch guest PCs in a ring buffer so a fault can
 // be read as a control-flow trail instead of inferred from a register snapshot.
 //

@@ -65,6 +65,9 @@ enum class ThreadState { Created, Ready, Running, Sleeping, Delayed, Completed }
 
 struct ThreadRecord {
     std::string name;
+    // Why this thread last stopped running. A stall is far easier to read as
+    // "everyone is waiting on a semaphore" than as a set of program counters.
+    std::string blocked_on;
     std::uint32_t entry{};
     std::uint32_t priority{32u};
     std::uint32_t stack_size{};
@@ -466,6 +469,7 @@ bool block_current_thread(Runtime &rt, AllegrexContext &ctx, ThreadState state,
     if (thread == nullptr) return false;
     thread->suspended = suspended;
     thread->state = state;
+    thread->blocked_on = reason != nullptr ? reason : "";
     if (!activate_next_thread(rt, ctx, reason)) {
         rt.stop(std::string("deadlock: no runnable PSP thread (") + reason + ")");
         return false;
@@ -1923,6 +1927,21 @@ void report_headless_stats() {
                      " ge_signal_callbacks=" + std::to_string(g_ge_signal_callbacks) +
                      " ge_finish_callbacks=" + std::to_string(g_ge_finish_callbacks) +
                      " virtual_time_us=" + std::to_string(stats.virtual_time_us));
+}
+
+std::string thread_report() {
+    static const char *names[] = {"created", "ready", "running", "sleeping", "delayed", "done"};
+    std::ostringstream out;
+    for (const auto &[uid, thread] : g_threads.threads) {
+        if (thread.state == ThreadState::Completed) continue;
+        out << "  thread " << uid << " " << thread.name << " prio " << thread.priority << " "
+            << names[static_cast<int>(thread.state)];
+        if (!thread.blocked_on.empty()) out << " on " << thread.blocked_on;
+        if (thread.state == ThreadState::Delayed)
+            out << " until " << thread.delay_until_us << "us";
+        out << " pc=" << psprecomp::hex32(thread.suspended.pc) << "\n";
+    }
+    return out.str();
 }
 
 } // namespace defjam
