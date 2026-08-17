@@ -323,6 +323,13 @@ void ProgramStreamDemuxer::flush() {
     emit_audio();
 }
 
+std::uint64_t ProgramStreamDemuxer::queued_bytes() const {
+    std::uint64_t total = pending_.size() + current_video_.data.size() + current_audio_.data.size();
+    for (const AccessUnit &unit : video_) total += unit.data.size();
+    for (const AccessUnit &unit : audio_) total += unit.data.size();
+    return total;
+}
+
 AccessUnit ProgramStreamDemuxer::take_video() {
     AccessUnit unit = std::move(video_.front());
     video_.erase(video_.begin());
@@ -481,12 +488,27 @@ void install_mpeg_hle(Runtime &runtime) {
         set_return(ctx, 0u);
     });
     runtime.register_hle("sceMpeg", 0xB5F6DC87u, [](Runtime &rt, AllegrexContext &ctx) {
+        // Free space for writing, which is what the guest feeds from and what
+        // its decoder reads to decide whether anything is waiting. Both sides
+        // watch this one number, so a fixed answer stalls one of them: report
+        // it full and the feeder stops, report it empty and the decoder stops.
+        // Deriving it from what is actually still held satisfies both.
         const std::uint32_t ringbuffer = ctx.gpr[4];
         if (ringbuffer == 0u || !rt.memory().contains(ringbuffer, kRingbufferSize)) {
             set_return(ctx, static_cast<std::uint32_t>(-1));
             return;
         }
-        set_return(ctx, rt.memory().load32(ringbuffer + kRingbufferAvailableOffset));
+        const std::uint32_t packets = rt.memory().load32(ringbuffer + kRingbufferPacketsOffset);
+        if (packets == 0u || g_contexts.empty()) {
+            set_return(ctx, packets);
+            return;
+        }
+        const std::uint64_t held = g_contexts.begin()->second.demuxer.queued_bytes();
+        const auto occupied =
+            static_cast<std::uint32_t>((held + kPacketSize - 1u) / kPacketSize);
+        const std::uint32_t free_packets = occupied >= packets ? 0u : packets - occupied;
+        rt.memory().store32(ringbuffer + kRingbufferAvailableOffset, free_packets);
+        set_return(ctx, free_packets);
     });
     runtime.register_hle("sceMpeg", 0xB240A59Eu, [](Runtime &rt, AllegrexContext &ctx) {
         // (ringbuffer, packets, available). The data does not come from the

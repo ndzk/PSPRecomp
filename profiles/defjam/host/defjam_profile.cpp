@@ -346,6 +346,9 @@ struct DispatchTraceEntry {
 std::vector<DispatchTraceEntry> g_trace;
 std::size_t g_trace_head = 0;      // next slot to write
 std::uint64_t g_trace_total = 0;   // dispatches seen, for wraparound reporting
+// -1 records every thread. Narrowing to one keeps a busy thread from crowding
+// the thread actually under investigation out of the ring.
+std::int32_t g_trace_thread = -1;
 
 // A word the guest writes that we want to see change, and what it last held.
 struct MemoryWatch {
@@ -381,6 +384,7 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &, std::uint32_t dispatch_pc
                        std::int32_t dispatch_thread_uid) {
     if (!g_watches.empty()) check_watches(rt, dispatch_pc, dispatch_thread_uid);
     if (g_trace.empty()) return;
+    if (g_trace_thread >= 0 && dispatch_thread_uid != g_trace_thread) return;
     g_trace[g_trace_head] = DispatchTraceEntry{dispatch_pc, dispatch_thread_uid, g_virtual_time_us};
     g_trace_head = (g_trace_head + 1u) % g_trace.size();
     ++g_trace_total;
@@ -742,8 +746,14 @@ void install_dispatch_trace() {
     g_trace.assign(entries, DispatchTraceEntry{});
     g_trace_head = 0;
     g_trace_total = 0;
+    if (const char *only = std::getenv("PSPRECOMP_DEFJAM_TRACE_THREAD");
+        only != nullptr && only[0] != 0) {
+        g_trace_thread = static_cast<std::int32_t>(std::strtol(only, nullptr, 0));
+    }
     psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
-    runtime_log_line("dispatch trace enabled, " + std::to_string(entries) + " entries");
+    runtime_log_line("dispatch trace enabled, " + std::to_string(entries) + " entries" +
+                     (g_trace_thread >= 0 ? ", thread " + std::to_string(g_trace_thread) + " only"
+                                          : ""));
 }
 
 void dump_dispatch_trace(std::size_t limit) {

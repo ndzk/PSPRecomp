@@ -64,6 +64,9 @@ public:
     [[nodiscard]] std::uint64_t video_units() const { return video_units_; }
     [[nodiscard]] std::uint64_t audio_units() const { return audio_units_; }
     [[nodiscard]] std::uint64_t bytes_seen() const { return bytes_seen_; }
+    // Data taken in but not yet handed out as access units. The ring buffer
+    // still counts it as occupied, because the guest has not consumed it.
+    [[nodiscard]] std::uint64_t queued_bytes() const;
 
 private:
     void emit_video();
