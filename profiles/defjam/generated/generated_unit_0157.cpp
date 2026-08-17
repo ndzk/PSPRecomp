@@ -4222,7 +4222,31 @@ L_08A79EFC:
       ctx.eat_vfpu_prefixes(); }
     { const bool signed_ok = ctx.execute_signed_add_immediate(8u, 8u, -16);
       if (!signed_ok) { rt.arithmetic_overflow(0x08A79F4Cu, 0x2108FFF0u); return; } }
-    rt.unsupported(0x08A79F50u, 0xD03F8080u, "vfpu4 not lowered yet"); return;
+    ctx.execute_vfpu_vi2x(0u, 0u, 4u, 3u);
+    ctx.execute_vfpu_vi2x(64u, 1u, 4u, 3u);
+    ctx.execute_vfpu_vi2x(1u, 2u, 4u, 3u);
+    ctx.execute_vfpu_vi2x(65u, 3u, 4u, 3u);
+    { float vfpu_value[4]{}; ctx.read_vfpu_vector_ct<0u, 4u>(vfpu_value);
+      const std::uint32_t vfpu_address = ctx.gpr[9] + static_cast<std::uint32_t>(0);
+      aot_mem.aot_store32(vfpu_address + 0u, std::bit_cast<std::uint32_t>(vfpu_value[0]));
+      aot_mem.aot_store32(vfpu_address + 4u, std::bit_cast<std::uint32_t>(vfpu_value[1]));
+      aot_mem.aot_store32(vfpu_address + 8u, std::bit_cast<std::uint32_t>(vfpu_value[2]));
+      aot_mem.aot_store32(vfpu_address + 12u, std::bit_cast<std::uint32_t>(vfpu_value[3])); }
+    { float vfpu_value[4]{}; ctx.read_vfpu_vector_ct<1u, 4u>(vfpu_value);
+      const std::uint32_t vfpu_address = ctx.gpr[9] + static_cast<std::uint32_t>(16);
+      aot_mem.aot_store32(vfpu_address + 0u, std::bit_cast<std::uint32_t>(vfpu_value[0]));
+      aot_mem.aot_store32(vfpu_address + 4u, std::bit_cast<std::uint32_t>(vfpu_value[1]));
+      aot_mem.aot_store32(vfpu_address + 8u, std::bit_cast<std::uint32_t>(vfpu_value[2]));
+      aot_mem.aot_store32(vfpu_address + 12u, std::bit_cast<std::uint32_t>(vfpu_value[3])); }
+    { const bool signed_ok = ctx.execute_signed_add_immediate(9u, 9u, -32);
+      if (!signed_ok) { rt.arithmetic_overflow(0x08A79F68u, 0x2129FFE0u); return; } }
+    { const bool branch_taken = ctx.gpr[9] != ctx.gpr[8];
+    // nop
+      if (branch_taken) {
+          goto L_08A79EFC;
+      }
+      goto L_08A79F74;
+    }
 L_08A79F74:
     ctx.gpr[8] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int16_t>(aot_mem.aot_load16(ctx.gpr[6] + static_cast<std::uint32_t>(14))))));
     aot_mem.aot_store16(ctx.gpr[6] + static_cast<std::uint32_t>(30), static_cast<std::uint16_t>(ctx.gpr[8]));

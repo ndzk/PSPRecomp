@@ -6,8 +6,8 @@
   "unique_emitted_instructions": 557329,
   "unique_registered_block_entries": 127021,
   "translation_units": 173,
-  "rewritten_translation_units": 173,
-  "registry_rewritten": true,
+  "rewritten_translation_units": 6,
+  "registry_rewritten": false,
   "import_wrappers": 247,
   "unit_span_bytes": 16384
 }

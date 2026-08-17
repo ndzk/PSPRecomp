@@ -3183,7 +3183,11 @@ L_089C2CA4:
           ctx.vfpu[psprecomp::AllegrexContext::vfpu_vector_lane_index(0u, 4u, vfpu_i)] = std::bit_cast<float>(static_cast<std::uint32_t>(vfpu_d[vfpu_i]));
       }
       ctx.eat_vfpu_prefixes(); }
-    rt.unsupported(0x089C2CC0u, 0xD03C8084u, "vfpu4 not lowered yet"); return;
+    ctx.execute_vfpu_vi2x(4u, 0u, 4u, 0u);
+    ctx.gpr[4] = (ctx.vfpu_scalar_bits_ct<4u>());
+    ctx.gpr[5] = (2227u << 16u);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(-14396), ctx.gpr[4]);
+    goto L_089C2CD0;
 L_089C2CD0:
     ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
     ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
@@ -3884,7 +3888,26 @@ L_089C33F0:
           ctx.vfpu[psprecomp::AllegrexContext::vfpu_vector_lane_index(1u, 4u, vfpu_i)] = std::bit_cast<float>(static_cast<std::uint32_t>(vfpu_d[vfpu_i]));
       }
       ctx.eat_vfpu_prefixes(); }
-    rt.unsupported(0x089C3418u, 0xD03C8184u, "vfpu4 not lowered yet"); return;
+    ctx.execute_vfpu_vi2x(4u, 1u, 4u, 0u);
+    ctx.gpr[4] = (ctx.vfpu_scalar_bits_ct<4u>());
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[22] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[19] = ((ctx.gpr[19] & ~0x00FFFFFFu) | ((ctx.gpr[4] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(0), ctx.gpr[19]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(0)));
+    ctx.gpr[6] = ((ctx.gpr[4] >> 24u) & 0x000000FFu);
+    ctx.gpr[18] = ((ctx.gpr[18] & ~0x00FF0000u) | ((ctx.gpr[6] & 0x000000FFu) << 16u));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(4), ctx.gpr[18]);
+    ctx.gpr[4] = ((ctx.gpr[4] >> 0u) & 0x00FFFFFFu);
+    ctx.gpr[17] = ((ctx.gpr[17] & ~0x00FFFFFFu) | ((ctx.gpr[4] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(8), ctx.gpr[17]);
+    ctx.gpr[4] = (ctx.gpr[5] + static_cast<std::uint32_t>(12));
+    aot_mem.aot_store32(ctx.gpr[22] + static_cast<std::uint32_t>(68), ctx.gpr[4]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(36)));
+    if (ctx.gpr[4] == 0u) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(40)));
+        goto L_089C3498;
+    }
+    goto L_089C345C;
 L_089C345C:
     if (ctx.gpr[30] == 0u) {
     ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(12)));
@@ -4115,7 +4138,28 @@ L_089C3590:
           ctx.vfpu[psprecomp::AllegrexContext::vfpu_vector_lane_index(2u, 4u, vfpu_i)] = std::bit_cast<float>(static_cast<std::uint32_t>(vfpu_d[vfpu_i]));
       }
       ctx.eat_vfpu_prefixes(); }
-    rt.unsupported(0x089C362Cu, 0xD03C8184u, "vfpu4 not lowered yet"); return;
+    ctx.execute_vfpu_vi2x(4u, 1u, 4u, 0u);
+    ctx.execute_vfpu_vi2x(36u, 2u, 4u, 0u);
+    ctx.gpr[5] = (ctx.vfpu_scalar_bits_ct<4u>());
+    ctx.gpr[7] = (ctx.vfpu_scalar_bits_ct<36u>());
+    ctx.gpr[20] = ((ctx.gpr[20] & ~0x00FFFFFFu) | ((ctx.gpr[5] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(4), ctx.gpr[20]);
+    ctx.gpr[19] = ((ctx.gpr[19] & ~0x00FFFFFFu) | ((ctx.gpr[7] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8), ctx.gpr[19]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[22] + static_cast<std::uint32_t>(0)));
+    ctx.gpr[7] = ((ctx.gpr[5] >> 24u) & 0x000000FFu);
+    ctx.gpr[18] = ((ctx.gpr[18] & ~0x00FF0000u) | ((ctx.gpr[7] & 0x000000FFu) << 16u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(12), ctx.gpr[18]);
+    ctx.gpr[5] = ((ctx.gpr[5] >> 0u) & 0x00FFFFFFu);
+    ctx.gpr[17] = ((ctx.gpr[17] & ~0x00FFFFFFu) | ((ctx.gpr[5] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(16), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[23] + static_cast<std::uint32_t>(68), ctx.gpr[6]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(40)));
+    if (ctx.gpr[4] == 0u) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(44)));
+        goto L_089C36BC;
+    }
+    goto L_089C3678;
 L_089C3678:
     ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
     if (ctx.gpr[4] == 0u) {
@@ -4337,7 +4381,29 @@ L_089C378C:
           ctx.vfpu[psprecomp::AllegrexContext::vfpu_vector_lane_index(2u, 4u, vfpu_i)] = std::bit_cast<float>(static_cast<std::uint32_t>(vfpu_d[vfpu_i]));
       }
       ctx.eat_vfpu_prefixes(); }
-    rt.unsupported(0x089C3820u, 0xD03C8184u, "vfpu4 not lowered yet"); return;
+    ctx.execute_vfpu_vi2x(4u, 1u, 4u, 0u);
+    ctx.execute_vfpu_vi2x(36u, 2u, 4u, 0u);
+    ctx.gpr[5] = (ctx.vfpu_scalar_bits_ct<4u>());
+    ctx.gpr[6] = (ctx.vfpu_scalar_bits_ct<36u>());
+    ctx.gpr[20] = ((ctx.gpr[20] & ~0x00FFFFFFu) | ((ctx.gpr[5] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(4), ctx.gpr[20]);
+    ctx.gpr[19] = ((ctx.gpr[19] & ~0x00FFFFFFu) | ((ctx.gpr[6] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8), ctx.gpr[19]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[22] + static_cast<std::uint32_t>(0)));
+    ctx.gpr[6] = ((ctx.gpr[5] >> 24u) & 0x000000FFu);
+    ctx.gpr[18] = ((ctx.gpr[18] & ~0x00FF0000u) | ((ctx.gpr[6] & 0x000000FFu) << 16u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(12), ctx.gpr[18]);
+    ctx.gpr[5] = ((ctx.gpr[5] >> 0u) & 0x00FFFFFFu);
+    ctx.gpr[17] = ((ctx.gpr[17] & ~0x00FFFFFFu) | ((ctx.gpr[5] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(16), ctx.gpr[17]);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(20));
+    aot_mem.aot_store32(ctx.gpr[30] + static_cast<std::uint32_t>(68), ctx.gpr[4]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(40)));
+    if (ctx.gpr[4] == 0u) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(44)));
+        goto L_089C38B4;
+    }
+    goto L_089C3870;
 L_089C3870:
     ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
     if (ctx.gpr[4] == 0u) {
@@ -4721,7 +4787,26 @@ L_089C3BE8:
           ctx.vfpu[psprecomp::AllegrexContext::vfpu_vector_lane_index(1u, 4u, vfpu_i)] = std::bit_cast<float>(static_cast<std::uint32_t>(vfpu_d[vfpu_i]));
       }
       ctx.eat_vfpu_prefixes(); }
-    rt.unsupported(0x089C3C10u, 0xD03C8184u, "vfpu4 not lowered yet"); return;
+    ctx.execute_vfpu_vi2x(4u, 1u, 4u, 0u);
+    ctx.gpr[4] = (ctx.vfpu_scalar_bits_ct<4u>());
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[22] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[19] = ((ctx.gpr[19] & ~0x00FFFFFFu) | ((ctx.gpr[4] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(0), ctx.gpr[19]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(0)));
+    ctx.gpr[6] = ((ctx.gpr[4] >> 24u) & 0x000000FFu);
+    ctx.gpr[18] = ((ctx.gpr[18] & ~0x00FF0000u) | ((ctx.gpr[6] & 0x000000FFu) << 16u));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(4), ctx.gpr[18]);
+    ctx.gpr[4] = ((ctx.gpr[4] >> 0u) & 0x00FFFFFFu);
+    ctx.gpr[17] = ((ctx.gpr[17] & ~0x00FFFFFFu) | ((ctx.gpr[4] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(8), ctx.gpr[17]);
+    ctx.gpr[4] = (ctx.gpr[5] + static_cast<std::uint32_t>(12));
+    aot_mem.aot_store32(ctx.gpr[22] + static_cast<std::uint32_t>(68), ctx.gpr[4]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(36)));
+    if (ctx.gpr[4] == 0u) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(12)));
+        goto L_089C3C74;
+    }
+    goto L_089C3C54;
 L_089C3C54:
     if (ctx.gpr[30] == 0u) {
     ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(12)));
@@ -4971,7 +5056,28 @@ L_089C3DA8:
           ctx.vfpu[psprecomp::AllegrexContext::vfpu_vector_lane_index(2u, 4u, vfpu_i)] = std::bit_cast<float>(static_cast<std::uint32_t>(vfpu_d[vfpu_i]));
       }
       ctx.eat_vfpu_prefixes(); }
-    rt.unsupported(0x089C3E44u, 0xD03C8184u, "vfpu4 not lowered yet"); return;
+    ctx.execute_vfpu_vi2x(4u, 1u, 4u, 0u);
+    ctx.execute_vfpu_vi2x(36u, 2u, 4u, 0u);
+    ctx.gpr[5] = (ctx.vfpu_scalar_bits_ct<4u>());
+    ctx.gpr[7] = (ctx.vfpu_scalar_bits_ct<36u>());
+    ctx.gpr[20] = ((ctx.gpr[20] & ~0x00FFFFFFu) | ((ctx.gpr[5] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(4), ctx.gpr[20]);
+    ctx.gpr[19] = ((ctx.gpr[19] & ~0x00FFFFFFu) | ((ctx.gpr[7] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8), ctx.gpr[19]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[22] + static_cast<std::uint32_t>(0)));
+    ctx.gpr[7] = ((ctx.gpr[5] >> 24u) & 0x000000FFu);
+    ctx.gpr[18] = ((ctx.gpr[18] & ~0x00FF0000u) | ((ctx.gpr[7] & 0x000000FFu) << 16u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(12), ctx.gpr[18]);
+    ctx.gpr[5] = ((ctx.gpr[5] >> 0u) & 0x00FFFFFFu);
+    ctx.gpr[17] = ((ctx.gpr[17] & ~0x00FFFFFFu) | ((ctx.gpr[5] & 0x00FFFFFFu) << 0u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(16), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[23] + static_cast<std::uint32_t>(68), ctx.gpr[6]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(40)));
+    if (ctx.gpr[4] == 0u) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(12)));
+        goto L_089C3EB8;
+    }
+    goto L_089C3E90;
 L_089C3E90:
     ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
     if (ctx.gpr[4] == 0u) {

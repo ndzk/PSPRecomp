@@ -2392,7 +2392,30 @@ L_08A7D488:
           ctx.vfpu[psprecomp::AllegrexContext::vfpu_vector_lane_index(3u, 4u, vfpu_i)] = std::bit_cast<float>(static_cast<std::uint32_t>(vfpu_d[vfpu_i]));
       }
       ctx.eat_vfpu_prefixes(); }
-    rt.unsupported(0x08A7D4CCu, 0xD03F808Cu, "vfpu4 not lowered yet"); return;
+    ctx.execute_vfpu_vi2x(12u, 0u, 4u, 3u);
+    ctx.execute_vfpu_vi2x(76u, 1u, 4u, 3u);
+    ctx.execute_vfpu_vi2x(13u, 2u, 4u, 3u);
+    ctx.execute_vfpu_vi2x(77u, 3u, 4u, 3u);
+    { float vfpu_value[4]{}; ctx.read_vfpu_vector_ct<12u, 4u>(vfpu_value);
+      const std::uint32_t vfpu_address = ctx.gpr[6] + static_cast<std::uint32_t>(0);
+      aot_mem.aot_store32(vfpu_address + 0u, std::bit_cast<std::uint32_t>(vfpu_value[0]));
+      aot_mem.aot_store32(vfpu_address + 4u, std::bit_cast<std::uint32_t>(vfpu_value[1]));
+      aot_mem.aot_store32(vfpu_address + 8u, std::bit_cast<std::uint32_t>(vfpu_value[2]));
+      aot_mem.aot_store32(vfpu_address + 12u, std::bit_cast<std::uint32_t>(vfpu_value[3])); }
+    { float vfpu_value[4]{}; ctx.read_vfpu_vector_ct<13u, 4u>(vfpu_value);
+      const std::uint32_t vfpu_address = ctx.gpr[6] + static_cast<std::uint32_t>(16);
+      aot_mem.aot_store32(vfpu_address + 0u, std::bit_cast<std::uint32_t>(vfpu_value[0]));
+      aot_mem.aot_store32(vfpu_address + 4u, std::bit_cast<std::uint32_t>(vfpu_value[1]));
+      aot_mem.aot_store32(vfpu_address + 8u, std::bit_cast<std::uint32_t>(vfpu_value[2]));
+      aot_mem.aot_store32(vfpu_address + 12u, std::bit_cast<std::uint32_t>(vfpu_value[3])); }
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[5];
+    { const bool signed_ok = ctx.execute_signed_add_immediate(6u, 6u, 32);
+      if (!signed_ok) { rt.arithmetic_overflow(0x08A7D4E8u, 0x20C60020u); return; } }
+      if (branch_taken) {
+          goto L_08A7D488;
+      }
+      goto L_08A7D4EC;
+    }
 L_08A7D4EC:
     ctx.gpr[2] = (ctx.gpr[18] | 0u);
     ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
@@ -4617,7 +4640,34 @@ L_08A7E958:
       ctx.read_vfpu_vector_with_source_prefix_ct<102u, 2u, 0u>(vfpu_s);
       for (std::uint32_t i = 0; i < 2u; ++i) vfpu_d[i] = vfpu_s[i];
       ctx.write_vfpu_vector_with_destination_prefix_ct<39u, 2u>(vfpu_d); }
-    rt.unsupported(0x08A7E984u, 0xD03FA1A0u, "vfpu4 not lowered yet"); return;
+    ctx.execute_vfpu_vi2x(32u, 33u, 4u, 3u);
+    ctx.execute_vfpu_vi2x(96u, 35u, 4u, 3u);
+    ctx.execute_vfpu_vi2x(36u, 37u, 4u, 3u);
+    ctx.execute_vfpu_vi2x(100u, 39u, 4u, 3u);
+    { float vfpu_value[4]{}; ctx.read_vfpu_vector_ct<32u, 4u>(vfpu_value);
+      const std::uint32_t vfpu_address = ctx.gpr[11] + static_cast<std::uint32_t>(0);
+      aot_mem.aot_store32(vfpu_address + 0u, std::bit_cast<std::uint32_t>(vfpu_value[0]));
+      aot_mem.aot_store32(vfpu_address + 4u, std::bit_cast<std::uint32_t>(vfpu_value[1]));
+      aot_mem.aot_store32(vfpu_address + 8u, std::bit_cast<std::uint32_t>(vfpu_value[2]));
+      aot_mem.aot_store32(vfpu_address + 12u, std::bit_cast<std::uint32_t>(vfpu_value[3])); }
+    { const bool signed_ok = ctx.execute_signed_add_immediate(8u, 8u, 16);
+      if (!signed_ok) { rt.arithmetic_overflow(0x08A7E998u, 0x21080010u); return; } }
+    { const bool signed_ok = ctx.execute_signed_add_immediate(9u, 9u, 16);
+      if (!signed_ok) { rt.arithmetic_overflow(0x08A7E99Cu, 0x21290010u); return; } }
+    { float vfpu_value[4]{}; ctx.read_vfpu_vector_ct<36u, 4u>(vfpu_value);
+      const std::uint32_t vfpu_address = ctx.gpr[11] + static_cast<std::uint32_t>(16);
+      aot_mem.aot_store32(vfpu_address + 0u, std::bit_cast<std::uint32_t>(vfpu_value[0]));
+      aot_mem.aot_store32(vfpu_address + 4u, std::bit_cast<std::uint32_t>(vfpu_value[1]));
+      aot_mem.aot_store32(vfpu_address + 8u, std::bit_cast<std::uint32_t>(vfpu_value[2]));
+      aot_mem.aot_store32(vfpu_address + 12u, std::bit_cast<std::uint32_t>(vfpu_value[3])); }
+    { const bool branch_taken = static_cast<std::int32_t>(ctx.gpr[10]) > 0;
+    { const bool signed_ok = ctx.execute_signed_add_immediate(11u, 11u, 32);
+      if (!signed_ok) { rt.arithmetic_overflow(0x08A7E9A8u, 0x216B0020u); return; } }
+      if (branch_taken) {
+          goto L_08A7E958;
+      }
+      goto L_08A7E9AC;
+    }
 L_08A7E9AC:
     jump_target = ctx.gpr[31];
     // nop

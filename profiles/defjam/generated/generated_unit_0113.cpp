@@ -902,7 +902,16 @@ LOCAL_DISPATCH:
     }
     }
 L_089C8000:
-    rt.unsupported(0x089C8000u, 0xD03F9D9Eu, "vfpu4 not lowered yet"); return;
+    ctx.execute_vfpu_vi2x(30u, 29u, 4u, 3u);
+    aot_mem.aot_store32(ctx.gpr[9] + static_cast<std::uint32_t>(0), ctx.vfpu_scalar_bits_ct<30u>());
+    aot_mem.aot_store32(ctx.gpr[9] + static_cast<std::uint32_t>(4), ctx.vfpu_scalar_bits_ct<62u>());
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_089C8050;
+      }
+      goto L_089C8014;
+    }
 L_089C8014:
     { const float fs = ctx.fpr[12]; const float ft = ctx.fpr[24]; if ((std::isinf(fs) && ft == 0.0f) || (std::isinf(ft) && fs == 0.0f)) ctx.fpr[12] = std::bit_cast<float>(0x7FC00000u); else ctx.fpr[12] = fs * ft; }
     ctx.fpr[12] = std::bit_cast<float>(ctx.fpu_float_to_word_ct<1u>(ctx.fpr[12]));
@@ -8073,7 +8082,18 @@ L_089CBE3C:
           ctx.vfpu[psprecomp::AllegrexContext::vfpu_vector_lane_index(2u, 4u, vfpu_i)] = std::bit_cast<float>(static_cast<std::uint32_t>(vfpu_d[vfpu_i]));
       }
       ctx.eat_vfpu_prefixes(); }
-    rt.unsupported(0x089CBE54u, 0xD03C8184u, "vfpu4 not lowered yet"); return;
+    ctx.execute_vfpu_vi2x(4u, 1u, 4u, 0u);
+    ctx.execute_vfpu_vi2x(36u, 2u, 4u, 0u);
+    ctx.gpr[7] = (ctx.vfpu_scalar_bits_ct<4u>());
+    ctx.gpr[8] = (ctx.vfpu_scalar_bits_ct<36u>());
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(36), ctx.gpr[7]);
+    { const bool branch_taken = ctx.gpr[19] != 0u;
+    ctx.gpr[7] = (ctx.gpr[7] & ctx.gpr[6]);
+      if (branch_taken) {
+          goto L_089CBE84;
+      }
+      goto L_089CBE70;
+    }
 L_089CBE70:
     ctx.gpr[10] = (21760u << 16u);
     ctx.gpr[7] = (ctx.gpr[7] | ctx.gpr[10]);
