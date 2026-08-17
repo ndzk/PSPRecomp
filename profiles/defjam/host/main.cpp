@@ -1,8 +1,11 @@
 #include "defjam_config.hpp"
 
 #include "psprecomp/common.hpp"
+#include "psprecomp/elf32.hpp"
+#include "psprecomp/runtime.hpp"
 #include "psprecomp/sha256.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -122,8 +125,38 @@ int main(int argc, char **argv) {
             std::cout << "  identity:       OK\n";
         }
 
+#if defined(DEFJAM_HAS_GENERATED_CORPUS)
+        // Load and relocate the guest image, then register the AOT corpus. This
+        // stops short of executing anything: it proves the corpus links and
+        // registers at the addresses the analyzer reported.
+        psprecomp::Elf32Image elf = psprecomp::Elf32Image::from_file(executable);
+        psprecomp::Runtime runtime(manifest.game.ram_mb * 1024u * 1024u);
+        const auto relocations = elf.load_and_relocate(runtime.memory(), manifest.game.load_base);
+        psprecomp::register_generated_functions(runtime);
+
+        std::uint64_t image_end = 0u;
+        for (std::size_t index = 0; index < elf.segments().size(); ++index) {
+            const auto &segment = elf.segments()[index];
+            if (segment.type != 1u) continue;  // PT_LOAD
+            const std::uint64_t start = elf.segment_runtime_address(index, manifest.game.load_base);
+            image_end = std::max(image_end, start + segment.memory_size);
+        }
+        if (image_end == 0u || image_end > 0x0A000000ull)
+            throw psprecomp::Error("Invalid PSP ELF load image extent");
+        const std::uint32_t user_arena_start = static_cast<std::uint32_t>((image_end + 0xFFu) & ~0xFFull);
+
+        std::cout << "  entry:          " << psprecomp::hex32(elf.runtime_entry(manifest.game.load_base)) << "\n"
+                  << "  relocations:    " << relocations.total << " (invalid " << relocations.invalid
+                  << ", unsupported " << relocations.unsupported << ")\n"
+                  << "  registered fns: " << runtime.function_count() << "\n"
+                  << "  user arena:     " << psprecomp::hex32(user_arena_start) << "\n";
+        if (runtime.function_count() == 0u)
+            throw psprecomp::Error("The generated corpus registered no functions");
+        std::cout << "\nCorpus linked and registered. No HLE or renderer yet, so nothing is executed.\n";
+#else
         std::cout << "\nProfile skeleton only: no generated corpus is linked yet, so there is "
                      "nothing to run.\n";
+#endif
         return kExitOk;
     } catch (const std::exception &e) {
         std::cerr << "DefJamNative error: " << e.what() << "\n";

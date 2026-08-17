@@ -1,0 +1,9911 @@
+#include "psprecomp/runtime.hpp"
+#include "generated_units.hpp"
+#include <bit>
+#include <cmath>
+#include <cstdint>
+#include <limits>
+
+namespace psprecomp {
+static const std::uint16_t kEntryIds_recomp_unit_0051[4096] = {
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    2, 0, 0, 3, 0, 4, 0, 0, 0, 0, 5, 0, 6, 0, 0, 0, 7, 0, 8, 0, 0, 9, 10, 0, 11, 0, 0, 0, 0, 0, 0, 0,
+    0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 15, 0, 0, 16, 0, 0, 17, 18, 0, 19, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21,
+    0, 0, 0, 22, 0, 0, 0, 23, 0, 24, 0, 0, 0, 25, 0, 0, 26, 0, 0, 27, 0, 0, 28, 0, 0, 29, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 0, 0, 31, 0,
+    0, 32, 0, 0, 33, 0, 0, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 35, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 37, 0, 38, 0, 0, 0, 0, 0, 39, 0, 0, 40, 0, 0, 41, 0,
+    0, 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 43, 0,
+    44, 45, 0, 0, 0, 0, 0, 46, 0, 0, 47, 0, 0, 0, 0, 0, 0, 48, 0, 49, 0, 0, 0, 50, 51, 0, 0, 52, 0, 0, 0, 0,
+    0, 53, 54, 55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 56, 0, 0, 0, 0, 57, 0, 58, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 59, 0, 0, 60, 0, 61, 0, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 63,
+    0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 65, 0, 0, 0, 0, 66, 0, 0, 0, 0, 67, 0, 68, 0, 69,
+    0, 0, 0, 0, 70, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 73, 0, 74, 0, 75, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 76, 0, 0, 77, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 78, 0, 79, 0, 0,
+    0, 0, 0, 80, 0, 0, 81, 0, 0, 0, 82, 0, 0, 0, 83, 0, 0, 0, 84, 0, 0, 0, 85, 0, 0, 0, 0, 86, 0, 87, 0, 88,
+    0, 89, 0, 90, 0, 91, 0, 92, 0, 0, 0, 0, 0, 93, 0, 0, 0, 0, 94, 0, 95, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 97,
+    0, 0, 98, 0, 99, 0, 0, 100, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 102, 0, 0, 0, 103, 0, 0, 0, 0, 0, 104, 0, 0, 0,
+    0, 105, 0, 0, 0, 0, 106, 0, 0, 107, 0, 0, 0, 0, 0, 0, 0, 108, 0, 0, 109, 0, 0, 110, 0, 0, 0, 0, 111, 0, 0, 112,
+    0, 0, 0, 0, 0, 0, 0, 113, 0, 0, 114, 0, 0, 115, 0, 0, 0, 0, 116, 0, 0, 117, 0, 0, 0, 0, 0, 0, 0, 118, 0, 0,
+    119, 0, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 121, 0, 0, 122, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 123, 0, 0, 0, 0, 0, 0, 0, 0, 124, 0, 0, 0, 0, 0, 0, 0, 0, 125, 0, 126, 0, 0, 127, 0, 128, 0,
+    0, 129, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 130, 0, 0, 0, 0, 0, 0, 0, 0,
+    131, 0, 0, 0, 0, 0, 0, 0, 0, 132, 0, 133, 0, 0, 134, 0, 135, 0, 136, 137, 0, 138, 0, 0, 0, 0, 0, 139, 0, 0, 0, 0,
+    0, 140, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 141, 142, 143, 0, 144, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 145,
+    0, 146, 0, 147, 0, 0, 0, 148, 149, 0, 150, 0, 0, 0, 0, 151, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 152, 0, 0, 153,
+    0, 0, 0, 0, 0, 0, 0, 0, 154, 0, 0, 0, 155, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 156, 0, 0, 157, 0, 0, 0,
+    158, 0, 0, 159, 0, 0, 0, 0, 160, 0, 161, 0, 0, 0, 0, 0, 0, 0, 0, 162, 0, 0, 0, 163, 0, 164, 0, 0, 0, 0, 165, 0,
+    166, 0, 0, 0, 0, 0, 0, 0, 0, 167, 0, 0, 0, 168, 0, 169, 0, 0, 0, 170, 0, 171, 0, 0, 0, 0, 0, 0, 0, 0, 172, 0,
+    0, 0, 173, 0, 174, 0, 175, 0, 0, 0, 0, 176, 0, 0, 0, 0, 0, 0, 0, 177, 178, 0, 0, 179, 0, 0, 0, 0, 0, 0, 0, 180,
+    0, 0, 0, 0, 0, 0, 181, 0, 182, 0, 0, 0, 0, 0, 0, 183, 0, 184, 0, 0, 0, 0, 0, 0, 185, 0, 0, 0, 186, 0, 187, 0,
+    0, 0, 0, 0, 188, 0, 189, 0, 0, 0, 0, 0, 190, 0, 0, 0, 191, 0, 192, 0, 0, 0, 0, 0, 0, 0, 193, 0, 0, 0, 194, 0,
+    195, 0, 196, 0, 0, 0, 0, 197, 0, 198, 0, 0, 0, 0, 0, 0, 0, 0, 0, 199, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 200, 0, 0, 0, 0, 0, 0, 201, 0, 0, 202, 0, 0, 203, 0, 0, 0, 204, 0, 0, 0, 0, 0, 0, 0,
+    205, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 206, 0, 0, 0, 207, 0, 0, 208, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 209, 0, 210, 0, 211, 212, 0, 0, 213, 0, 0, 0, 214, 0, 0, 0, 0,
+    215, 0, 0, 0, 216, 0, 0, 0, 217, 0, 0, 218, 0, 0, 219, 220, 0, 221, 0, 0, 0, 0, 222, 0, 0, 0, 223, 0, 224, 0, 225, 0,
+    226, 227, 228, 0, 229, 0, 0, 0, 230, 0, 0, 0, 231, 0, 232, 0, 233, 0, 234, 0, 235, 0, 236, 0, 0, 0, 0, 0, 0, 0, 0, 237,
+    0, 0, 0, 238, 0, 0, 239, 0, 240, 0, 0, 241, 0, 242, 0, 243, 0, 244, 0, 0, 0, 0, 0, 245, 0, 0, 0, 0, 0, 0, 0, 0,
+    246, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 247, 0, 0, 0, 248, 0, 0, 249, 0, 0, 250, 0, 0, 251, 0, 252, 0, 253, 0, 254,
+    0, 255, 0, 0, 0, 256, 0, 257, 0, 0, 0, 258, 0, 259, 0, 0, 0, 260, 0, 0, 261, 0, 262, 0, 0, 0, 0, 263, 0, 264, 0, 265,
+    0, 266, 0, 0, 0, 267, 0, 0, 268, 0, 269, 0, 270, 271, 0, 272, 0, 0, 0, 273, 0, 0, 274, 0, 275, 0, 276, 0, 277, 0, 278, 0,
+    279, 0, 280, 0, 281, 0, 282, 0, 283, 0, 284, 0, 0, 0, 0, 285, 0, 286, 0, 287, 0, 0, 0, 0, 0, 0, 288, 0, 0, 0, 0, 0,
+    0, 289, 0, 0, 0, 0, 0, 0, 0, 0, 0, 290, 0, 0, 0, 0, 0, 0, 291, 0, 0, 0, 0, 0, 0, 0, 292, 0, 0, 0, 293, 0,
+    0, 0, 0, 294, 0, 0, 0, 0, 0, 295, 0, 0, 0, 0, 0, 0, 0, 296, 0, 0, 0, 297, 0, 298, 0, 299, 0, 300, 0, 301, 0, 302,
+    0, 303, 0, 0, 304, 0, 0, 0, 0, 0, 0, 0, 0, 0, 305, 0, 306, 0, 307, 0, 308, 0, 309, 0, 310, 0, 0, 311, 312, 0, 0, 0,
+    0, 313, 0, 0, 0, 0, 0, 314, 0, 0, 0, 0, 0, 315, 0, 0, 0, 0, 0, 0, 316, 0, 0, 0, 317, 0, 0, 0, 0, 0, 318, 0,
+    0, 319, 0, 320, 0, 321, 0, 322, 0, 323, 0, 324, 0, 325, 0, 326, 0, 0, 327, 0, 0, 0, 0, 0, 0, 0, 328, 0, 329, 0, 0, 0,
+    0, 330, 0, 0, 331, 0, 332, 0, 333, 0, 334, 0, 335, 0, 336, 0, 337, 0, 338, 0, 339, 0, 340, 0, 341, 0, 0, 0, 342, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 343, 0, 0, 0, 344, 0, 0, 0, 0, 0, 345, 0, 0, 0, 0, 346, 0, 0, 0, 0, 347, 0, 0, 0, 0, 348,
+    0, 0, 0, 349, 0, 0, 0, 350, 0, 0, 0, 351, 0, 0, 0, 352, 0, 0, 0, 353, 0, 0, 354, 0, 0, 0, 0, 0, 355, 0, 0, 0,
+    356, 0, 0, 0, 0, 357, 0, 358, 0, 0, 0, 0, 0, 359, 0, 0, 0, 360, 0, 0, 0, 0, 0, 0, 0, 0, 361, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 362, 0, 0, 0, 0, 0, 363, 0, 364, 0, 0, 0, 0, 365, 0, 0, 366, 0, 0, 0, 367, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 368, 0, 0, 0, 369, 0, 0, 0, 0, 0, 370, 0, 0, 0, 0, 0, 371, 0, 0, 372, 0, 0, 0, 0, 0, 0,
+    373, 0, 0, 0, 374, 0, 0, 0, 0, 0, 375, 0, 0, 0, 0, 0, 376, 0, 0, 0, 377, 0, 0, 0, 0, 0, 0, 0, 0, 378, 0, 0,
+    0, 0, 0, 0, 379, 0, 0, 0, 380, 0, 0, 0, 381, 0, 382, 0, 0, 383, 0, 384, 0, 0, 0, 385, 386, 0, 0, 387, 0, 0, 388, 0,
+    0, 0, 389, 0, 0, 0, 390, 0, 0, 391, 0, 392, 0, 393, 0, 0, 394, 0, 0, 0, 395, 396, 0, 0, 397, 0, 0, 0, 398, 0, 0, 0,
+    399, 0, 0, 0, 0, 0, 0, 0, 0, 0, 400, 0, 0, 0, 0, 0, 401, 0, 0, 0, 0, 402, 0, 403, 0, 0, 0, 0, 0, 404, 0, 0,
+    0, 405, 0, 0, 0, 0, 406, 0, 407, 0, 0, 0, 0, 0, 408, 0, 0, 0, 409, 0, 0, 0, 0, 0, 0, 0, 0, 410, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 411, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 412, 0, 0, 0, 0, 0, 0, 413, 0, 0, 0, 0, 0, 414, 0, 0, 415, 0, 0, 0, 416, 0, 0, 417, 0,
+    0, 418, 0, 0, 0, 419, 0, 420, 0, 0, 421, 0, 0, 422, 423, 0, 424, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 425, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 426, 0, 427, 0, 0, 0, 428, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 429, 0, 0, 0, 0, 0, 0, 0, 0, 430, 0, 431, 0, 0, 0, 432, 0, 0, 0, 433, 0, 434, 0, 0, 0, 435, 0, 0,
+    0, 436, 0, 0, 0, 0, 0, 437, 0, 0, 0, 0, 0, 0, 0, 0, 0, 438, 0, 0, 0, 439, 0, 0, 0, 440, 0, 0, 0, 0, 441, 0,
+    0, 442, 0, 0, 0, 0, 0, 443, 0, 444, 0, 0, 0, 445, 0, 0, 0, 446, 0, 0, 447, 0, 0, 0, 0, 448, 0, 0, 0, 0, 0, 449,
+    0, 450, 0, 0, 0, 451, 0, 0, 0, 452, 0, 0, 0, 453, 0, 0, 0, 454, 0, 0, 0, 455, 0, 0, 0, 0, 456, 0, 0, 0, 0, 457,
+    0, 458, 0, 0, 0, 0, 0, 459, 0, 0, 0, 460, 0, 0, 0, 0, 0, 0, 0, 0, 461, 0, 0, 0, 0, 0, 0, 0, 0, 0, 462, 0,
+    0, 0, 463, 0, 0, 464, 0, 0, 0, 465, 0, 0, 0, 0, 466, 0, 467, 0, 468, 0, 0, 469, 0, 0, 0, 470, 0, 0, 471, 0, 0, 0,
+    0, 0, 472, 0, 473, 0, 0, 0, 474, 0, 0, 0, 475, 0, 0, 0, 0, 0, 0, 0, 0, 0, 476, 0, 0, 0, 477, 0, 0, 0, 0, 478,
+    0, 0, 0, 0, 479, 0, 0, 0, 480, 0, 481, 0, 482, 0, 0, 483, 0, 0, 0, 484, 0, 485, 0, 0, 0, 486, 0, 487, 0, 488, 0, 0,
+    0, 489, 0, 0, 0, 490, 0, 0, 0, 491, 0, 0, 0, 492, 0, 0, 0, 493, 0, 0, 0, 0, 0, 0, 494, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 495, 0, 0, 0, 0, 0, 0, 496, 0, 0, 497, 0, 0, 0, 0, 498, 0, 0, 0,
+    0, 0, 499, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 500, 0, 0, 0, 0, 0, 501, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 502, 0, 0, 0, 0, 0, 503, 0, 0, 0, 504, 0, 0, 0, 0, 505, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 506, 0, 0, 0, 0, 0, 0, 0, 0, 0, 507, 0, 0, 0, 0, 0, 508, 0, 0, 0, 0, 509, 0, 510,
+    0, 0, 0, 0, 0, 511, 0, 0, 0, 512, 0, 0, 0, 0, 0, 0, 0, 0, 513, 0, 514, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 515,
+    0, 516, 0, 517, 0, 0, 0, 518, 0, 0, 0, 519, 0, 0, 0, 0, 0, 520, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 521, 0, 0, 0,
+    0, 522, 523, 0, 524, 0, 0, 0, 0, 0, 0, 525, 0, 0, 0, 0, 526, 0, 527, 0, 0, 0, 0, 0, 0, 528, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 529, 0, 0, 0, 530, 0, 531, 0, 532, 0, 0, 0, 0, 0, 0, 0, 0, 533, 0, 534, 0, 0, 0, 0, 0, 0, 0, 535,
+    536, 537, 0, 0, 538, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 539, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 540, 0, 0, 0, 0, 541, 0, 0, 542, 0, 0, 0, 0, 0, 0, 543, 0, 544, 0, 545, 0, 546, 0, 547,
+    0, 0, 0, 0, 0, 548, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 549, 0, 0, 0, 550, 0, 551, 0, 552, 0, 0, 553, 0, 0, 0,
+    0, 0, 0, 0, 0, 554, 555, 556, 0, 557, 0, 0, 0, 0, 0, 0, 0, 0, 558, 0, 559, 0, 0, 560, 0, 561, 0, 0, 0, 562, 0, 0,
+    0, 563, 0, 0, 0, 0, 0, 0, 564, 0, 0, 0, 0, 0, 565, 0, 0, 566, 0, 567, 0, 568, 0, 569, 0, 0, 0, 0, 0, 0, 0, 0,
+    570, 0, 0, 571, 0, 0, 572, 0, 0, 573, 0, 0, 574, 0, 0, 575, 0, 576, 0, 0, 577, 0, 578, 0, 579, 0, 580, 0, 0, 0, 0, 0,
+    581, 0, 0, 582, 0, 583, 0, 584, 0, 585, 0, 586, 0, 587, 0, 588, 0, 589, 0, 0, 590, 0, 591, 0, 592, 0, 593, 0, 594, 595, 0, 596,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 597, 0, 0, 0, 0, 598, 0, 0, 0, 599, 0, 0, 0, 600, 0, 601, 0,
+    0, 0, 0, 0, 602, 0, 0, 0, 603, 0, 0, 0, 604, 0, 605, 0, 0, 606, 0, 0, 607, 0, 608, 609, 0, 0, 0, 0, 0, 610, 0, 0,
+    0, 611, 0, 612, 0, 0, 0, 0, 613, 0, 0, 0, 614, 615, 0, 0, 0, 0, 0, 0, 616, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    617, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 618, 0, 619, 0, 0, 0, 620, 0, 621, 0, 0, 622, 0, 0, 623, 0, 0, 624, 0, 625,
+    0, 626, 627, 0, 628, 0, 629, 0, 630, 0, 0, 0, 631, 0, 632, 0, 633, 0, 0, 0, 0, 0, 0, 634, 0, 0, 0, 0, 635, 0, 636, 0,
+    637, 0, 638, 0, 639, 0, 640, 0, 0, 0, 0, 0, 641, 0, 642, 0, 643, 0, 0, 644, 0, 645, 0, 646, 0, 647, 0, 0, 0, 0, 0, 648,
+    0, 0, 0, 0, 0, 0, 649, 0, 650, 0, 0, 0, 651, 0, 652, 0, 653, 0, 0, 0, 654, 0, 655, 0, 656, 0, 657, 0, 0, 0, 0, 0,
+    658, 0, 659, 660, 0, 0, 661, 0, 0, 662, 0, 663, 0, 664, 0, 665, 0, 666, 0, 667, 0, 668, 0, 669, 0, 670, 0, 671, 0, 672, 0, 673,
+    0, 674, 0, 675, 0, 676, 0, 0, 0, 677, 0, 0, 0, 0, 0, 678, 0, 0, 679, 0, 0, 0, 0, 0, 680, 0, 681, 0, 0, 0, 682, 0,
+    683, 0, 0, 0, 684, 0, 685, 0, 686, 0, 0, 0, 0, 0, 0, 0, 687, 0, 0, 0, 688, 689, 0, 690, 0, 691, 0, 692, 0, 693, 0, 0,
+    694, 0, 0, 0, 0, 0, 0, 695, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 696, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 697, 0, 0, 698, 0, 699, 0, 0, 0, 700, 0, 0, 701, 0, 702, 703, 0, 704, 0, 705, 0, 706, 0, 0, 707, 0, 708, 709, 0, 710,
+    0, 711, 0, 712, 0, 0, 713, 0, 714, 0, 0, 0, 0, 715, 716, 0, 717, 0, 718, 0, 0, 0, 719, 0, 0, 720, 0, 721, 0, 0, 0, 722,
+    0, 723, 0, 724, 0, 0, 725, 0, 0, 726, 0, 727, 0, 0, 728, 0, 0, 729, 0, 730, 0, 0, 731, 0, 0, 732, 0, 733, 0, 0, 0, 734,
+    0, 0, 735, 0, 736, 0, 0, 0, 0, 737, 738, 0, 739, 0, 740, 0, 0, 0, 0, 741, 742, 0, 743, 0, 744, 0, 0, 0, 0, 745, 0, 746,
+    0, 747, 0, 0, 748, 0, 749, 750, 0, 751, 0, 752, 0, 753, 0, 0, 754, 0, 755, 756, 0, 757, 0, 758, 0, 759, 0, 0, 760, 0, 761, 0,
+    0, 0, 0, 762, 763, 0, 764, 0, 765, 0, 0, 0, 766, 0, 0, 767, 0, 768, 0, 0, 0, 769, 0, 770, 0, 771, 0, 0, 772, 0, 0, 773,
+    0, 774, 0, 0, 775, 0, 0, 776, 0, 777, 0, 0, 778, 0, 0, 779, 0, 780, 0, 0, 0, 781, 0, 0, 782, 0, 783, 0, 0, 0, 0, 784,
+    785, 0, 786, 0, 787, 0, 0, 0, 0, 788, 789, 0, 790, 0, 791, 0, 0, 0, 0, 792, 0, 793, 0, 794, 0, 0, 795, 0, 796, 0, 0, 797,
+    0, 798, 0, 799, 0, 0, 800, 0, 801, 802, 0, 803, 0, 804, 0, 805, 0, 0, 806, 0, 807, 0, 0, 0, 0, 808, 809, 0, 810, 0, 811, 0,
+    0, 812, 0, 0, 813, 0, 814, 0, 0, 815, 0, 0, 816, 0, 817, 0, 0, 818, 0, 0, 819, 0, 820, 0, 0, 821, 0, 0, 822, 0, 823, 0,
+    0, 824, 0, 0, 825, 0, 826, 0, 0, 827, 0, 0, 828, 0, 829, 0, 0, 0, 830, 0, 0, 831, 0, 832, 0, 0, 0, 833, 0, 834, 0, 835,
+    0, 0, 836, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 837, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 838, 0, 0, 0, 0, 839,
+    0, 840, 0, 841, 0, 0, 0, 0, 842, 0, 0, 0, 0, 0, 843, 0, 0, 0, 844, 0, 0, 0, 845, 0, 846, 0, 0, 0, 0, 0, 0, 847,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 848, 0, 0, 0, 0, 0, 0, 0, 0, 849, 850, 0, 0, 0, 851, 0, 852, 0, 0, 853, 0, 0, 0,
+    0, 0, 854, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 855, 0, 856, 0, 0, 0, 0, 0, 0, 857, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 858, 0, 0, 0, 0, 0, 0, 0, 0, 859, 860, 0, 0, 0, 861, 0, 862, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 863,
+    0, 0, 864, 0, 0, 865, 0, 0, 0, 866, 0, 867, 0, 0, 868, 0, 0, 0, 0, 0, 869, 870, 0, 0, 0, 871, 0, 0, 0, 872, 0, 0,
+    0, 873, 0, 874, 0, 0, 875, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 876, 0, 877, 878, 0, 879, 0, 0, 0, 0, 0, 880, 881, 0, 0,
+    0, 882, 0, 0, 0, 883, 0, 0, 0, 884, 0, 885, 0, 0, 886, 0, 0, 0, 887, 0, 888, 0, 0, 0, 0, 889, 890, 0, 0, 0, 0, 891,
+    0, 0, 0, 0, 0, 0, 0, 892, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 893, 0, 894, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 895, 0, 896, 0, 0, 897, 0, 0, 898, 0, 899, 0, 900, 0, 901, 0, 0, 0, 0, 902, 0, 903, 0, 904, 0, 0,
+    0, 0, 0, 0, 0, 905, 906, 907, 0, 908, 0, 0, 0, 909, 0, 910, 0, 0, 0, 0, 0, 0, 911, 0, 912, 913, 0, 0, 914, 0, 0, 0,
+    915, 0, 0, 0, 0, 916, 917, 0, 0, 0, 0, 918, 0, 0, 0, 0, 919, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 920, 0, 0, 0, 0,
+    921, 0, 0, 0, 922, 0, 0, 0, 0, 0, 0, 0, 923, 0, 924, 0, 0, 0, 0, 925, 0, 0, 0, 926, 0, 927, 0, 928, 0, 0, 929, 930,
+    0, 931, 0, 932, 0, 933, 0, 0, 0, 0, 0, 0, 0, 934, 0, 0, 0, 0, 0, 0, 0, 935, 0, 0, 936, 0, 0, 0, 0, 0, 0, 0,
+    937, 0, 938, 939, 0, 940, 941, 0, 942, 0, 0, 0, 943, 0, 0, 0, 944, 945, 0, 0, 946, 0, 0, 0, 0, 947, 0, 0, 948, 0, 949, 950,
+};
+void recomp_unit_0051_entry(Runtime &rt, AllegrexContext &ctx, std::uint16_t direct_entry_id, GuestMemory::AotFastView &aot_mem) {
+    std::uint32_t jump_target = 0u;
+    std::uint32_t local_transfers = 0u;
+    std::uint32_t local_pc = ctx.pc;
+    std::uint32_t entry_id = direct_entry_id;
+LOCAL_DISPATCH:
+    {
+    if (entry_id == 0u) {
+        const std::uint32_t entry_delta = local_pc - 0x088D0000u;
+        entry_id = (entry_delta < 16384u && (entry_delta & 3u) == 0u) ? kEntryIds_recomp_unit_0051[entry_delta >> 2u] : 0u;
+    }
+    switch (entry_id) {
+    case 1u: goto L_088D0000;
+    case 2u: goto L_088D0080;
+    case 3u: goto L_088D008C;
+    case 4u: goto L_088D0094;
+    case 5u: goto L_088D00A8;
+    case 6u: goto L_088D00B0;
+    case 7u: goto L_088D00C0;
+    case 8u: goto L_088D00C8;
+    case 9u: goto L_088D00D4;
+    case 10u: goto L_088D00D8;
+    case 11u: goto L_088D00E0;
+    case 12u: goto L_088D0104;
+    case 13u: goto L_088D0128;
+    case 14u: goto L_088D0140;
+    case 15u: goto L_088D018C;
+    case 16u: goto L_088D0198;
+    case 17u: goto L_088D01A4;
+    case 18u: goto L_088D01A8;
+    case 19u: goto L_088D01B0;
+    case 20u: goto L_088D01D0;
+    case 21u: goto L_088D027C;
+    case 22u: goto L_088D028C;
+    case 23u: goto L_088D029C;
+    case 24u: goto L_088D02A4;
+    case 25u: goto L_088D02B4;
+    case 26u: goto L_088D02C0;
+    case 27u: goto L_088D02CC;
+    case 28u: goto L_088D02D8;
+    case 29u: goto L_088D02E4;
+    case 30u: goto L_088D036C;
+    case 31u: goto L_088D0378;
+    case 32u: goto L_088D0384;
+    case 33u: goto L_088D0390;
+    case 34u: goto L_088D039C;
+    case 35u: goto L_088D03D8;
+    case 36u: goto L_088D0434;
+    case 37u: goto L_088D0440;
+    case 38u: goto L_088D0448;
+    case 39u: goto L_088D0460;
+    case 40u: goto L_088D046C;
+    case 41u: goto L_088D0478;
+    case 42u: goto L_088D0484;
+    case 43u: goto L_088D04F8;
+    case 44u: goto L_088D0500;
+    case 45u: goto L_088D0504;
+    case 46u: goto L_088D051C;
+    case 47u: goto L_088D0528;
+    case 48u: goto L_088D0544;
+    case 49u: goto L_088D054C;
+    case 50u: goto L_088D055C;
+    case 51u: goto L_088D0560;
+    case 52u: goto L_088D056C;
+    case 53u: goto L_088D0584;
+    case 54u: goto L_088D0588;
+    case 55u: goto L_088D058C;
+    case 56u: goto L_088D05D4;
+    case 57u: goto L_088D05E8;
+    case 58u: goto L_088D05F0;
+    case 59u: goto L_088D0620;
+    case 60u: goto L_088D062C;
+    case 61u: goto L_088D0634;
+    case 62u: goto L_088D063C;
+    case 63u: goto L_088D067C;
+    case 64u: goto L_088D0688;
+    case 65u: goto L_088D06C4;
+    case 66u: goto L_088D06D8;
+    case 67u: goto L_088D06EC;
+    case 68u: goto L_088D06F4;
+    case 69u: goto L_088D06FC;
+    case 70u: goto L_088D0710;
+    case 71u: goto L_088D0724;
+    case 72u: goto L_088D073C;
+    case 73u: goto L_088D0754;
+    case 74u: goto L_088D075C;
+    case 75u: goto L_088D0764;
+    case 76u: goto L_088D07A4;
+    case 77u: goto L_088D07B0;
+    case 78u: goto L_088D07EC;
+    case 79u: goto L_088D07F4;
+    case 80u: goto L_088D080C;
+    case 81u: goto L_088D0818;
+    case 82u: goto L_088D0828;
+    case 83u: goto L_088D0838;
+    case 84u: goto L_088D0848;
+    case 85u: goto L_088D0858;
+    case 86u: goto L_088D086C;
+    case 87u: goto L_088D0874;
+    case 88u: goto L_088D087C;
+    case 89u: goto L_088D0884;
+    case 90u: goto L_088D088C;
+    case 91u: goto L_088D0894;
+    case 92u: goto L_088D089C;
+    case 93u: goto L_088D08B4;
+    case 94u: goto L_088D08C8;
+    case 95u: goto L_088D08D0;
+    case 96u: goto L_088D08F0;
+    case 97u: goto L_088D08FC;
+    case 98u: goto L_088D0908;
+    case 99u: goto L_088D0910;
+    case 100u: goto L_088D091C;
+    case 101u: goto L_088D0930;
+    case 102u: goto L_088D0948;
+    case 103u: goto L_088D0958;
+    case 104u: goto L_088D0970;
+    case 105u: goto L_088D0984;
+    case 106u: goto L_088D0998;
+    case 107u: goto L_088D09A4;
+    case 108u: goto L_088D09C4;
+    case 109u: goto L_088D09D0;
+    case 110u: goto L_088D09DC;
+    case 111u: goto L_088D09F0;
+    case 112u: goto L_088D09FC;
+    case 113u: goto L_088D0A1C;
+    case 114u: goto L_088D0A28;
+    case 115u: goto L_088D0A34;
+    case 116u: goto L_088D0A48;
+    case 117u: goto L_088D0A54;
+    case 118u: goto L_088D0A74;
+    case 119u: goto L_088D0A80;
+    case 120u: goto L_088D0A88;
+    case 121u: goto L_088D0AB0;
+    case 122u: goto L_088D0ABC;
+    case 123u: goto L_088D0B14;
+    case 124u: goto L_088D0B38;
+    case 125u: goto L_088D0B5C;
+    case 126u: goto L_088D0B64;
+    case 127u: goto L_088D0B70;
+    case 128u: goto L_088D0B78;
+    case 129u: goto L_088D0B84;
+    case 130u: goto L_088D0BDC;
+    case 131u: goto L_088D0C00;
+    case 132u: goto L_088D0C24;
+    case 133u: goto L_088D0C2C;
+    case 134u: goto L_088D0C38;
+    case 135u: goto L_088D0C40;
+    case 136u: goto L_088D0C48;
+    case 137u: goto L_088D0C4C;
+    case 138u: goto L_088D0C54;
+    case 139u: goto L_088D0C6C;
+    case 140u: goto L_088D0C84;
+    case 141u: goto L_088D0CB8;
+    case 142u: goto L_088D0CBC;
+    case 143u: goto L_088D0CC0;
+    case 144u: goto L_088D0CC8;
+    case 145u: goto L_088D0CFC;
+    case 146u: goto L_088D0D04;
+    case 147u: goto L_088D0D0C;
+    case 148u: goto L_088D0D1C;
+    case 149u: goto L_088D0D20;
+    case 150u: goto L_088D0D28;
+    case 151u: goto L_088D0D3C;
+    case 152u: goto L_088D0D70;
+    case 153u: goto L_088D0D7C;
+    case 154u: goto L_088D0DA0;
+    case 155u: goto L_088D0DB0;
+    case 156u: goto L_088D0DE4;
+    case 157u: goto L_088D0DF0;
+    case 158u: goto L_088D0E00;
+    case 159u: goto L_088D0E0C;
+    case 160u: goto L_088D0E20;
+    case 161u: goto L_088D0E28;
+    case 162u: goto L_088D0E4C;
+    case 163u: goto L_088D0E5C;
+    case 164u: goto L_088D0E64;
+    case 165u: goto L_088D0E78;
+    case 166u: goto L_088D0E80;
+    case 167u: goto L_088D0EA4;
+    case 168u: goto L_088D0EB4;
+    case 169u: goto L_088D0EBC;
+    case 170u: goto L_088D0ECC;
+    case 171u: goto L_088D0ED4;
+    case 172u: goto L_088D0EF8;
+    case 173u: goto L_088D0F08;
+    case 174u: goto L_088D0F10;
+    case 175u: goto L_088D0F18;
+    case 176u: goto L_088D0F2C;
+    case 177u: goto L_088D0F4C;
+    case 178u: goto L_088D0F50;
+    case 179u: goto L_088D0F5C;
+    case 180u: goto L_088D0F7C;
+    case 181u: goto L_088D0F98;
+    case 182u: goto L_088D0FA0;
+    case 183u: goto L_088D0FBC;
+    case 184u: goto L_088D0FC4;
+    case 185u: goto L_088D0FE0;
+    case 186u: goto L_088D0FF0;
+    case 187u: goto L_088D0FF8;
+    case 188u: goto L_088D1010;
+    case 189u: goto L_088D1018;
+    case 190u: goto L_088D1030;
+    case 191u: goto L_088D1040;
+    case 192u: goto L_088D1048;
+    case 193u: goto L_088D1068;
+    case 194u: goto L_088D1078;
+    case 195u: goto L_088D1080;
+    case 196u: goto L_088D1088;
+    case 197u: goto L_088D109C;
+    case 198u: goto L_088D10A4;
+    case 199u: goto L_088D10CC;
+    case 200u: goto L_088D111C;
+    case 201u: goto L_088D1138;
+    case 202u: goto L_088D1144;
+    case 203u: goto L_088D1150;
+    case 204u: goto L_088D1160;
+    case 205u: goto L_088D1180;
+    case 206u: goto L_088D11BC;
+    case 207u: goto L_088D11CC;
+    case 208u: goto L_088D11D8;
+    case 209u: goto L_088D123C;
+    case 210u: goto L_088D1244;
+    case 211u: goto L_088D124C;
+    case 212u: goto L_088D1250;
+    case 213u: goto L_088D125C;
+    case 214u: goto L_088D126C;
+    case 215u: goto L_088D1280;
+    case 216u: goto L_088D1290;
+    case 217u: goto L_088D12A0;
+    case 218u: goto L_088D12AC;
+    case 219u: goto L_088D12B8;
+    case 220u: goto L_088D12BC;
+    case 221u: goto L_088D12C4;
+    case 222u: goto L_088D12D8;
+    case 223u: goto L_088D12E8;
+    case 224u: goto L_088D12F0;
+    case 225u: goto L_088D12F8;
+    case 226u: goto L_088D1300;
+    case 227u: goto L_088D1304;
+    case 228u: goto L_088D1308;
+    case 229u: goto L_088D1310;
+    case 230u: goto L_088D1320;
+    case 231u: goto L_088D1330;
+    case 232u: goto L_088D1338;
+    case 233u: goto L_088D1340;
+    case 234u: goto L_088D1348;
+    case 235u: goto L_088D1350;
+    case 236u: goto L_088D1358;
+    case 237u: goto L_088D137C;
+    case 238u: goto L_088D138C;
+    case 239u: goto L_088D1398;
+    case 240u: goto L_088D13A0;
+    case 241u: goto L_088D13AC;
+    case 242u: goto L_088D13B4;
+    case 243u: goto L_088D13BC;
+    case 244u: goto L_088D13C4;
+    case 245u: goto L_088D13DC;
+    case 246u: goto L_088D1400;
+    case 247u: goto L_088D1430;
+    case 248u: goto L_088D1440;
+    case 249u: goto L_088D144C;
+    case 250u: goto L_088D1458;
+    case 251u: goto L_088D1464;
+    case 252u: goto L_088D146C;
+    case 253u: goto L_088D1474;
+    case 254u: goto L_088D147C;
+    case 255u: goto L_088D1484;
+    case 256u: goto L_088D1494;
+    case 257u: goto L_088D149C;
+    case 258u: goto L_088D14AC;
+    case 259u: goto L_088D14B4;
+    case 260u: goto L_088D14C4;
+    case 261u: goto L_088D14D0;
+    case 262u: goto L_088D14D8;
+    case 263u: goto L_088D14EC;
+    case 264u: goto L_088D14F4;
+    case 265u: goto L_088D14FC;
+    case 266u: goto L_088D1504;
+    case 267u: goto L_088D1514;
+    case 268u: goto L_088D1520;
+    case 269u: goto L_088D1528;
+    case 270u: goto L_088D1530;
+    case 271u: goto L_088D1534;
+    case 272u: goto L_088D153C;
+    case 273u: goto L_088D154C;
+    case 274u: goto L_088D1558;
+    case 275u: goto L_088D1560;
+    case 276u: goto L_088D1568;
+    case 277u: goto L_088D1570;
+    case 278u: goto L_088D1578;
+    case 279u: goto L_088D1580;
+    case 280u: goto L_088D1588;
+    case 281u: goto L_088D1590;
+    case 282u: goto L_088D1598;
+    case 283u: goto L_088D15A0;
+    case 284u: goto L_088D15A8;
+    case 285u: goto L_088D15BC;
+    case 286u: goto L_088D15C4;
+    case 287u: goto L_088D15CC;
+    case 288u: goto L_088D15E8;
+    case 289u: goto L_088D1604;
+    case 290u: goto L_088D162C;
+    case 291u: goto L_088D1648;
+    case 292u: goto L_088D1668;
+    case 293u: goto L_088D1678;
+    case 294u: goto L_088D168C;
+    case 295u: goto L_088D16A4;
+    case 296u: goto L_088D16C4;
+    case 297u: goto L_088D16D4;
+    case 298u: goto L_088D16DC;
+    case 299u: goto L_088D16E4;
+    case 300u: goto L_088D16EC;
+    case 301u: goto L_088D16F4;
+    case 302u: goto L_088D16FC;
+    case 303u: goto L_088D1704;
+    case 304u: goto L_088D1710;
+    case 305u: goto L_088D1738;
+    case 306u: goto L_088D1740;
+    case 307u: goto L_088D1748;
+    case 308u: goto L_088D1750;
+    case 309u: goto L_088D1758;
+    case 310u: goto L_088D1760;
+    case 311u: goto L_088D176C;
+    case 312u: goto L_088D1770;
+    case 313u: goto L_088D1784;
+    case 314u: goto L_088D179C;
+    case 315u: goto L_088D17B4;
+    case 316u: goto L_088D17D0;
+    case 317u: goto L_088D17E0;
+    case 318u: goto L_088D17F8;
+    case 319u: goto L_088D1804;
+    case 320u: goto L_088D180C;
+    case 321u: goto L_088D1814;
+    case 322u: goto L_088D181C;
+    case 323u: goto L_088D1824;
+    case 324u: goto L_088D182C;
+    case 325u: goto L_088D1834;
+    case 326u: goto L_088D183C;
+    case 327u: goto L_088D1848;
+    case 328u: goto L_088D1868;
+    case 329u: goto L_088D1870;
+    case 330u: goto L_088D1884;
+    case 331u: goto L_088D1890;
+    case 332u: goto L_088D1898;
+    case 333u: goto L_088D18A0;
+    case 334u: goto L_088D18A8;
+    case 335u: goto L_088D18B0;
+    case 336u: goto L_088D18B8;
+    case 337u: goto L_088D18C0;
+    case 338u: goto L_088D18C8;
+    case 339u: goto L_088D18D0;
+    case 340u: goto L_088D18D8;
+    case 341u: goto L_088D18E0;
+    case 342u: goto L_088D18F0;
+    case 343u: goto L_088D1918;
+    case 344u: goto L_088D1928;
+    case 345u: goto L_088D1940;
+    case 346u: goto L_088D1954;
+    case 347u: goto L_088D1968;
+    case 348u: goto L_088D197C;
+    case 349u: goto L_088D198C;
+    case 350u: goto L_088D199C;
+    case 351u: goto L_088D19AC;
+    case 352u: goto L_088D19BC;
+    case 353u: goto L_088D19CC;
+    case 354u: goto L_088D19D8;
+    case 355u: goto L_088D19F0;
+    case 356u: goto L_088D1A00;
+    case 357u: goto L_088D1A14;
+    case 358u: goto L_088D1A1C;
+    case 359u: goto L_088D1A34;
+    case 360u: goto L_088D1A44;
+    case 361u: goto L_088D1A68;
+    case 362u: goto L_088D1AA0;
+    case 363u: goto L_088D1AB8;
+    case 364u: goto L_088D1AC0;
+    case 365u: goto L_088D1AD4;
+    case 366u: goto L_088D1AE0;
+    case 367u: goto L_088D1AF0;
+    case 368u: goto L_088D1B18;
+    case 369u: goto L_088D1B28;
+    case 370u: goto L_088D1B40;
+    case 371u: goto L_088D1B58;
+    case 372u: goto L_088D1B64;
+    case 373u: goto L_088D1B80;
+    case 374u: goto L_088D1B90;
+    case 375u: goto L_088D1BA8;
+    case 376u: goto L_088D1BC0;
+    case 377u: goto L_088D1BD0;
+    case 378u: goto L_088D1BF4;
+    case 379u: goto L_088D1C10;
+    case 380u: goto L_088D1C20;
+    case 381u: goto L_088D1C30;
+    case 382u: goto L_088D1C38;
+    case 383u: goto L_088D1C44;
+    case 384u: goto L_088D1C4C;
+    case 385u: goto L_088D1C5C;
+    case 386u: goto L_088D1C60;
+    case 387u: goto L_088D1C6C;
+    case 388u: goto L_088D1C78;
+    case 389u: goto L_088D1C88;
+    case 390u: goto L_088D1C98;
+    case 391u: goto L_088D1CA4;
+    case 392u: goto L_088D1CAC;
+    case 393u: goto L_088D1CB4;
+    case 394u: goto L_088D1CC0;
+    case 395u: goto L_088D1CD0;
+    case 396u: goto L_088D1CD4;
+    case 397u: goto L_088D1CE0;
+    case 398u: goto L_088D1CF0;
+    case 399u: goto L_088D1D00;
+    case 400u: goto L_088D1D28;
+    case 401u: goto L_088D1D40;
+    case 402u: goto L_088D1D54;
+    case 403u: goto L_088D1D5C;
+    case 404u: goto L_088D1D74;
+    case 405u: goto L_088D1D84;
+    case 406u: goto L_088D1D98;
+    case 407u: goto L_088D1DA0;
+    case 408u: goto L_088D1DB8;
+    case 409u: goto L_088D1DC8;
+    case 410u: goto L_088D1DEC;
+    case 411u: goto L_088D1E5C;
+    case 412u: goto L_088D1E9C;
+    case 413u: goto L_088D1EB8;
+    case 414u: goto L_088D1ED0;
+    case 415u: goto L_088D1EDC;
+    case 416u: goto L_088D1EEC;
+    case 417u: goto L_088D1EF8;
+    case 418u: goto L_088D1F04;
+    case 419u: goto L_088D1F14;
+    case 420u: goto L_088D1F1C;
+    case 421u: goto L_088D1F28;
+    case 422u: goto L_088D1F34;
+    case 423u: goto L_088D1F38;
+    case 424u: goto L_088D1F40;
+    case 425u: goto L_088D1F6C;
+    case 426u: goto L_088D1F98;
+    case 427u: goto L_088D1FA0;
+    case 428u: goto L_088D1FB0;
+    case 429u: goto L_088D2010;
+    case 430u: goto L_088D2034;
+    case 431u: goto L_088D203C;
+    case 432u: goto L_088D204C;
+    case 433u: goto L_088D205C;
+    case 434u: goto L_088D2064;
+    case 435u: goto L_088D2074;
+    case 436u: goto L_088D2084;
+    case 437u: goto L_088D209C;
+    case 438u: goto L_088D20C4;
+    case 439u: goto L_088D20D4;
+    case 440u: goto L_088D20E4;
+    case 441u: goto L_088D20F8;
+    case 442u: goto L_088D2104;
+    case 443u: goto L_088D211C;
+    case 444u: goto L_088D2124;
+    case 445u: goto L_088D2134;
+    case 446u: goto L_088D2144;
+    case 447u: goto L_088D2150;
+    case 448u: goto L_088D2164;
+    case 449u: goto L_088D217C;
+    case 450u: goto L_088D2184;
+    case 451u: goto L_088D2194;
+    case 452u: goto L_088D21A4;
+    case 453u: goto L_088D21B4;
+    case 454u: goto L_088D21C4;
+    case 455u: goto L_088D21D4;
+    case 456u: goto L_088D21E8;
+    case 457u: goto L_088D21FC;
+    case 458u: goto L_088D2204;
+    case 459u: goto L_088D221C;
+    case 460u: goto L_088D222C;
+    case 461u: goto L_088D2250;
+    case 462u: goto L_088D2278;
+    case 463u: goto L_088D2288;
+    case 464u: goto L_088D2294;
+    case 465u: goto L_088D22A4;
+    case 466u: goto L_088D22B8;
+    case 467u: goto L_088D22C0;
+    case 468u: goto L_088D22C8;
+    case 469u: goto L_088D22D4;
+    case 470u: goto L_088D22E4;
+    case 471u: goto L_088D22F0;
+    case 472u: goto L_088D2308;
+    case 473u: goto L_088D2310;
+    case 474u: goto L_088D2320;
+    case 475u: goto L_088D2330;
+    case 476u: goto L_088D2358;
+    case 477u: goto L_088D2368;
+    case 478u: goto L_088D237C;
+    case 479u: goto L_088D2390;
+    case 480u: goto L_088D23A0;
+    case 481u: goto L_088D23A8;
+    case 482u: goto L_088D23B0;
+    case 483u: goto L_088D23BC;
+    case 484u: goto L_088D23CC;
+    case 485u: goto L_088D23D4;
+    case 486u: goto L_088D23E4;
+    case 487u: goto L_088D23EC;
+    case 488u: goto L_088D23F4;
+    case 489u: goto L_088D2404;
+    case 490u: goto L_088D2414;
+    case 491u: goto L_088D2424;
+    case 492u: goto L_088D2434;
+    case 493u: goto L_088D2444;
+    case 494u: goto L_088D2460;
+    case 495u: goto L_088D24B4;
+    case 496u: goto L_088D24D0;
+    case 497u: goto L_088D24DC;
+    case 498u: goto L_088D24F0;
+    case 499u: goto L_088D2508;
+    case 500u: goto L_088D259C;
+    case 501u: goto L_088D25B4;
+    case 502u: goto L_088D2624;
+    case 503u: goto L_088D263C;
+    case 504u: goto L_088D264C;
+    case 505u: goto L_088D2660;
+    case 506u: goto L_088D26A0;
+    case 507u: goto L_088D26C8;
+    case 508u: goto L_088D26E0;
+    case 509u: goto L_088D26F4;
+    case 510u: goto L_088D26FC;
+    case 511u: goto L_088D2714;
+    case 512u: goto L_088D2724;
+    case 513u: goto L_088D2748;
+    case 514u: goto L_088D2750;
+    case 515u: goto L_088D277C;
+    case 516u: goto L_088D2784;
+    case 517u: goto L_088D278C;
+    case 518u: goto L_088D279C;
+    case 519u: goto L_088D27AC;
+    case 520u: goto L_088D27C4;
+    case 521u: goto L_088D27F0;
+    case 522u: goto L_088D2804;
+    case 523u: goto L_088D2808;
+    case 524u: goto L_088D2810;
+    case 525u: goto L_088D282C;
+    case 526u: goto L_088D2840;
+    case 527u: goto L_088D2848;
+    case 528u: goto L_088D2864;
+    case 529u: goto L_088D2890;
+    case 530u: goto L_088D28A0;
+    case 531u: goto L_088D28A8;
+    case 532u: goto L_088D28B0;
+    case 533u: goto L_088D28D4;
+    case 534u: goto L_088D28DC;
+    case 535u: goto L_088D28FC;
+    case 536u: goto L_088D2900;
+    case 537u: goto L_088D2904;
+    case 538u: goto L_088D2910;
+    case 539u: goto L_088D293C;
+    case 540u: goto L_088D29A0;
+    case 541u: goto L_088D29B4;
+    case 542u: goto L_088D29C0;
+    case 543u: goto L_088D29DC;
+    case 544u: goto L_088D29E4;
+    case 545u: goto L_088D29EC;
+    case 546u: goto L_088D29F4;
+    case 547u: goto L_088D29FC;
+    case 548u: goto L_088D2A14;
+    case 549u: goto L_088D2A44;
+    case 550u: goto L_088D2A54;
+    case 551u: goto L_088D2A5C;
+    case 552u: goto L_088D2A64;
+    case 553u: goto L_088D2A70;
+    case 554u: goto L_088D2A94;
+    case 555u: goto L_088D2A98;
+    case 556u: goto L_088D2A9C;
+    case 557u: goto L_088D2AA4;
+    case 558u: goto L_088D2AC8;
+    case 559u: goto L_088D2AD0;
+    case 560u: goto L_088D2ADC;
+    case 561u: goto L_088D2AE4;
+    case 562u: goto L_088D2AF4;
+    case 563u: goto L_088D2B04;
+    case 564u: goto L_088D2B20;
+    case 565u: goto L_088D2B38;
+    case 566u: goto L_088D2B44;
+    case 567u: goto L_088D2B4C;
+    case 568u: goto L_088D2B54;
+    case 569u: goto L_088D2B5C;
+    case 570u: goto L_088D2B80;
+    case 571u: goto L_088D2B8C;
+    case 572u: goto L_088D2B98;
+    case 573u: goto L_088D2BA4;
+    case 574u: goto L_088D2BB0;
+    case 575u: goto L_088D2BBC;
+    case 576u: goto L_088D2BC4;
+    case 577u: goto L_088D2BD0;
+    case 578u: goto L_088D2BD8;
+    case 579u: goto L_088D2BE0;
+    case 580u: goto L_088D2BE8;
+    case 581u: goto L_088D2C00;
+    case 582u: goto L_088D2C0C;
+    case 583u: goto L_088D2C14;
+    case 584u: goto L_088D2C1C;
+    case 585u: goto L_088D2C24;
+    case 586u: goto L_088D2C2C;
+    case 587u: goto L_088D2C34;
+    case 588u: goto L_088D2C3C;
+    case 589u: goto L_088D2C44;
+    case 590u: goto L_088D2C50;
+    case 591u: goto L_088D2C58;
+    case 592u: goto L_088D2C60;
+    case 593u: goto L_088D2C68;
+    case 594u: goto L_088D2C70;
+    case 595u: goto L_088D2C74;
+    case 596u: goto L_088D2C7C;
+    case 597u: goto L_088D2CBC;
+    case 598u: goto L_088D2CD0;
+    case 599u: goto L_088D2CE0;
+    case 600u: goto L_088D2CF0;
+    case 601u: goto L_088D2CF8;
+    case 602u: goto L_088D2D10;
+    case 603u: goto L_088D2D20;
+    case 604u: goto L_088D2D30;
+    case 605u: goto L_088D2D38;
+    case 606u: goto L_088D2D44;
+    case 607u: goto L_088D2D50;
+    case 608u: goto L_088D2D58;
+    case 609u: goto L_088D2D5C;
+    case 610u: goto L_088D2D74;
+    case 611u: goto L_088D2D84;
+    case 612u: goto L_088D2D8C;
+    case 613u: goto L_088D2DA0;
+    case 614u: goto L_088D2DB0;
+    case 615u: goto L_088D2DB4;
+    case 616u: goto L_088D2DD0;
+    case 617u: goto L_088D2E00;
+    case 618u: goto L_088D2E30;
+    case 619u: goto L_088D2E38;
+    case 620u: goto L_088D2E48;
+    case 621u: goto L_088D2E50;
+    case 622u: goto L_088D2E5C;
+    case 623u: goto L_088D2E68;
+    case 624u: goto L_088D2E74;
+    case 625u: goto L_088D2E7C;
+    case 626u: goto L_088D2E84;
+    case 627u: goto L_088D2E88;
+    case 628u: goto L_088D2E90;
+    case 629u: goto L_088D2E98;
+    case 630u: goto L_088D2EA0;
+    case 631u: goto L_088D2EB0;
+    case 632u: goto L_088D2EB8;
+    case 633u: goto L_088D2EC0;
+    case 634u: goto L_088D2EDC;
+    case 635u: goto L_088D2EF0;
+    case 636u: goto L_088D2EF8;
+    case 637u: goto L_088D2F00;
+    case 638u: goto L_088D2F08;
+    case 639u: goto L_088D2F10;
+    case 640u: goto L_088D2F18;
+    case 641u: goto L_088D2F30;
+    case 642u: goto L_088D2F38;
+    case 643u: goto L_088D2F40;
+    case 644u: goto L_088D2F4C;
+    case 645u: goto L_088D2F54;
+    case 646u: goto L_088D2F5C;
+    case 647u: goto L_088D2F64;
+    case 648u: goto L_088D2F7C;
+    case 649u: goto L_088D2F98;
+    case 650u: goto L_088D2FA0;
+    case 651u: goto L_088D2FB0;
+    case 652u: goto L_088D2FB8;
+    case 653u: goto L_088D2FC0;
+    case 654u: goto L_088D2FD0;
+    case 655u: goto L_088D2FD8;
+    case 656u: goto L_088D2FE0;
+    case 657u: goto L_088D2FE8;
+    case 658u: goto L_088D3000;
+    case 659u: goto L_088D3008;
+    case 660u: goto L_088D300C;
+    case 661u: goto L_088D3018;
+    case 662u: goto L_088D3024;
+    case 663u: goto L_088D302C;
+    case 664u: goto L_088D3034;
+    case 665u: goto L_088D303C;
+    case 666u: goto L_088D3044;
+    case 667u: goto L_088D304C;
+    case 668u: goto L_088D3054;
+    case 669u: goto L_088D305C;
+    case 670u: goto L_088D3064;
+    case 671u: goto L_088D306C;
+    case 672u: goto L_088D3074;
+    case 673u: goto L_088D307C;
+    case 674u: goto L_088D3084;
+    case 675u: goto L_088D308C;
+    case 676u: goto L_088D3094;
+    case 677u: goto L_088D30A4;
+    case 678u: goto L_088D30BC;
+    case 679u: goto L_088D30C8;
+    case 680u: goto L_088D30E0;
+    case 681u: goto L_088D30E8;
+    case 682u: goto L_088D30F8;
+    case 683u: goto L_088D3100;
+    case 684u: goto L_088D3110;
+    case 685u: goto L_088D3118;
+    case 686u: goto L_088D3120;
+    case 687u: goto L_088D3140;
+    case 688u: goto L_088D3150;
+    case 689u: goto L_088D3154;
+    case 690u: goto L_088D315C;
+    case 691u: goto L_088D3164;
+    case 692u: goto L_088D316C;
+    case 693u: goto L_088D3174;
+    case 694u: goto L_088D3180;
+    case 695u: goto L_088D319C;
+    case 696u: goto L_088D3228;
+    case 697u: goto L_088D3308;
+    case 698u: goto L_088D3314;
+    case 699u: goto L_088D331C;
+    case 700u: goto L_088D332C;
+    case 701u: goto L_088D3338;
+    case 702u: goto L_088D3340;
+    case 703u: goto L_088D3344;
+    case 704u: goto L_088D334C;
+    case 705u: goto L_088D3354;
+    case 706u: goto L_088D335C;
+    case 707u: goto L_088D3368;
+    case 708u: goto L_088D3370;
+    case 709u: goto L_088D3374;
+    case 710u: goto L_088D337C;
+    case 711u: goto L_088D3384;
+    case 712u: goto L_088D338C;
+    case 713u: goto L_088D3398;
+    case 714u: goto L_088D33A0;
+    case 715u: goto L_088D33B4;
+    case 716u: goto L_088D33B8;
+    case 717u: goto L_088D33C0;
+    case 718u: goto L_088D33C8;
+    case 719u: goto L_088D33D8;
+    case 720u: goto L_088D33E4;
+    case 721u: goto L_088D33EC;
+    case 722u: goto L_088D33FC;
+    case 723u: goto L_088D3404;
+    case 724u: goto L_088D340C;
+    case 725u: goto L_088D3418;
+    case 726u: goto L_088D3424;
+    case 727u: goto L_088D342C;
+    case 728u: goto L_088D3438;
+    case 729u: goto L_088D3444;
+    case 730u: goto L_088D344C;
+    case 731u: goto L_088D3458;
+    case 732u: goto L_088D3464;
+    case 733u: goto L_088D346C;
+    case 734u: goto L_088D347C;
+    case 735u: goto L_088D3488;
+    case 736u: goto L_088D3490;
+    case 737u: goto L_088D34A4;
+    case 738u: goto L_088D34A8;
+    case 739u: goto L_088D34B0;
+    case 740u: goto L_088D34B8;
+    case 741u: goto L_088D34CC;
+    case 742u: goto L_088D34D0;
+    case 743u: goto L_088D34D8;
+    case 744u: goto L_088D34E0;
+    case 745u: goto L_088D34F4;
+    case 746u: goto L_088D34FC;
+    case 747u: goto L_088D3504;
+    case 748u: goto L_088D3510;
+    case 749u: goto L_088D3518;
+    case 750u: goto L_088D351C;
+    case 751u: goto L_088D3524;
+    case 752u: goto L_088D352C;
+    case 753u: goto L_088D3534;
+    case 754u: goto L_088D3540;
+    case 755u: goto L_088D3548;
+    case 756u: goto L_088D354C;
+    case 757u: goto L_088D3554;
+    case 758u: goto L_088D355C;
+    case 759u: goto L_088D3564;
+    case 760u: goto L_088D3570;
+    case 761u: goto L_088D3578;
+    case 762u: goto L_088D358C;
+    case 763u: goto L_088D3590;
+    case 764u: goto L_088D3598;
+    case 765u: goto L_088D35A0;
+    case 766u: goto L_088D35B0;
+    case 767u: goto L_088D35BC;
+    case 768u: goto L_088D35C4;
+    case 769u: goto L_088D35D4;
+    case 770u: goto L_088D35DC;
+    case 771u: goto L_088D35E4;
+    case 772u: goto L_088D35F0;
+    case 773u: goto L_088D35FC;
+    case 774u: goto L_088D3604;
+    case 775u: goto L_088D3610;
+    case 776u: goto L_088D361C;
+    case 777u: goto L_088D3624;
+    case 778u: goto L_088D3630;
+    case 779u: goto L_088D363C;
+    case 780u: goto L_088D3644;
+    case 781u: goto L_088D3654;
+    case 782u: goto L_088D3660;
+    case 783u: goto L_088D3668;
+    case 784u: goto L_088D367C;
+    case 785u: goto L_088D3680;
+    case 786u: goto L_088D3688;
+    case 787u: goto L_088D3690;
+    case 788u: goto L_088D36A4;
+    case 789u: goto L_088D36A8;
+    case 790u: goto L_088D36B0;
+    case 791u: goto L_088D36B8;
+    case 792u: goto L_088D36CC;
+    case 793u: goto L_088D36D4;
+    case 794u: goto L_088D36DC;
+    case 795u: goto L_088D36E8;
+    case 796u: goto L_088D36F0;
+    case 797u: goto L_088D36FC;
+    case 798u: goto L_088D3704;
+    case 799u: goto L_088D370C;
+    case 800u: goto L_088D3718;
+    case 801u: goto L_088D3720;
+    case 802u: goto L_088D3724;
+    case 803u: goto L_088D372C;
+    case 804u: goto L_088D3734;
+    case 805u: goto L_088D373C;
+    case 806u: goto L_088D3748;
+    case 807u: goto L_088D3750;
+    case 808u: goto L_088D3764;
+    case 809u: goto L_088D3768;
+    case 810u: goto L_088D3770;
+    case 811u: goto L_088D3778;
+    case 812u: goto L_088D3784;
+    case 813u: goto L_088D3790;
+    case 814u: goto L_088D3798;
+    case 815u: goto L_088D37A4;
+    case 816u: goto L_088D37B0;
+    case 817u: goto L_088D37B8;
+    case 818u: goto L_088D37C4;
+    case 819u: goto L_088D37D0;
+    case 820u: goto L_088D37D8;
+    case 821u: goto L_088D37E4;
+    case 822u: goto L_088D37F0;
+    case 823u: goto L_088D37F8;
+    case 824u: goto L_088D3804;
+    case 825u: goto L_088D3810;
+    case 826u: goto L_088D3818;
+    case 827u: goto L_088D3824;
+    case 828u: goto L_088D3830;
+    case 829u: goto L_088D3838;
+    case 830u: goto L_088D3848;
+    case 831u: goto L_088D3854;
+    case 832u: goto L_088D385C;
+    case 833u: goto L_088D386C;
+    case 834u: goto L_088D3874;
+    case 835u: goto L_088D387C;
+    case 836u: goto L_088D3888;
+    case 837u: goto L_088D38B8;
+    case 838u: goto L_088D38E8;
+    case 839u: goto L_088D38FC;
+    case 840u: goto L_088D3904;
+    case 841u: goto L_088D390C;
+    case 842u: goto L_088D3920;
+    case 843u: goto L_088D3938;
+    case 844u: goto L_088D3948;
+    case 845u: goto L_088D3958;
+    case 846u: goto L_088D3960;
+    case 847u: goto L_088D397C;
+    case 848u: goto L_088D39A4;
+    case 849u: goto L_088D39C8;
+    case 850u: goto L_088D39CC;
+    case 851u: goto L_088D39DC;
+    case 852u: goto L_088D39E4;
+    case 853u: goto L_088D39F0;
+    case 854u: goto L_088D3A08;
+    case 855u: goto L_088D3A44;
+    case 856u: goto L_088D3A4C;
+    case 857u: goto L_088D3A68;
+    case 858u: goto L_088D3A90;
+    case 859u: goto L_088D3AB4;
+    case 860u: goto L_088D3AB8;
+    case 861u: goto L_088D3AC8;
+    case 862u: goto L_088D3AD0;
+    case 863u: goto L_088D3AFC;
+    case 864u: goto L_088D3B08;
+    case 865u: goto L_088D3B14;
+    case 866u: goto L_088D3B24;
+    case 867u: goto L_088D3B2C;
+    case 868u: goto L_088D3B38;
+    case 869u: goto L_088D3B50;
+    case 870u: goto L_088D3B54;
+    case 871u: goto L_088D3B64;
+    case 872u: goto L_088D3B74;
+    case 873u: goto L_088D3B84;
+    case 874u: goto L_088D3B8C;
+    case 875u: goto L_088D3B98;
+    case 876u: goto L_088D3BC4;
+    case 877u: goto L_088D3BCC;
+    case 878u: goto L_088D3BD0;
+    case 879u: goto L_088D3BD8;
+    case 880u: goto L_088D3BF0;
+    case 881u: goto L_088D3BF4;
+    case 882u: goto L_088D3C04;
+    case 883u: goto L_088D3C14;
+    case 884u: goto L_088D3C24;
+    case 885u: goto L_088D3C2C;
+    case 886u: goto L_088D3C38;
+    case 887u: goto L_088D3C48;
+    case 888u: goto L_088D3C50;
+    case 889u: goto L_088D3C64;
+    case 890u: goto L_088D3C68;
+    case 891u: goto L_088D3C7C;
+    case 892u: goto L_088D3C9C;
+    case 893u: goto L_088D3CD4;
+    case 894u: goto L_088D3CDC;
+    case 895u: goto L_088D3D18;
+    case 896u: goto L_088D3D20;
+    case 897u: goto L_088D3D2C;
+    case 898u: goto L_088D3D38;
+    case 899u: goto L_088D3D40;
+    case 900u: goto L_088D3D48;
+    case 901u: goto L_088D3D50;
+    case 902u: goto L_088D3D64;
+    case 903u: goto L_088D3D6C;
+    case 904u: goto L_088D3D74;
+    case 905u: goto L_088D3D94;
+    case 906u: goto L_088D3D98;
+    case 907u: goto L_088D3D9C;
+    case 908u: goto L_088D3DA4;
+    case 909u: goto L_088D3DB4;
+    case 910u: goto L_088D3DBC;
+    case 911u: goto L_088D3DD8;
+    case 912u: goto L_088D3DE0;
+    case 913u: goto L_088D3DE4;
+    case 914u: goto L_088D3DF0;
+    case 915u: goto L_088D3E00;
+    case 916u: goto L_088D3E14;
+    case 917u: goto L_088D3E18;
+    case 918u: goto L_088D3E2C;
+    case 919u: goto L_088D3E40;
+    case 920u: goto L_088D3E6C;
+    case 921u: goto L_088D3E80;
+    case 922u: goto L_088D3E90;
+    case 923u: goto L_088D3EB0;
+    case 924u: goto L_088D3EB8;
+    case 925u: goto L_088D3ECC;
+    case 926u: goto L_088D3EDC;
+    case 927u: goto L_088D3EE4;
+    case 928u: goto L_088D3EEC;
+    case 929u: goto L_088D3EF8;
+    case 930u: goto L_088D3EFC;
+    case 931u: goto L_088D3F04;
+    case 932u: goto L_088D3F0C;
+    case 933u: goto L_088D3F14;
+    case 934u: goto L_088D3F34;
+    case 935u: goto L_088D3F54;
+    case 936u: goto L_088D3F60;
+    case 937u: goto L_088D3F80;
+    case 938u: goto L_088D3F88;
+    case 939u: goto L_088D3F8C;
+    case 940u: goto L_088D3F94;
+    case 941u: goto L_088D3F98;
+    case 942u: goto L_088D3FA0;
+    case 943u: goto L_088D3FB0;
+    case 944u: goto L_088D3FC0;
+    case 945u: goto L_088D3FC4;
+    case 946u: goto L_088D3FD0;
+    case 947u: goto L_088D3FE4;
+    case 948u: goto L_088D3FF0;
+    case 949u: goto L_088D3FF8;
+    case 950u: goto L_088D3FFC;
+    default:
+        if (local_transfers == 0u) rt.unsupported(ctx.pc, 0u, "invalid internal function entry");
+        else ctx.pc = local_pc;
+        return;
+    }
+    }
+L_088D0000:
+    ctx.gpr[4] = (ctx.gpr[9] << 2u);
+    ctx.gpr[4] = (ctx.gpr[8] + ctx.gpr[4]);
+    ctx.gpr[11] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(92)));
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[11]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[10]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.gpr[4] = (ctx.gpr[7] << 6u);
+    ctx.gpr[6] = (ctx.gpr[7] << 3u);
+    ctx.gpr[4] = (ctx.gpr[4] - ctx.gpr[6]);
+    ctx.gpr[4] = (ctx.gpr[5] + ctx.gpr[4]);
+    ctx.gpr[2] = (0u + static_cast<std::uint32_t>(1320));
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(20));
+    ctx.gpr[6] = (0u | 16u);
+    ctx.gpr[5] = (ctx.lo);
+    // nop
+    // nop
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[11]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[10]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.gpr[7] = (ctx.gpr[5] << 7u);
+    ctx.gpr[5] = (ctx.gpr[5] << 2u);
+    ctx.gpr[5] = (ctx.gpr[7] + ctx.gpr[5]);
+    ctx.gpr[7] = (ctx.hi);
+    // nop
+    // nop
+    { const std::int64_t product = static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[9])) * static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[2])); ctx.lo = static_cast<std::uint32_t>(product); ctx.hi = static_cast<std::uint32_t>(static_cast<std::uint64_t>(product) >> 32u); }
+    ctx.gpr[9] = (ctx.gpr[7] << 4u);
+    ctx.gpr[7] = (ctx.gpr[9] - ctx.gpr[7]);
+    ctx.gpr[7] = (ctx.gpr[7] << 2u);
+    ctx.gpr[7] = (ctx.gpr[7] - ctx.gpr[9]);
+    ctx.gpr[10] = (ctx.lo);
+    ctx.gpr[8] = (ctx.gpr[8] + ctx.gpr[10]);
+    ctx.gpr[5] = (ctx.gpr[8] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[7]);
+    ctx.gpr[31] = (0x088D0080u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(136));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0080u) goto L_088D0080;
+    return;
+L_088D0080:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+      if (branch_taken) {
+          goto L_088D051C;
+      }
+      goto L_088D008C;
+    }
+L_088D008C:
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[30];
+    ctx.gpr[18] = (0u | 3u);
+      if (branch_taken) {
+          goto L_088D00A8;
+      }
+      goto L_088D0094;
+    }
+L_088D0094:
+    ctx.gpr[5] = (0u | 10u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(12088), ctx.gpr[5]);
+    ctx.gpr[18] = (0u | 1u);
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[5] = (2222u << 16u);
+      if (branch_taken) {
+          goto L_088D00E0;
+      }
+      goto L_088D00A8;
+    }
+L_088D00A8:
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[18];
+    ctx.gpr[6] = (0u | 4u);
+      if (branch_taken) {
+          goto L_088D00C0;
+      }
+      goto L_088D00B0;
+    }
+L_088D00B0:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(12088), ctx.gpr[18]);
+    ctx.gpr[18] = (0u | 1u);
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[5] = (2222u << 16u);
+      if (branch_taken) {
+          goto L_088D00E0;
+      }
+      goto L_088D00C0;
+    }
+L_088D00C0:
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[6];
+    ctx.gpr[18] = (0u | 1u);
+      if (branch_taken) {
+          goto L_088D00D8;
+      }
+      goto L_088D00C8;
+    }
+L_088D00C8:
+    ctx.gpr[6] = (0u | 6u);
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[6];
+    // nop
+      if (branch_taken) {
+          goto L_088D058C;
+      }
+      goto L_088D00D4;
+    }
+L_088D00D4:
+    ctx.gpr[18] = (0u | 1u);
+    goto L_088D00D8;
+L_088D00D8:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(12088), ctx.gpr[18]);
+    ctx.gpr[5] = (2222u << 16u);
+    goto L_088D00E0;
+L_088D00E0:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(12108), ctx.gpr[18]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12088)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[6] = (ctx.gpr[4] << 6u);
+    ctx.gpr[4] = (ctx.gpr[4] << 3u);
+    ctx.gpr[4] = (ctx.gpr[6] - ctx.gpr[4]);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(264)));
+    jump_target = ctx.gpr[6];
+    ctx.gpr[31] = (0x088D0104u);
+    ctx.gpr[5] = (0u | 160u);
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D0104u) goto L_088D0104;
+    return;
+L_088D0104:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(12088)));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(12100), ctx.gpr[2]);
+    ctx.gpr[5] = (ctx.gpr[6] << 6u);
+    ctx.gpr[6] = (ctx.gpr[6] << 3u);
+    ctx.gpr[6] = (ctx.gpr[5] - ctx.gpr[6]);
+    ctx.gpr[31] = (0x088D0128u);
+    ctx.gpr[5] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D0128u) goto L_088D0128;
+    return;
+L_088D0128:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+    ctx.gpr[18] = (0u | 0u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12088)));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[18]) < static_cast<std::int32_t>(ctx.gpr[5]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+      if (branch_taken) {
+          goto L_088D051C;
+      }
+      goto L_088D0140;
+    }
+L_088D0140:
+    ctx.gpr[5] = (17050u << 16u);
+    ctx.fpr[26] = std::bit_cast<float>(ctx.gpr[5]);
+    ctx.gpr[5] = (16920u << 16u);
+    ctx.fpr[24] = std::bit_cast<float>(ctx.gpr[5]);
+    ctx.gpr[22] = (2220u << 16u);
+    ctx.gpr[5] = (16928u << 16u);
+    ctx.fpr[22] = std::bit_cast<float>(ctx.gpr[5]);
+    ctx.gpr[17] = (0u + static_cast<std::uint32_t>(-1));
+    ctx.gpr[5] = (16976u << 16u);
+    ctx.fpr[20] = std::bit_cast<float>(ctx.gpr[5]);
+    ctx.gpr[23] = (0u | 10u);
+    ctx.gpr[5] = (17030u << 16u);
+    ctx.fpr[30] = std::bit_cast<float>(ctx.gpr[5]);
+    ctx.gpr[16] = (0u | 0u);
+    ctx.gpr[5] = (17036u << 16u);
+    ctx.gpr[21] = (0u | 0u);
+    ctx.fpr[28] = std::bit_cast<float>(ctx.gpr[5]);
+    ctx.gpr[20] = (0u | 0u);
+    ctx.gpr[22] = (ctx.gpr[22] + static_cast<std::uint32_t>(-7808));
+    goto L_088D018C;
+L_088D018C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    { const bool branch_taken = ctx.gpr[7] != ctx.gpr[30];
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+      if (branch_taken) {
+          goto L_088D01A4;
+      }
+      goto L_088D0198;
+    }
+L_088D0198:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(84)));
+    { const bool branch_taken = 0u == 0u;
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(36), ctx.gpr[4]);
+      if (branch_taken) {
+          goto L_088D01A8;
+      }
+      goto L_088D01A4;
+    }
+L_088D01A4:
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(36), ctx.gpr[17]);
+    goto L_088D01A8;
+L_088D01A8:
+    ctx.gpr[31] = (0x088D01B0u);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0049_entry, 49u, 773u, 0x088CB828u>(ctx, &aot_mem) && ctx.pc == 0x088D01B0u) goto L_088D01B0;
+    return;
+L_088D01B0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(0), ctx.gpr[2]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+    { const bool branch_taken = ctx.gpr[6] != ctx.gpr[30];
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+      if (branch_taken) {
+          goto L_088D02D8;
+      }
+      goto L_088D01D0;
+    }
+L_088D01D0:
+    ctx.gpr[6] = (0u | 5u);
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[18]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[6]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.gpr[7] = (16932u << 16u);
+    ctx.fpr[12] = std::bit_cast<float>(ctx.gpr[7]);
+    ctx.gpr[8] = (ctx.gpr[4] | 0u);
+    ctx.gpr[4] = (16808u << 16u);
+    ctx.fpr[13] = std::bit_cast<float>(ctx.gpr[4]);
+    ctx.gpr[4] = (16960u << 16u);
+    ctx.fpr[14] = std::bit_cast<float>(ctx.gpr[4]);
+    ctx.gpr[7] = (0u + static_cast<std::uint32_t>(1320));
+    ctx.gpr[4] = (0u | 0u);
+    ctx.gpr[9] = (ctx.hi);
+    // nop
+    // nop
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[18]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[6]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.fpr[15] = std::bit_cast<float>(ctx.gpr[9]);
+    ctx.fpr[15] = static_cast<float>(static_cast<std::int32_t>(std::bit_cast<std::uint32_t>(ctx.fpr[15])));
+    { const float fs = ctx.fpr[15]; const float ft = ctx.fpr[12]; if ((std::isinf(fs) && ft == 0.0f) || (std::isinf(ft) && fs == 0.0f)) ctx.fpr[12] = std::bit_cast<float>(0x7FC00000u); else ctx.fpr[12] = fs * ft; }
+    ctx.fpr[12] = ctx.fpr[12] + ctx.fpr[13];
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(4), std::bit_cast<std::uint32_t>(ctx.fpr[12]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    ctx.gpr[6] = (ctx.lo);
+    ctx.fpr[12] = std::bit_cast<float>(ctx.gpr[6]);
+    ctx.fpr[12] = static_cast<float>(static_cast<std::int32_t>(std::bit_cast<std::uint32_t>(ctx.fpr[12])));
+    { const float fs = ctx.fpr[12]; const float ft = ctx.fpr[14]; if ((std::isinf(fs) && ft == 0.0f) || (std::isinf(ft) && fs == 0.0f)) ctx.fpr[12] = std::bit_cast<float>(0x7FC00000u); else ctx.fpr[12] = fs * ft; }
+    ctx.fpr[12] = ctx.fpr[12] + ctx.fpr[26];
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(8), std::bit_cast<std::uint32_t>(ctx.fpr[12]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(12), std::bit_cast<std::uint32_t>(ctx.fpr[24]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(16), std::bit_cast<std::uint32_t>(ctx.fpr[22]));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(84)));
+    { const std::int64_t product = static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[6])) * static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[7])); ctx.lo = static_cast<std::uint32_t>(product); ctx.hi = static_cast<std::uint32_t>(static_cast<std::uint64_t>(product) >> 32u); }
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[7] = (ctx.gpr[6] + ctx.gpr[16]);
+    ctx.gpr[7] = (ctx.gpr[7] + static_cast<std::uint32_t>(20));
+    ctx.gpr[6] = (ctx.lo);
+    ctx.gpr[6] = (ctx.gpr[8] + ctx.gpr[6]);
+    ctx.gpr[6] = (ctx.gpr[6] + ctx.gpr[21]);
+    goto L_088D027C;
+L_088D027C:
+    ctx.gpr[8] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(128)));
+    ctx.gpr[8] = (static_cast<std::int32_t>(ctx.gpr[5]) < static_cast<std::int32_t>(ctx.gpr[8]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[8] != 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D029C;
+      }
+      goto L_088D028C;
+    }
+L_088D028C:
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(1));
+    ctx.gpr[8] = (static_cast<std::int32_t>(ctx.gpr[4]) < 3 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[8] != 0u;
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(44));
+      if (branch_taken) {
+          goto L_088D027C;
+      }
+      goto L_088D029C;
+    }
+L_088D029C:
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[5] = (ctx.gpr[6] + static_cast<std::uint32_t>(92));
+      if (branch_taken) {
+          goto L_088D02C0;
+      }
+      goto L_088D02A4;
+    }
+L_088D02A4:
+    ctx.gpr[4] = (ctx.gpr[7] | 0u);
+    ctx.gpr[5] = (ctx.gpr[22] | 0u);
+    ctx.gpr[31] = (0x088D02B4u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D02B4u) goto L_088D02B4;
+    return;
+L_088D02B4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+      if (branch_taken) {
+          goto L_088D0500;
+      }
+      goto L_088D02C0;
+    }
+L_088D02C0:
+    ctx.gpr[4] = (ctx.gpr[7] | 0u);
+    ctx.gpr[31] = (0x088D02CCu);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D02CCu) goto L_088D02CC;
+    return;
+L_088D02CC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+      if (branch_taken) {
+          goto L_088D0500;
+      }
+      goto L_088D02D8;
+    }
+L_088D02D8:
+    ctx.gpr[7] = (0u | 3u);
+    { const bool branch_taken = ctx.gpr[6] != ctx.gpr[7];
+    ctx.gpr[6] = (17082u << 16u);
+      if (branch_taken) {
+          goto L_088D039C;
+      }
+      goto L_088D02E4;
+    }
+L_088D02E4:
+    ctx.fpr[12] = std::bit_cast<float>(ctx.gpr[18]);
+    ctx.fpr[12] = static_cast<float>(static_cast<std::int32_t>(std::bit_cast<std::uint32_t>(ctx.fpr[12])));
+    ctx.gpr[6] = (17110u << 16u);
+    ctx.fpr[13] = std::bit_cast<float>(ctx.gpr[6]);
+    { const float fs = ctx.fpr[12]; const float ft = ctx.fpr[20]; if ((std::isinf(fs) && ft == 0.0f) || (std::isinf(ft) && fs == 0.0f)) ctx.fpr[12] = std::bit_cast<float>(0x7FC00000u); else ctx.fpr[12] = fs * ft; }
+    ctx.gpr[6] = (0u + static_cast<std::uint32_t>(1320));
+    ctx.fpr[12] = ctx.fpr[12] + ctx.fpr[20];
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(4), std::bit_cast<std::uint32_t>(ctx.fpr[12]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(8), std::bit_cast<std::uint32_t>(ctx.fpr[13]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(12), std::bit_cast<std::uint32_t>(ctx.fpr[24]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(16), std::bit_cast<std::uint32_t>(ctx.fpr[22]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(28)));
+    { const std::int64_t product = static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[5])) * static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[6])); ctx.lo = static_cast<std::uint32_t>(product); ctx.hi = static_cast<std::uint32_t>(static_cast<std::uint64_t>(product) >> 32u); }
+    ctx.gpr[5] = (ctx.gpr[7] << 7u);
+    ctx.gpr[7] = (ctx.gpr[7] << 2u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[7]);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(84)));
+    ctx.gpr[7] = (ctx.lo);
+    ctx.gpr[7] = (ctx.gpr[4] + ctx.gpr[7]);
+    ctx.gpr[5] = (ctx.gpr[7] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[20]);
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(128)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[6] = (static_cast<std::int32_t>(ctx.gpr[6]) < static_cast<std::int32_t>(ctx.gpr[7]) ? 1u : 0u);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[16]);
+    { const bool branch_taken = ctx.gpr[6] == 0u;
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(20));
+      if (branch_taken) {
+          goto L_088D0384;
+      }
+      goto L_088D036C;
+    }
+L_088D036C:
+    ctx.gpr[5] = (ctx.gpr[22] | 0u);
+    ctx.gpr[31] = (0x088D0378u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0378u) goto L_088D0378;
+    return;
+L_088D0378:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+      if (branch_taken) {
+          goto L_088D0500;
+      }
+      goto L_088D0384;
+    }
+L_088D0384:
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(136));
+    ctx.gpr[31] = (0x088D0390u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0390u) goto L_088D0390;
+    return;
+L_088D0390:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+      if (branch_taken) {
+          goto L_088D0500;
+      }
+      goto L_088D039C;
+    }
+L_088D039C:
+    ctx.fpr[12] = std::bit_cast<float>(ctx.gpr[6]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(4), std::bit_cast<std::uint32_t>(ctx.fpr[12]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(8), std::bit_cast<std::uint32_t>(ctx.fpr[30]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(12), std::bit_cast<std::uint32_t>(ctx.fpr[28]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[6] = (0u | 4u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(16), std::bit_cast<std::uint32_t>(ctx.fpr[26]));
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+    { const bool branch_taken = ctx.gpr[7] != ctx.gpr[6];
+    ctx.gpr[5] = (0u | 6u);
+      if (branch_taken) {
+          goto L_088D0440;
+      }
+      goto L_088D03D8;
+    }
+L_088D03D8:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[6] = (0u + static_cast<std::uint32_t>(1320));
+    { const std::int64_t product = static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[5])) * static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[6])); ctx.lo = static_cast<std::uint32_t>(product); ctx.hi = static_cast<std::uint32_t>(static_cast<std::uint64_t>(product) >> 32u); }
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    ctx.gpr[7] = (ctx.gpr[5] + static_cast<std::uint32_t>(20));
+    ctx.gpr[5] = (ctx.lo);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[8] = (ctx.gpr[6] << 7u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(32)));
+    ctx.gpr[6] = (ctx.gpr[6] << 2u);
+    ctx.gpr[6] = (ctx.gpr[8] + ctx.gpr[6]);
+    ctx.gpr[8] = (ctx.gpr[4] << 4u);
+    ctx.gpr[4] = (ctx.gpr[8] - ctx.gpr[4]);
+    ctx.gpr[4] = (ctx.gpr[4] << 2u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[4] = (ctx.gpr[4] - ctx.gpr[8]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[4]);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(136));
+    ctx.gpr[4] = (ctx.gpr[7] | 0u);
+    ctx.gpr[31] = (0x088D0434u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0434u) goto L_088D0434;
+    return;
+L_088D0434:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+      if (branch_taken) {
+          goto L_088D0500;
+      }
+      goto L_088D0440;
+    }
+L_088D0440:
+    if (ctx.gpr[7] != ctx.gpr[5]) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12088)));
+        goto L_088D0504;
+    }
+    goto L_088D0448;
+L_088D0448:
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[8] = (ctx.gpr[4] | 0u);
+    ctx.gpr[6] = (0u | 0u);
+    ctx.gpr[7] = (ctx.gpr[7] + ctx.gpr[16]);
+    ctx.gpr[9] = (ctx.gpr[29] | 0u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(40)));
+    goto L_088D0460;
+L_088D0460:
+    ctx.gpr[10] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(92)));
+    if (ctx.gpr[10] == ctx.gpr[17]) {
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(1));
+        goto L_088D0478;
+    }
+    goto L_088D046C;
+L_088D046C:
+    aot_mem.aot_store32(ctx.gpr[9] + static_cast<std::uint32_t>(52), ctx.gpr[6]);
+    ctx.gpr[9] = (ctx.gpr[9] + static_cast<std::uint32_t>(4));
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(1));
+    goto L_088D0478;
+L_088D0478:
+    ctx.gpr[10] = (static_cast<std::int32_t>(ctx.gpr[6]) < 10 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[10] != 0u;
+    ctx.gpr[8] = (ctx.gpr[8] + static_cast<std::uint32_t>(4));
+      if (branch_taken) {
+          goto L_088D0460;
+      }
+      goto L_088D0484;
+    }
+L_088D0484:
+    ctx.gpr[8] = (ctx.gpr[4] | 0u);
+    ctx.gpr[4] = (ctx.gpr[5] << 2u);
+    ctx.gpr[4] = (ctx.gpr[29] + ctx.gpr[4]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(52)));
+    ctx.gpr[4] = (ctx.gpr[5] << 2u);
+    ctx.gpr[4] = (ctx.gpr[8] + ctx.gpr[4]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(92)));
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[4]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[23]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.gpr[4] = (ctx.gpr[7] + static_cast<std::uint32_t>(20));
+    ctx.gpr[9] = (0u + static_cast<std::uint32_t>(1320));
+    ctx.gpr[6] = (0u | 16u);
+    ctx.gpr[7] = (ctx.hi);
+    ctx.gpr[10] = (ctx.gpr[7] << 4u);
+    ctx.gpr[7] = (ctx.gpr[10] - ctx.gpr[7]);
+    ctx.gpr[7] = (ctx.gpr[7] << 2u);
+    ctx.gpr[7] = (ctx.gpr[7] - ctx.gpr[10]);
+    ctx.gpr[10] = (ctx.lo);
+    // nop
+    // nop
+    { const std::int64_t product = static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[5])) * static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[9])); ctx.lo = static_cast<std::uint32_t>(product); ctx.hi = static_cast<std::uint32_t>(static_cast<std::uint64_t>(product) >> 32u); }
+    ctx.gpr[5] = (ctx.gpr[10] << 7u);
+    ctx.gpr[9] = (ctx.gpr[10] << 2u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[9]);
+    ctx.gpr[9] = (ctx.lo);
+    ctx.gpr[8] = (ctx.gpr[8] + ctx.gpr[9]);
+    ctx.gpr[5] = (ctx.gpr[8] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[7]);
+    ctx.gpr[31] = (0x088D04F8u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(136));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D04F8u) goto L_088D04F8;
+    return;
+L_088D04F8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+    goto L_088D0500;
+L_088D0500:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12088)));
+    goto L_088D0504;
+L_088D0504:
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(1));
+    ctx.gpr[16] = (ctx.gpr[16] + static_cast<std::uint32_t>(56));
+    ctx.gpr[21] = (ctx.gpr[21] + static_cast<std::uint32_t>(132));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[18]) < static_cast<std::int32_t>(ctx.gpr[5]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[20] = (ctx.gpr[20] + static_cast<std::uint32_t>(44));
+      if (branch_taken) {
+          goto L_088D018C;
+      }
+      goto L_088D051C;
+    }
+L_088D051C:
+    ctx.gpr[5] = (0u | 5u);
+    if (ctx.gpr[7] != ctx.gpr[5]) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12088)));
+        goto L_088D054C;
+    }
+    goto L_088D0528;
+L_088D0528:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12096)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[6] = (ctx.gpr[5] << 6u);
+    ctx.gpr[5] = (ctx.gpr[5] << 3u);
+    ctx.gpr[5] = (ctx.gpr[6] - ctx.gpr[5]);
+    ctx.gpr[31] = (0x088D0544u);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[5]);
+    if (rt.invoke_chained_direct<&recomp_unit_0064_entry, 64u, 271u, 0x08906E70u>(ctx, &aot_mem) && ctx.pc == 0x088D0544u) goto L_088D0544;
+    return;
+L_088D0544:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+      if (branch_taken) {
+          goto L_088D0584;
+      }
+      goto L_088D054C;
+    }
+L_088D054C:
+    ctx.gpr[16] = (0u | 0u);
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[16]) < static_cast<std::int32_t>(ctx.gpr[5]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    ctx.gpr[5] = (0u | 1u);
+      if (branch_taken) {
+          goto L_088D0588;
+      }
+      goto L_088D055C;
+    }
+L_088D055C:
+    ctx.gpr[17] = (0u | 0u);
+    goto L_088D0560;
+L_088D0560:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12100)));
+    ctx.gpr[31] = (0x088D056Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[17]);
+    if (rt.invoke_chained_direct<&recomp_unit_0064_entry, 64u, 271u, 0x08906E70u>(ctx, &aot_mem) && ctx.pc == 0x088D056Cu) goto L_088D056C;
+    return;
+L_088D056C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17640)));
+    ctx.gpr[16] = (ctx.gpr[16] + static_cast<std::uint32_t>(1));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12088)));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[16]) < static_cast<std::int32_t>(ctx.gpr[5]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[17] = (ctx.gpr[17] + static_cast<std::uint32_t>(56));
+      if (branch_taken) {
+          goto L_088D0560;
+      }
+      goto L_088D0584;
+    }
+L_088D0584:
+    ctx.gpr[5] = (0u | 1u);
+    goto L_088D0588;
+L_088D0588:
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(12104), static_cast<std::uint8_t>(ctx.gpr[5]));
+    goto L_088D058C;
+L_088D058C:
+    ctx.fpr[20] = std::bit_cast<float>(aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(92)));
+    ctx.fpr[22] = std::bit_cast<float>(aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(96)));
+    ctx.fpr[24] = std::bit_cast<float>(aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(100)));
+    ctx.fpr[26] = std::bit_cast<float>(aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(104)));
+    ctx.fpr[28] = std::bit_cast<float>(aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(108)));
+    ctx.fpr[30] = std::bit_cast<float>(aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(112)));
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(116)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(120)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(124)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(128)));
+    ctx.gpr[20] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(132)));
+    ctx.gpr[21] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(136)));
+    ctx.gpr[22] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(140)));
+    ctx.gpr[23] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(144)));
+    ctx.gpr[30] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(148)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(152)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(160));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D05D4:
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(17640)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(32)));
+    { const bool branch_taken = static_cast<std::int32_t>(ctx.gpr[5]) > 0;
+    ctx.gpr[2] = (0u | 0u);
+      if (branch_taken) {
+          goto L_088D0620;
+      }
+      goto L_088D05E8;
+    }
+L_088D05E8:
+    { const bool branch_taken = static_cast<std::int32_t>(ctx.gpr[5]) < 0;
+    // nop
+      if (branch_taken) {
+          goto L_088D06F4;
+      }
+      goto L_088D05F0;
+    }
+L_088D05F0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[6] = (0u + static_cast<std::uint32_t>(1320));
+    { const std::int64_t product = static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[5])) * static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[6])); ctx.lo = static_cast<std::uint32_t>(product); ctx.hi = static_cast<std::uint32_t>(static_cast<std::uint64_t>(product) >> 32u); }
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[6] = (ctx.gpr[5] << 7u);
+    ctx.gpr[5] = (ctx.gpr[5] << 2u);
+    ctx.gpr[7] = (ctx.lo);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[7]);
+    ctx.gpr[5] = (ctx.gpr[6] + ctx.gpr[5]);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[5]);
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(132)));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D0620:
+    ctx.gpr[6] = (static_cast<std::int32_t>(ctx.gpr[5]) < 2 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[6] != 0u;
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[5]) < 3 ? 1u : 0u);
+      if (branch_taken) {
+          goto L_088D063C;
+      }
+      goto L_088D062C;
+    }
+L_088D062C:
+    if (ctx.gpr[5] != 0u) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(24)));
+        goto L_088D0688;
+    }
+    goto L_088D0634;
+L_088D0634:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D06F4;
+      }
+      goto L_088D063C;
+    }
+L_088D063C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[6] = (0u + static_cast<std::uint32_t>(1320));
+    { const std::int64_t product = static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[5])) * static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[6])); ctx.lo = static_cast<std::uint32_t>(product); ctx.hi = static_cast<std::uint32_t>(static_cast<std::uint64_t>(product) >> 32u); }
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[7] = (ctx.gpr[5] << 2u);
+    ctx.gpr[5] = (ctx.gpr[6] << 7u);
+    ctx.gpr[6] = (ctx.gpr[6] << 2u);
+    ctx.gpr[8] = (ctx.lo);
+    ctx.gpr[8] = (ctx.gpr[4] + ctx.gpr[8]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[5] = (ctx.gpr[8] + ctx.gpr[5]);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[7]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(92)));
+    ctx.gpr[6] = (0u + static_cast<std::uint32_t>(-1));
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[6];
+    ctx.gpr[2] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(176)));
+      if (branch_taken) {
+          goto L_088D06F4;
+      }
+      goto L_088D067C;
+    }
+L_088D067C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(132)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (ctx.gpr[2] + ctx.gpr[4]);
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D0688:
+    ctx.gpr[6] = (0u + static_cast<std::uint32_t>(1320));
+    { const std::int64_t product = static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[5])) * static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[6])); ctx.lo = static_cast<std::uint32_t>(product); ctx.hi = static_cast<std::uint32_t>(static_cast<std::uint64_t>(product) >> 32u); }
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[7] = (ctx.gpr[5] << 2u);
+    ctx.gpr[5] = (ctx.gpr[6] << 7u);
+    ctx.gpr[6] = (ctx.gpr[6] << 2u);
+    ctx.gpr[8] = (ctx.lo);
+    ctx.gpr[8] = (ctx.gpr[4] + ctx.gpr[8]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[5] = (ctx.gpr[8] + ctx.gpr[5]);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[7]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(92)));
+    ctx.gpr[6] = (0u + static_cast<std::uint32_t>(-1));
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[6];
+    ctx.gpr[2] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(220)));
+      if (branch_taken) {
+          goto L_088D06D8;
+      }
+      goto L_088D06C4;
+    }
+L_088D06C4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(132)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(176)));
+    ctx.gpr[2] = (ctx.gpr[2] + ctx.gpr[4]);
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (ctx.gpr[2] + ctx.gpr[5]);
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D06D8:
+    ctx.gpr[6] = (0u | 10u);
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[4]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[6]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.gpr[4] = (ctx.hi);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D06F4;
+      }
+      goto L_088D06EC;
+    }
+L_088D06EC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(176)));
+    ctx.gpr[2] = (ctx.gpr[2] + ctx.gpr[4]);
+    goto L_088D06F4;
+L_088D06F4:
+    jump_target = ctx.gpr[31];
+    // nop
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D06FC:
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(17504)));
+    ctx.gpr[5] = (2221u << 16u);
+    jump_target = ctx.gpr[31];
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(17508), ctx.gpr[4]);
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D0710:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-32));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D0724u);
+    ctx.gpr[4] = (0u | 1u);
+    if (rt.invoke_chained_direct<&recomp_unit_0018_entry, 18u, 449u, 0x0884DC1Cu>(ctx, &aot_mem) && ctx.pc == 0x088D0724u) goto L_088D0724;
+    return;
+L_088D0724:
+    ctx.gpr[4] = (2222u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(264)));
+    ctx.gpr[4] = (0u | 8532u);
+    jump_target = ctx.gpr[6];
+    ctx.gpr[31] = (0x088D073Cu);
+    ctx.gpr[5] = (0u | 160u);
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D073Cu) goto L_088D073C;
+    return;
+L_088D073C:
+    ctx.gpr[16] = (2221u << 16u);
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    aot_mem.aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(18200), ctx.gpr[2]);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D0754u);
+    ctx.gpr[6] = (0u | 8532u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D0754u) goto L_088D0754;
+    return;
+L_088D0754:
+    ctx.gpr[31] = (0x088D075Cu);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0015_entry, 15u, 506u, 0x0884278Cu>(ctx, &aot_mem) && ctx.pc == 0x088D075Cu) goto L_088D075C;
+    return;
+L_088D075C:
+    ctx.gpr[31] = (0x088D0764u);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0015_entry, 15u, 633u, 0x088430A8u>(ctx, &aot_mem) && ctx.pc == 0x088D0764u) goto L_088D0764;
+    return;
+L_088D0764:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(0), 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(4), 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8), 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(12), 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(16), 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(20), 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(24), 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(28), 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(32), 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(36), 0u);
+    ctx.gpr[5] = (0u | 1u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(40), 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(44), ctx.gpr[5]);
+    ctx.gpr[31] = (0x088D07A4u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(48), 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 548u, 0x08832970u>(ctx, &aot_mem) && ctx.pc == 0x088D07A4u) goto L_088D07A4;
+    return;
+L_088D07A4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D07B0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(76), ctx.gpr[2]);
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 627u, 0x08833120u>(ctx, &aot_mem) && ctx.pc == 0x088D07B0u) goto L_088D07B0;
+    return;
+L_088D07B0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(80), ctx.gpr[2]);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8468), 0u);
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(52), static_cast<std::uint8_t>(0u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8528), 0u);
+    ctx.gpr[5] = (0u + static_cast<std::uint32_t>(-1));
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(8472), static_cast<std::uint8_t>(0u));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(56), ctx.gpr[5]);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(60), 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(68), ctx.gpr[5]);
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(72), static_cast<std::uint8_t>(0u));
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(73), static_cast<std::uint8_t>(0u));
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(74), static_cast<std::uint8_t>(0u));
+    ctx.gpr[31] = (0x088D07ECu);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0018_entry, 18u, 18u, 0x0884C14Cu>(ctx, &aot_mem) && ctx.pc == 0x088D07ECu) goto L_088D07EC;
+    return;
+L_088D07EC:
+    ctx.gpr[31] = (0x088D07F4u);
+    // nop
+    goto L_088D0DB0;
+L_088D07F4:
+    ctx.gpr[4] = (2221u << 16u);
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(18204), static_cast<std::uint8_t>(0u));
+    ctx.gpr[4] = (2221u << 16u);
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(18205), static_cast<std::uint8_t>(0u));
+    ctx.gpr[31] = (0x088D080Cu);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0018_entry, 18u, 119u, 0x0884C7BCu>(ctx, &aot_mem) && ctx.pc == 0x088D080Cu) goto L_088D080C;
+    return;
+L_088D080C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D0818u);
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(64), static_cast<std::uint8_t>(ctx.gpr[2]));
+    goto L_088D1604;
+L_088D0818:
+    ctx.gpr[4] = (2189u << 16u);
+    ctx.gpr[5] = (0u | 8u);
+    ctx.gpr[31] = (0x088D0828u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(11776));
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 702u, 0x0884BCB8u>(ctx, &aot_mem) && ctx.pc == 0x088D0828u) goto L_088D0828;
+    return;
+L_088D0828:
+    ctx.gpr[4] = (2189u << 16u);
+    ctx.gpr[5] = (0u | 7u);
+    ctx.gpr[31] = (0x088D0838u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2248));
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 706u, 0x0884BCFCu>(ctx, &aot_mem) && ctx.pc == 0x088D0838u) goto L_088D0838;
+    return;
+L_088D0838:
+    ctx.gpr[4] = (2189u << 16u);
+    ctx.gpr[5] = (0u | 7u);
+    ctx.gpr[31] = (0x088D0848u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2256));
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 709u, 0x0884BD28u>(ctx, &aot_mem) && ctx.pc == 0x088D0848u) goto L_088D0848;
+    return;
+L_088D0848:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(32));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D0858:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-32));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D086Cu);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0000_entry, 0u, 722u, 0x08806E84u>(ctx, &aot_mem) && ctx.pc == 0x088D086Cu) goto L_088D086C;
+    return;
+L_088D086C:
+    ctx.gpr[31] = (0x088D0874u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0000_entry, 0u, 724u, 0x08806EA0u>(ctx, &aot_mem) && ctx.pc == 0x088D0874u) goto L_088D0874;
+    return;
+L_088D0874:
+    ctx.gpr[31] = (0x088D087Cu);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0024_entry, 24u, 505u, 0x0886732Cu>(ctx, &aot_mem) && ctx.pc == 0x088D087Cu) goto L_088D087C;
+    return;
+L_088D087C:
+    ctx.gpr[31] = (0x088D0884u);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0012_entry, 12u, 225u, 0x08835114u>(ctx, &aot_mem) && ctx.pc == 0x088D0884u) goto L_088D0884;
+    return;
+L_088D0884:
+    ctx.gpr[31] = (0x088D088Cu);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0015_entry, 15u, 507u, 0x088427A0u>(ctx, &aot_mem) && ctx.pc == 0x088D088Cu) goto L_088D088C;
+    return;
+L_088D088C:
+    ctx.gpr[31] = (0x088D0894u);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0015_entry, 15u, 634u, 0x088430BCu>(ctx, &aot_mem) && ctx.pc == 0x088D0894u) goto L_088D0894;
+    return;
+L_088D0894:
+    ctx.gpr[31] = (0x088D089Cu);
+    // nop
+    goto L_088D1710;
+L_088D089C:
+    ctx.gpr[5] = (2222u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    ctx.gpr[16] = (2221u << 16u);
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D08B4u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D08B4u) goto L_088D08B4;
+    return;
+L_088D08B4:
+    aot_mem.aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(18200), 0u);
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(32));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D08C8:
+    jump_target = ctx.gpr[31];
+    // nop
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D08D0:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-16));
+    ctx.gpr[5] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(8468)));
+    ctx.gpr[4] = (0u | 1u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(0), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[6] != ctx.gpr[4];
+    // nop
+      if (branch_taken) {
+          goto L_088D0910;
+      }
+      goto L_088D08F0;
+    }
+L_088D08F0:
+    ctx.gpr[6] = (aot_mem.aot_load8(ctx.gpr[5] + static_cast<std::uint32_t>(64)));
+    { const bool branch_taken = ctx.gpr[6] != ctx.gpr[4];
+    // nop
+      if (branch_taken) {
+          goto L_088D0910;
+      }
+      goto L_088D08FC;
+    }
+L_088D08FC:
+    ctx.gpr[5] = (aot_mem.aot_load8(ctx.gpr[5] + static_cast<std::uint32_t>(8472)));
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[4];
+    // nop
+      if (branch_taken) {
+          goto L_088D0910;
+      }
+      goto L_088D0908;
+    }
+L_088D0908:
+    ctx.gpr[31] = (0x088D0910u);
+    // nop
+    goto L_088D1848;
+L_088D0910:
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(0)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(16));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D091C:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-96));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(88), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(92), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D0930u);
+    ctx.gpr[4] = (ctx.gpr[29] + static_cast<std::uint32_t>(16));
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 716u, 0x08833630u>(ctx, &aot_mem) && ctx.pc == 0x088D0930u) goto L_088D0930;
+    return;
+L_088D0930:
+    ctx.gpr[5] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int16_t>(aot_mem.aot_load16(ctx.gpr[29] + static_cast<std::uint32_t>(16))))));
+    ctx.gpr[16] = (2221u << 16u);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[29] + static_cast<std::uint32_t>(52));
+    ctx.gpr[31] = (0x088D0948u);
+    aot_mem.aot_store32(ctx.gpr[6] + static_cast<std::uint32_t>(96), ctx.gpr[5]);
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 722u, 0x0883368Cu>(ctx, &aot_mem) && ctx.pc == 0x088D0948u) goto L_088D0948;
+    return;
+L_088D0948:
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int16_t>(aot_mem.aot_load16(ctx.gpr[29] + static_cast<std::uint32_t>(52))))));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D0958u);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(272), ctx.gpr[4]);
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 708u, 0x088335B4u>(ctx, &aot_mem) && ctx.pc == 0x088D0958u) goto L_088D0958;
+    return;
+L_088D0958:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(388), ctx.gpr[2]);
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(88)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(92)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(96));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D0970:
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[6] = (0u | 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(84), 0u);
+    ctx.gpr[5] = (ctx.gpr[4] | 0u);
+    goto L_088D0984;
+L_088D0984:
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(80)));
+    ctx.gpr[8] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(536)));
+    ctx.gpr[7] = (static_cast<std::int32_t>(ctx.gpr[7]) < static_cast<std::int32_t>(ctx.gpr[8]) ? 1u : 0u);
+    if (ctx.gpr[7] != 0u) {
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(1));
+        goto L_088D09C4;
+    }
+    goto L_088D0998;
+L_088D0998:
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(96)));
+    if (ctx.gpr[7] == ctx.gpr[6]) {
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(1));
+        goto L_088D09C4;
+    }
+    goto L_088D09A4;
+L_088D09A4:
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(84)));
+    ctx.gpr[7] = (ctx.gpr[7] << 2u);
+    ctx.gpr[7] = (ctx.gpr[4] + ctx.gpr[7]);
+    aot_mem.aot_store32(ctx.gpr[7] + static_cast<std::uint32_t>(100), ctx.gpr[6]);
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(84)));
+    ctx.gpr[7] = (ctx.gpr[7] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(84), ctx.gpr[7]);
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(1));
+    goto L_088D09C4;
+L_088D09C4:
+    ctx.gpr[7] = (static_cast<std::int32_t>(ctx.gpr[6]) < 43 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[7] != 0u;
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(96));
+      if (branch_taken) {
+          goto L_088D0984;
+      }
+      goto L_088D09D0;
+    }
+L_088D09D0:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(88), 0u);
+    ctx.gpr[6] = (0u | 0u);
+    ctx.gpr[5] = (ctx.gpr[4] | 0u);
+    goto L_088D09DC;
+L_088D09DC:
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(80)));
+    ctx.gpr[8] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(4664)));
+    ctx.gpr[7] = (static_cast<std::int32_t>(ctx.gpr[7]) < static_cast<std::int32_t>(ctx.gpr[8]) ? 1u : 0u);
+    if (ctx.gpr[7] != 0u) {
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(1));
+        goto L_088D0A1C;
+    }
+    goto L_088D09F0;
+L_088D09F0:
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(272)));
+    if (ctx.gpr[7] == ctx.gpr[6]) {
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(1));
+        goto L_088D0A1C;
+    }
+    goto L_088D09FC;
+L_088D09FC:
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(88)));
+    ctx.gpr[7] = (ctx.gpr[7] << 2u);
+    ctx.gpr[7] = (ctx.gpr[4] + ctx.gpr[7]);
+    aot_mem.aot_store32(ctx.gpr[7] + static_cast<std::uint32_t>(276), ctx.gpr[6]);
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(88)));
+    ctx.gpr[7] = (ctx.gpr[7] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(88), ctx.gpr[7]);
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(1));
+    goto L_088D0A1C;
+L_088D0A1C:
+    ctx.gpr[7] = (static_cast<std::int32_t>(ctx.gpr[6]) < 28 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[7] != 0u;
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(96));
+      if (branch_taken) {
+          goto L_088D09DC;
+      }
+      goto L_088D0A28;
+    }
+L_088D0A28:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(92), 0u);
+    ctx.gpr[6] = (0u | 0u);
+    ctx.gpr[5] = (ctx.gpr[4] | 0u);
+    goto L_088D0A34;
+L_088D0A34:
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(80)));
+    ctx.gpr[8] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(7336)));
+    ctx.gpr[7] = (static_cast<std::int32_t>(ctx.gpr[7]) < static_cast<std::int32_t>(ctx.gpr[8]) ? 1u : 0u);
+    if (ctx.gpr[7] != 0u) {
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(1));
+        goto L_088D0A74;
+    }
+    goto L_088D0A48;
+L_088D0A48:
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(388)));
+    if (ctx.gpr[7] == ctx.gpr[6]) {
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(1));
+        goto L_088D0A74;
+    }
+    goto L_088D0A54;
+L_088D0A54:
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(92)));
+    ctx.gpr[7] = (ctx.gpr[7] << 2u);
+    ctx.gpr[7] = (ctx.gpr[4] + ctx.gpr[7]);
+    aot_mem.aot_store32(ctx.gpr[7] + static_cast<std::uint32_t>(392), ctx.gpr[6]);
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(92)));
+    ctx.gpr[7] = (ctx.gpr[7] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(92), ctx.gpr[7]);
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(1));
+    goto L_088D0A74;
+L_088D0A74:
+    ctx.gpr[7] = (static_cast<std::int32_t>(ctx.gpr[6]) < 24 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[7] != 0u;
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(48));
+      if (branch_taken) {
+          goto L_088D0A34;
+      }
+      goto L_088D0A80;
+    }
+L_088D0A80:
+    jump_target = ctx.gpr[31];
+    // nop
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D0A88:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-112));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(88), ctx.gpr[16]);
+    ctx.gpr[16] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(12)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(92), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(96), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(100), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[6] = (0u | 1u);
+      if (branch_taken) {
+          goto L_088D0B70;
+      }
+      goto L_088D0AB0;
+    }
+L_088D0AB0:
+    ctx.gpr[17] = (ctx.gpr[29] + static_cast<std::uint32_t>(52));
+    ctx.gpr[31] = (0x088D0ABCu);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 722u, 0x0883368Cu>(ctx, &aot_mem) && ctx.pc == 0x088D0ABCu) goto L_088D0ABC;
+    return;
+L_088D0ABC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(272)));
+    aot_mem.aot_store16(ctx.gpr[29] + static_cast<std::uint32_t>(52), static_cast<std::uint16_t>(ctx.gpr[5]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(272)));
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(4660)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(56), ctx.gpr[5]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(272)));
+    ctx.gpr[18] = (ctx.gpr[29] + static_cast<std::uint32_t>(60));
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[4] + static_cast<std::uint32_t>(4668)));
+    ctx.gpr[5] = (0u | 0u);
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(86), static_cast<std::uint8_t>(ctx.gpr[4]));
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    ctx.gpr[31] = (0x088D0B14u);
+    ctx.gpr[6] = (0u | 26u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D0B14u) goto L_088D0B14;
+    return;
+L_088D0B14:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(272)));
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(4685));
+    ctx.gpr[31] = (0x088D0B38u);
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D0B38u) goto L_088D0B38;
+    return;
+L_088D0B38:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[29] + static_cast<std::uint32_t>(69));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(272)));
+    ctx.gpr[6] = (ctx.gpr[6] << 5u);
+    ctx.gpr[7] = (ctx.gpr[6] + ctx.gpr[6]);
+    ctx.gpr[6] = (ctx.gpr[6] + ctx.gpr[7]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[31] = (0x088D0B5Cu);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(4694));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D0B5Cu) goto L_088D0B5C;
+    return;
+L_088D0B5C:
+    ctx.gpr[31] = (0x088D0B64u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 725u, 0x088336B8u>(ctx, &aot_mem) && ctx.pc == 0x088D0B64u) goto L_088D0B64;
+    return;
+L_088D0B64:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(12)));
+    ctx.gpr[6] = (0u | 1u);
+    goto L_088D0B70;
+L_088D0B70:
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[6];
+    ctx.gpr[6] = (0u | 2u);
+      if (branch_taken) {
+          goto L_088D0C38;
+      }
+      goto L_088D0B78;
+    }
+L_088D0B78:
+    ctx.gpr[17] = (ctx.gpr[29] + static_cast<std::uint32_t>(16));
+    ctx.gpr[31] = (0x088D0B84u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 716u, 0x08833630u>(ctx, &aot_mem) && ctx.pc == 0x088D0B84u) goto L_088D0B84;
+    return;
+L_088D0B84:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(96)));
+    aot_mem.aot_store16(ctx.gpr[29] + static_cast<std::uint32_t>(16), static_cast<std::uint16_t>(ctx.gpr[5]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(96)));
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(532)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[5]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(96)));
+    ctx.gpr[18] = (ctx.gpr[29] + static_cast<std::uint32_t>(24));
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[4] + static_cast<std::uint32_t>(540)));
+    ctx.gpr[5] = (0u | 0u);
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(50), static_cast<std::uint8_t>(ctx.gpr[4]));
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    ctx.gpr[31] = (0x088D0BDCu);
+    ctx.gpr[6] = (0u | 26u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D0BDCu) goto L_088D0BDC;
+    return;
+L_088D0BDC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(96)));
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(557));
+    ctx.gpr[31] = (0x088D0C00u);
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D0C00u) goto L_088D0C00;
+    return;
+L_088D0C00:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[29] + static_cast<std::uint32_t>(33));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(96)));
+    ctx.gpr[6] = (ctx.gpr[6] << 5u);
+    ctx.gpr[7] = (ctx.gpr[6] + ctx.gpr[6]);
+    ctx.gpr[6] = (ctx.gpr[6] + ctx.gpr[7]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[31] = (0x088D0C24u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(566));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D0C24u) goto L_088D0C24;
+    return;
+L_088D0C24:
+    ctx.gpr[31] = (0x088D0C2Cu);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 719u, 0x0883365Cu>(ctx, &aot_mem) && ctx.pc == 0x088D0C2Cu) goto L_088D0C2C;
+    return;
+L_088D0C2C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(12)));
+    ctx.gpr[6] = (0u | 2u);
+    goto L_088D0C38;
+L_088D0C38:
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[6];
+    // nop
+      if (branch_taken) {
+          goto L_088D0C4C;
+      }
+      goto L_088D0C40;
+    }
+L_088D0C40:
+    ctx.gpr[31] = (0x088D0C48u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(388)));
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 709u, 0x088335C4u>(ctx, &aot_mem) && ctx.pc == 0x088D0C48u) goto L_088D0C48;
+    return;
+L_088D0C48:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    goto L_088D0C4C;
+L_088D0C4C:
+    ctx.gpr[31] = (0x088D0C54u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(76)));
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 546u, 0x08832944u>(ctx, &aot_mem) && ctx.pc == 0x088D0C54u) goto L_088D0C54;
+    return;
+L_088D0C54:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(88)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(92)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(96)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(100)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(112));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D0C6C:
+    ctx.gpr[5] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[6] = (0u | 2u);
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[6];
+    ctx.gpr[2] = (0u | 0u);
+      if (branch_taken) {
+          goto L_088D0CBC;
+      }
+      goto L_088D0C84;
+    }
+L_088D0C84:
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[6] = (ctx.gpr[6] << 2u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(100)));
+    ctx.gpr[6] = (ctx.gpr[6] << 5u);
+    ctx.gpr[7] = (ctx.gpr[6] + ctx.gpr[6]);
+    ctx.gpr[6] = (ctx.gpr[6] + ctx.gpr[7]);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(532)));
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(76)));
+    ctx.gpr[6] = (static_cast<std::int32_t>(ctx.gpr[7]) < static_cast<std::int32_t>(ctx.gpr[6]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[6] != 0u;
+    ctx.gpr[6] = (0u | 1u);
+      if (branch_taken) {
+          goto L_088D0CC0;
+      }
+      goto L_088D0CB8;
+    }
+L_088D0CB8:
+    ctx.gpr[2] = (0u | 1u);
+    goto L_088D0CBC;
+L_088D0CBC:
+    ctx.gpr[6] = (0u | 1u);
+    goto L_088D0CC0;
+L_088D0CC0:
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[6];
+    ctx.gpr[6] = (0u | 3u);
+      if (branch_taken) {
+          goto L_088D0D04;
+      }
+      goto L_088D0CC8;
+    }
+L_088D0CC8:
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[6] = (ctx.gpr[6] << 2u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(276)));
+    ctx.gpr[6] = (ctx.gpr[6] << 5u);
+    ctx.gpr[7] = (ctx.gpr[6] + ctx.gpr[6]);
+    ctx.gpr[6] = (ctx.gpr[6] + ctx.gpr[7]);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(4660)));
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(76)));
+    ctx.gpr[6] = (static_cast<std::int32_t>(ctx.gpr[7]) < static_cast<std::int32_t>(ctx.gpr[6]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[6] != 0u;
+    ctx.gpr[6] = (0u | 3u);
+      if (branch_taken) {
+          goto L_088D0D04;
+      }
+      goto L_088D0CFC;
+    }
+L_088D0CFC:
+    ctx.gpr[2] = (0u | 1u);
+    ctx.gpr[6] = (0u | 3u);
+    goto L_088D0D04;
+L_088D0D04:
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[6];
+    // nop
+      if (branch_taken) {
+          goto L_088D0D20;
+      }
+      goto L_088D0D0C;
+    }
+L_088D0D0C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(76)));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[4]) < 100 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D0D20;
+      }
+      goto L_088D0D1C;
+    }
+L_088D0D1C:
+    ctx.gpr[2] = (0u | 1u);
+    goto L_088D0D20;
+L_088D0D20:
+    jump_target = ctx.gpr[31];
+    // nop
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D0D28:
+    ctx.gpr[5] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(12)));
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[6] = (ctx.gpr[4] | 0u);
+      if (branch_taken) {
+          goto L_088D0D70;
+      }
+      goto L_088D0D3C;
+    }
+L_088D0D3C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[4] = (ctx.gpr[4] << 2u);
+    ctx.gpr[4] = (ctx.gpr[5] + ctx.gpr[4]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(276)));
+    ctx.gpr[4] = (ctx.gpr[4] << 5u);
+    ctx.gpr[6] = (ctx.gpr[4] + ctx.gpr[4]);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[6]);
+    ctx.gpr[4] = (ctx.gpr[5] + ctx.gpr[4]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(4660)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(76)));
+    ctx.gpr[4] = (ctx.gpr[6] - ctx.gpr[4]);
+    jump_target = ctx.gpr[31];
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(76), ctx.gpr[4]);
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D0D70:
+    ctx.gpr[7] = (0u | 1u);
+    { const bool branch_taken = ctx.gpr[6] != ctx.gpr[7];
+    ctx.gpr[4] = (0u | 100u);
+      if (branch_taken) {
+          goto L_088D0DA0;
+      }
+      goto L_088D0D7C;
+    }
+L_088D0D7C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[4] = (ctx.gpr[4] << 2u);
+    ctx.gpr[4] = (ctx.gpr[5] + ctx.gpr[4]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(100)));
+    ctx.gpr[4] = (ctx.gpr[4] << 5u);
+    ctx.gpr[6] = (ctx.gpr[4] + ctx.gpr[4]);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[6]);
+    ctx.gpr[4] = (ctx.gpr[5] + ctx.gpr[4]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(532)));
+    goto L_088D0DA0;
+L_088D0DA0:
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(76)));
+    ctx.gpr[4] = (ctx.gpr[6] - ctx.gpr[4]);
+    jump_target = ctx.gpr[31];
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(76), ctx.gpr[4]);
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D0DB0:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    ctx.gpr[19] = (2222u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(264)));
+    ctx.gpr[4] = (0u | 48u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[20]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(36), ctx.gpr[31]);
+    jump_target = ctx.gpr[6];
+    ctx.gpr[31] = (0x088D0DE4u);
+    ctx.gpr[5] = (0u | 160u);
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D0DE4u) goto L_088D0DE4;
+    return;
+L_088D0DE4:
+    ctx.gpr[18] = (ctx.gpr[2] | 0u);
+    ctx.gpr[31] = (0x088D0DF0u);
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 728u, 0x088336E8u>(ctx, &aot_mem) && ctx.pc == 0x088D0DF0u) goto L_088D0DF0;
+    return;
+L_088D0DF0:
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int16_t>(aot_mem.aot_load16(ctx.gpr[18] + static_cast<std::uint32_t>(0))))));
+    ctx.gpr[5] = (0u + static_cast<std::uint32_t>(-1));
+    if (ctx.gpr[4] == ctx.gpr[5]) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(-23940)));
+        goto L_088D0F50;
+    }
+    goto L_088D0E00;
+L_088D0E00:
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[18] + static_cast<std::uint32_t>(46)));
+    { const bool branch_taken = ctx.gpr[4] == 0u;
+    ctx.gpr[17] = (ctx.gpr[18] + static_cast<std::uint32_t>(8));
+      if (branch_taken) {
+          goto L_088D0F4C;
+      }
+      goto L_088D0E0C;
+    }
+L_088D0E0C:
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[6] = (0u | 8u);
+    ctx.gpr[31] = (0x088D0E20u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6936));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 543u, 0x08A9DEE8u>(ctx, &aot_mem) && ctx.pc == 0x088D0E20u) goto L_088D0E20;
+    return;
+L_088D0E20:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[16] = (ctx.gpr[18] + static_cast<std::uint32_t>(17));
+      if (branch_taken) {
+          goto L_088D0E64;
+      }
+      goto L_088D0E28;
+    }
+L_088D0E28:
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int8_t>(aot_mem.aot_load8(ctx.gpr[18] + static_cast<std::uint32_t>(3))))));
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-1));
+    aot_mem.aot_store8(ctx.gpr[18] + static_cast<std::uint32_t>(3), static_cast<std::uint8_t>(ctx.gpr[4]));
+    ctx.gpr[20] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6924));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (ctx.gpr[20] | 0u);
+    ctx.gpr[31] = (0x088D0E4Cu);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0E4Cu) goto L_088D0E4C;
+    return;
+L_088D0E4C:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (ctx.gpr[20] | 0u);
+    ctx.gpr[31] = (0x088D0E5Cu);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0E5Cu) goto L_088D0E5C;
+    return;
+L_088D0E5C:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D0F08;
+      }
+      goto L_088D0E64;
+    }
+L_088D0E64:
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[6] = (0u | 8u);
+    ctx.gpr[31] = (0x088D0E78u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6912));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 543u, 0x08A9DEE8u>(ctx, &aot_mem) && ctx.pc == 0x088D0E78u) goto L_088D0E78;
+    return;
+L_088D0E78:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[5] = (2220u << 16u);
+      if (branch_taken) {
+          goto L_088D0EBC;
+      }
+      goto L_088D0E80;
+    }
+L_088D0E80:
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int8_t>(aot_mem.aot_load8(ctx.gpr[18] + static_cast<std::uint32_t>(3))))));
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-1));
+    aot_mem.aot_store8(ctx.gpr[18] + static_cast<std::uint32_t>(3), static_cast<std::uint8_t>(ctx.gpr[4]));
+    ctx.gpr[20] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6900));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (ctx.gpr[20] | 0u);
+    ctx.gpr[31] = (0x088D0EA4u);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0EA4u) goto L_088D0EA4;
+    return;
+L_088D0EA4:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (ctx.gpr[20] | 0u);
+    ctx.gpr[31] = (0x088D0EB4u);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0EB4u) goto L_088D0EB4;
+    return;
+L_088D0EB4:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D0F08;
+      }
+      goto L_088D0EBC;
+    }
+L_088D0EBC:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[6] = (0u | 8u);
+    ctx.gpr[31] = (0x088D0ECCu);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6888));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 543u, 0x08A9DEE8u>(ctx, &aot_mem) && ctx.pc == 0x088D0ECCu) goto L_088D0ECC;
+    return;
+L_088D0ECC:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D0F08;
+      }
+      goto L_088D0ED4;
+    }
+L_088D0ED4:
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int8_t>(aot_mem.aot_load8(ctx.gpr[18] + static_cast<std::uint32_t>(3))))));
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store8(ctx.gpr[18] + static_cast<std::uint32_t>(3), static_cast<std::uint8_t>(ctx.gpr[4]));
+    ctx.gpr[20] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6876));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (ctx.gpr[20] | 0u);
+    ctx.gpr[31] = (0x088D0EF8u);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0EF8u) goto L_088D0EF8;
+    return;
+L_088D0EF8:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (ctx.gpr[20] | 0u);
+    ctx.gpr[31] = (0x088D0F08u);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0F08u) goto L_088D0F08;
+    return;
+L_088D0F08:
+    ctx.gpr[31] = (0x088D0F10u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 952u, 0x0881FB40u>(ctx, &aot_mem) && ctx.pc == 0x088D0F10u) goto L_088D0F10;
+    return;
+L_088D0F10:
+    ctx.gpr[31] = (0x088D0F18u);
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 565u, 0x0881E2BCu>(ctx, &aot_mem) && ctx.pc == 0x088D0F18u) goto L_088D0F18;
+    return;
+L_088D0F18:
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    ctx.gpr[5] = (0u | 1u);
+    ctx.gpr[6] = (ctx.gpr[17] | 0u);
+    ctx.gpr[31] = (0x088D0F2Cu);
+    ctx.gpr[7] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0005_entry, 5u, 292u, 0x088192E0u>(ctx, &aot_mem) && ctx.pc == 0x088D0F2Cu) goto L_088D0F2C;
+    return;
+L_088D0F2C:
+    ctx.gpr[6] = (2221u << 16u);
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (0u | 1u);
+    aot_mem.aot_store8(ctx.gpr[7] + static_cast<std::uint32_t>(72), static_cast<std::uint8_t>(ctx.gpr[5]));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (0u | 0u);
+    ctx.gpr[31] = (0x088D0F4Cu);
+    aot_mem.aot_store8(ctx.gpr[6] + static_cast<std::uint32_t>(73), static_cast<std::uint8_t>(ctx.gpr[5]));
+    if (rt.invoke_chained_direct<&recomp_unit_0018_entry, 18u, 18u, 0x0884C14Cu>(ctx, &aot_mem) && ctx.pc == 0x088D0F4Cu) goto L_088D0F4C;
+    return;
+L_088D0F4C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(-23940)));
+    goto L_088D0F50;
+L_088D0F50:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D0F5Cu);
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D0F5Cu) goto L_088D0F5C;
+    return;
+L_088D0F5C:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[20] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(36)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D0F7C:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-80));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(64), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(68), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(72), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(76), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D0F98u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0018_entry, 18u, 18u, 0x0884C14Cu>(ctx, &aot_mem) && ctx.pc == 0x088D0F98u) goto L_088D0F98;
+    return;
+L_088D0F98:
+    ctx.gpr[31] = (0x088D0FA0u);
+    ctx.gpr[4] = (ctx.gpr[29] + static_cast<std::uint32_t>(16));
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 728u, 0x088336E8u>(ctx, &aot_mem) && ctx.pc == 0x088D0FA0u) goto L_088D0FA0;
+    return;
+L_088D0FA0:
+    ctx.gpr[18] = (2220u << 16u);
+    ctx.gpr[17] = (ctx.gpr[29] + static_cast<std::uint32_t>(24));
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(-6936));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (ctx.gpr[18] | 0u);
+    ctx.gpr[31] = (0x088D0FBCu);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 543u, 0x08A9DEE8u>(ctx, &aot_mem) && ctx.pc == 0x088D0FBCu) goto L_088D0FBC;
+    return;
+L_088D0FBC:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[16] = (ctx.gpr[29] + static_cast<std::uint32_t>(33));
+      if (branch_taken) {
+          goto L_088D0FF8;
+      }
+      goto L_088D0FC4;
+    }
+L_088D0FC4:
+    ctx.gpr[5] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int8_t>(aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(19))))));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(19), static_cast<std::uint8_t>(ctx.gpr[5]));
+    ctx.gpr[5] = (ctx.gpr[18] | 0u);
+    ctx.gpr[31] = (0x088D0FE0u);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0FE0u) goto L_088D0FE0;
+    return;
+L_088D0FE0:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (ctx.gpr[18] | 0u);
+    ctx.gpr[31] = (0x088D0FF0u);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D0FF0u) goto L_088D0FF0;
+    return;
+L_088D0FF0:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D1078;
+      }
+      goto L_088D0FF8;
+    }
+L_088D0FF8:
+    ctx.gpr[18] = (2220u << 16u);
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(-6912));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (ctx.gpr[18] | 0u);
+    ctx.gpr[31] = (0x088D1010u);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 543u, 0x08A9DEE8u>(ctx, &aot_mem) && ctx.pc == 0x088D1010u) goto L_088D1010;
+    return;
+L_088D1010:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int8_t>(aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(19))))));
+      if (branch_taken) {
+          goto L_088D1048;
+      }
+      goto L_088D1018;
+    }
+L_088D1018:
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(19), static_cast<std::uint8_t>(ctx.gpr[4]));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (ctx.gpr[18] | 0u);
+    ctx.gpr[31] = (0x088D1030u);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D1030u) goto L_088D1030;
+    return;
+L_088D1030:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (ctx.gpr[18] | 0u);
+    ctx.gpr[31] = (0x088D1040u);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D1040u) goto L_088D1040;
+    return;
+L_088D1040:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D1078;
+      }
+      goto L_088D1048;
+    }
+L_088D1048:
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-1));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(19), static_cast<std::uint8_t>(ctx.gpr[4]));
+    ctx.gpr[4] = (2220u << 16u);
+    ctx.gpr[18] = (ctx.gpr[4] + static_cast<std::uint32_t>(-6888));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (ctx.gpr[18] | 0u);
+    ctx.gpr[31] = (0x088D1068u);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D1068u) goto L_088D1068;
+    return;
+L_088D1068:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (ctx.gpr[18] | 0u);
+    ctx.gpr[31] = (0x088D1078u);
+    ctx.gpr[6] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D1078u) goto L_088D1078;
+    return;
+L_088D1078:
+    ctx.gpr[31] = (0x088D1080u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 952u, 0x0881FB40u>(ctx, &aot_mem) && ctx.pc == 0x088D1080u) goto L_088D1080;
+    return;
+L_088D1080:
+    ctx.gpr[31] = (0x088D1088u);
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 565u, 0x0881E2BCu>(ctx, &aot_mem) && ctx.pc == 0x088D1088u) goto L_088D1088;
+    return;
+L_088D1088:
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    ctx.gpr[5] = (0u | 1u);
+    ctx.gpr[6] = (ctx.gpr[17] | 0u);
+    ctx.gpr[31] = (0x088D109Cu);
+    ctx.gpr[7] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0005_entry, 5u, 292u, 0x088192E0u>(ctx, &aot_mem) && ctx.pc == 0x088D109Cu) goto L_088D109C;
+    return;
+L_088D109C:
+    ctx.gpr[31] = (0x088D10A4u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0018_entry, 18u, 18u, 0x0884C14Cu>(ctx, &aot_mem) && ctx.pc == 0x088D10A4u) goto L_088D10A4;
+    return;
+L_088D10A4:
+    ctx.gpr[5] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (0u | 1u);
+    aot_mem.aot_store8(ctx.gpr[5] + static_cast<std::uint32_t>(73), static_cast<std::uint8_t>(ctx.gpr[4]));
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(64)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(72)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(76)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(80));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D10CC:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[5] = (ctx.gpr[5] << 2u);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(276)));
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[4] + static_cast<std::uint32_t>(4668)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    ctx.gpr[16] = (0u | 1u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[16];
+    ctx.gpr[18] = (0u | 1u);
+      if (branch_taken) {
+          goto L_088D1160;
+      }
+      goto L_088D111C;
+    }
+L_088D111C:
+    ctx.gpr[17] = (2222u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[19] = (ctx.gpr[16] | 0u);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(264)));
+    ctx.gpr[4] = (0u | 48u);
+    jump_target = ctx.gpr[6];
+    ctx.gpr[31] = (0x088D1138u);
+    ctx.gpr[5] = (0u | 160u);
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D1138u) goto L_088D1138;
+    return;
+L_088D1138:
+    ctx.gpr[16] = (ctx.gpr[2] | 0u);
+    ctx.gpr[31] = (0x088D1144u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 728u, 0x088336E8u>(ctx, &aot_mem) && ctx.pc == 0x088D1144u) goto L_088D1144;
+    return;
+L_088D1144:
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[16] + static_cast<std::uint32_t>(47)));
+    if (ctx.gpr[4] == ctx.gpr[19]) {
+    ctx.gpr[18] = (0u | 0u);
+        goto L_088D1150;
+    }
+    goto L_088D1150;
+L_088D1150:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D1160u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D1160u) goto L_088D1160;
+    return;
+L_088D1160:
+    ctx.gpr[2] = (ctx.gpr[18] | 0u);
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D1180:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    ctx.gpr[16] = (ctx.gpr[4] | 0u);
+    ctx.gpr[17] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[18] = (0u + static_cast<std::uint32_t>(-1));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[20]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(36), ctx.gpr[21]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(40), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[18];
+    // nop
+      if (branch_taken) {
+          goto L_088D1350;
+      }
+      goto L_088D11BC;
+    }
+L_088D11BC:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[6] = (0u | 128u);
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[6];
+    ctx.gpr[21] = (0u | 8u);
+      if (branch_taken) {
+          goto L_088D124C;
+      }
+      goto L_088D11CC;
+    }
+L_088D11CC:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8528)));
+    if (ctx.gpr[5] != 0u) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+        goto L_088D1250;
+    }
+    goto L_088D11D8;
+L_088D11D8:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(60), ctx.gpr[18]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(16), ctx.gpr[5]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(20), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(28), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(36), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(24), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (0u | 3u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(32), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(40), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(56), ctx.gpr[5]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[4]) < 2 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D1244;
+      }
+      goto L_088D123C;
+    }
+L_088D123C:
+    ctx.gpr[31] = (0x088D1244u);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 374u, 0x088D6B08u>(ctx, &aot_mem) && ctx.pc == 0x088D1244u) goto L_088D1244;
+    return;
+L_088D1244:
+    ctx.gpr[31] = (0x088D124Cu);
+    ctx.gpr[4] = (0u | 12u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D124Cu) goto L_088D124C;
+    return;
+L_088D124C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+    goto L_088D1250;
+L_088D1250:
+    ctx.gpr[5] = (0u | 64u);
+    if (ctx.gpr[4] != ctx.gpr[5]) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(8)));
+        goto L_088D12BC;
+    }
+    goto L_088D125C;
+L_088D125C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8528)));
+    if (ctx.gpr[5] != 0u) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(8)));
+        goto L_088D12BC;
+    }
+    goto L_088D126C;
+L_088D126C:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(60), ctx.gpr[18]);
+    ctx.gpr[19] = (0u | 32768u);
+    ctx.gpr[18] = (0u | 180u);
+    ctx.gpr[31] = (0x088D1280u);
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0080_entry, 80u, 170u, 0x08944C38u>(ctx, &aot_mem) && ctx.pc == 0x088D1280u) goto L_088D1280;
+    return;
+L_088D1280:
+    ctx.gpr[20] = (0u | 1u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    if (ctx.gpr[2] == ctx.gpr[20]) {
+    ctx.gpr[18] = (0u | 0u);
+        goto L_088D1290;
+    }
+    goto L_088D1290;
+L_088D1290:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(68), ctx.gpr[18]);
+    ctx.gpr[18] = (0u + static_cast<std::uint32_t>(-1));
+    ctx.gpr[31] = (0x088D12A0u);
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0080_entry, 80u, 170u, 0x08944C38u>(ctx, &aot_mem) && ctx.pc == 0x088D12A0u) goto L_088D12A0;
+    return;
+L_088D12A0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    if (ctx.gpr[2] == ctx.gpr[20]) {
+    ctx.gpr[18] = (0u | 2u);
+        goto L_088D12AC;
+    }
+    goto L_088D12AC;
+L_088D12AC:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(56), ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D12B8u);
+    ctx.gpr[4] = (0u | 6u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D12B8u) goto L_088D12B8;
+    return;
+L_088D12B8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(8)));
+    goto L_088D12BC;
+L_088D12BC:
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[21];
+    ctx.gpr[5] = (0u | 4u);
+      if (branch_taken) {
+          goto L_088D1308;
+      }
+      goto L_088D12C4;
+    }
+L_088D12C4:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(12)));
+    ctx.gpr[6] = (static_cast<std::int32_t>(ctx.gpr[4]) < 2 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[6] == 0u;
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(1));
+      if (branch_taken) {
+          goto L_088D12F8;
+      }
+      goto L_088D12D8;
+    }
+L_088D12D8:
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(12), ctx.gpr[4]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D12E8u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    if (rt.invoke_chained_direct<&recomp_unit_0080_entry, 80u, 178u, 0x08944D00u>(ctx, &aot_mem) && ctx.pc == 0x088D12E8u) goto L_088D12E8;
+    return;
+L_088D12E8:
+    ctx.gpr[31] = (0x088D12F0u);
+    ctx.gpr[4] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D12F0u) goto L_088D12F0;
+    return;
+L_088D12F0:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(8)));
+      if (branch_taken) {
+          goto L_088D1304;
+      }
+      goto L_088D12F8;
+    }
+L_088D12F8:
+    ctx.gpr[31] = (0x088D1300u);
+    ctx.gpr[4] = (0u | 6u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D1300u) goto L_088D1300;
+    return;
+L_088D1300:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(8)));
+    goto L_088D1304;
+L_088D1304:
+    ctx.gpr[5] = (0u | 4u);
+    goto L_088D1308;
+L_088D1308:
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[5];
+    // nop
+      if (branch_taken) {
+          goto L_088D13DC;
+      }
+      goto L_088D1310;
+    }
+L_088D1310:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(12)));
+    { const bool branch_taken = static_cast<std::int32_t>(ctx.gpr[4]) <= 0;
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-1));
+      if (branch_taken) {
+          goto L_088D1340;
+      }
+      goto L_088D1320;
+    }
+L_088D1320:
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(12), ctx.gpr[4]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D1330u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    if (rt.invoke_chained_direct<&recomp_unit_0080_entry, 80u, 178u, 0x08944D00u>(ctx, &aot_mem) && ctx.pc == 0x088D1330u) goto L_088D1330;
+    return;
+L_088D1330:
+    ctx.gpr[31] = (0x088D1338u);
+    ctx.gpr[4] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D1338u) goto L_088D1338;
+    return;
+L_088D1338:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D13DC;
+      }
+      goto L_088D1340;
+    }
+L_088D1340:
+    ctx.gpr[31] = (0x088D1348u);
+    ctx.gpr[4] = (0u | 6u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D1348u) goto L_088D1348;
+    return;
+L_088D1348:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D13DC;
+      }
+      goto L_088D1350;
+    }
+L_088D1350:
+    ctx.gpr[31] = (0x088D1358u);
+    ctx.gpr[4] = (0u | 1u);
+    if (rt.invoke_chained_direct<&recomp_unit_0007_entry, 7u, 208u, 0x088213B0u>(ctx, &aot_mem) && ctx.pc == 0x088D1358u) goto L_088D1358;
+    return;
+L_088D1358:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(68), ctx.gpr[5]);
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[4]) < 180 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D13DC;
+      }
+      goto L_088D137C;
+    }
+L_088D137C:
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[17] + static_cast<std::uint32_t>(72)));
+    ctx.gpr[5] = (0u | 1u);
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[5];
+    ctx.gpr[4] = (2189u << 16u);
+      if (branch_taken) {
+          goto L_088D13A0;
+      }
+      goto L_088D138C;
+    }
+L_088D138C:
+    ctx.gpr[4] = (0u | 1u);
+    ctx.gpr[31] = (0x088D1398u);
+    aot_mem.aot_store8(ctx.gpr[17] + static_cast<std::uint32_t>(74), static_cast<std::uint8_t>(ctx.gpr[4]));
+    goto L_088D0F7C;
+L_088D1398:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D13DC;
+      }
+      goto L_088D13A0;
+    }
+L_088D13A0:
+    ctx.gpr[5] = (0u | 8u);
+    ctx.gpr[31] = (0x088D13ACu);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2136));
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 698u, 0x0884BC60u>(ctx, &aot_mem) && ctx.pc == 0x088D13ACu) goto L_088D13AC;
+    return;
+L_088D13AC:
+    ctx.gpr[31] = (0x088D13B4u);
+    ctx.gpr[4] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 705u, 0x0884BCE4u>(ctx, &aot_mem) && ctx.pc == 0x088D13B4u) goto L_088D13B4;
+    return;
+L_088D13B4:
+    ctx.gpr[31] = (0x088D13BCu);
+    ctx.gpr[4] = (0u | 7u);
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 712u, 0x0884BD54u>(ctx, &aot_mem) && ctx.pc == 0x088D13BCu) goto L_088D13BC;
+    return;
+L_088D13BC:
+    ctx.gpr[31] = (0x088D13C4u);
+    ctx.gpr[4] = (0u | 7u);
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 713u, 0x0884BD6Cu>(ctx, &aot_mem) && ctx.pc == 0x088D13C4u) goto L_088D13C4;
+    return;
+L_088D13C4:
+    ctx.gpr[4] = (2182u << 16u);
+    ctx.gpr[5] = (2182u << 16u);
+    ctx.gpr[6] = (0u | 6u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(17012));
+    ctx.gpr[31] = (0x088D13DCu);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(17564));
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 695u, 0x0884BC14u>(ctx, &aot_mem) && ctx.pc == 0x088D13DCu) goto L_088D13DC;
+    return;
+L_088D13DC:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[20] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    ctx.gpr[21] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(36)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(40)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D1400:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    ctx.gpr[16] = (ctx.gpr[4] | 0u);
+    ctx.gpr[19] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load8(ctx.gpr[4] + static_cast<std::uint32_t>(52)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[17] = (0u | 1u);
+      if (branch_taken) {
+          goto L_088D1578;
+      }
+      goto L_088D1430;
+    }
+L_088D1430:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[18] = (0u | 128u);
+    if (ctx.gpr[5] != ctx.gpr[18]) {
+    ctx.gpr[4] = (0u | 64u);
+        goto L_088D1494;
+    }
+    goto L_088D1440;
+L_088D1440:
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8528)));
+    if (ctx.gpr[6] != 0u) {
+    ctx.gpr[4] = (0u | 64u);
+        goto L_088D1494;
+    }
+    goto L_088D144C;
+L_088D144C:
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(44)));
+    if (ctx.gpr[6] != 0u) {
+    ctx.gpr[4] = (0u | 64u);
+        goto L_088D1494;
+    }
+    goto L_088D1458;
+L_088D1458:
+    ctx.gpr[5] = (0u | 1u);
+    ctx.gpr[31] = (0x088D1464u);
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(52), static_cast<std::uint8_t>(ctx.gpr[5]));
+    goto L_088D38B8;
+L_088D1464:
+    ctx.gpr[31] = (0x088D146Cu);
+    // nop
+    goto L_088D0D28;
+L_088D146C:
+    ctx.gpr[31] = (0x088D1474u);
+    // nop
+    goto L_088D0A88;
+L_088D1474:
+    ctx.gpr[31] = (0x088D147Cu);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0012_entry, 12u, 201u, 0x08834E80u>(ctx, &aot_mem) && ctx.pc == 0x088D147Cu) goto L_088D147C;
+    return;
+L_088D147C:
+    ctx.gpr[31] = (0x088D1484u);
+    ctx.gpr[4] = (0u | 12u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D1484u) goto L_088D1484;
+    return;
+L_088D1484:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(56), ctx.gpr[17]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[4] = (0u | 64u);
+    goto L_088D1494;
+L_088D1494:
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[4];
+    // nop
+      if (branch_taken) {
+          goto L_088D14AC;
+      }
+      goto L_088D149C;
+    }
+L_088D149C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8528)));
+    { const bool branch_taken = ctx.gpr[4] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D14D0;
+      }
+      goto L_088D14AC;
+    }
+L_088D14AC:
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[18];
+    ctx.gpr[4] = (0u | 2u);
+      if (branch_taken) {
+          goto L_088D14FC;
+      }
+      goto L_088D14B4;
+    }
+L_088D14B4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8528)));
+    if (ctx.gpr[6] != 0u) {
+    ctx.gpr[4] = (0u | 2u);
+        goto L_088D14FC;
+    }
+    goto L_088D14C4;
+L_088D14C4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(44)));
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[17];
+    ctx.gpr[4] = (0u | 2u);
+      if (branch_taken) {
+          goto L_088D14FC;
+      }
+      goto L_088D14D0;
+    }
+L_088D14D0:
+    ctx.gpr[31] = (0x088D14D8u);
+    // nop
+    goto L_088D27C4;
+L_088D14D8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(1));
+    ctx.gpr[31] = (0x088D14ECu);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(16), ctx.gpr[5]);
+    if (rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 374u, 0x088D6B08u>(ctx, &aot_mem) && ctx.pc == 0x088D14ECu) goto L_088D14EC;
+    return;
+L_088D14EC:
+    ctx.gpr[31] = (0x088D14F4u);
+    ctx.gpr[4] = (0u | 6u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D14F4u) goto L_088D14F4;
+    return;
+L_088D14F4:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[4] = (0u | 2u);
+    goto L_088D14FC;
+L_088D14FC:
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[4];
+    // nop
+      if (branch_taken) {
+          goto L_088D1534;
+      }
+      goto L_088D1504;
+    }
+L_088D1504:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(44)));
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[17];
+    // nop
+      if (branch_taken) {
+          goto L_088D1528;
+      }
+      goto L_088D1514;
+    }
+L_088D1514:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(44), ctx.gpr[17]);
+    ctx.gpr[31] = (0x088D1520u);
+    ctx.gpr[4] = (0u | 21u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D1520u) goto L_088D1520;
+    return;
+L_088D1520:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+      if (branch_taken) {
+          goto L_088D1534;
+      }
+      goto L_088D1528;
+    }
+L_088D1528:
+    ctx.gpr[31] = (0x088D1530u);
+    ctx.gpr[4] = (0u | 6u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D1530u) goto L_088D1530;
+    return;
+L_088D1530:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+    goto L_088D1534;
+L_088D1534:
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[17];
+    // nop
+      if (branch_taken) {
+          goto L_088D1568;
+      }
+      goto L_088D153C;
+    }
+L_088D153C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(44)));
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D1560;
+      }
+      goto L_088D154C;
+    }
+L_088D154C:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(44), 0u);
+    ctx.gpr[31] = (0x088D1558u);
+    ctx.gpr[4] = (0u | 21u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D1558u) goto L_088D1558;
+    return;
+L_088D1558:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D1568;
+      }
+      goto L_088D1560;
+    }
+L_088D1560:
+    ctx.gpr[31] = (0x088D1568u);
+    ctx.gpr[4] = (0u | 6u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D1568u) goto L_088D1568;
+    return;
+L_088D1568:
+    ctx.gpr[31] = (0x088D1570u);
+    // nop
+    goto L_088D2864;
+L_088D1570:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D15E8;
+      }
+      goto L_088D1578;
+    }
+L_088D1578:
+    ctx.gpr[31] = (0x088D1580u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 952u, 0x0881FB40u>(ctx, &aot_mem) && ctx.pc == 0x088D1580u) goto L_088D1580;
+    return;
+L_088D1580:
+    ctx.gpr[31] = (0x088D1588u);
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 565u, 0x0881E2BCu>(ctx, &aot_mem) && ctx.pc == 0x088D1588u) goto L_088D1588;
+    return;
+L_088D1588:
+    ctx.gpr[31] = (0x088D1590u);
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0005_entry, 5u, 1018u, 0x0881BEC4u>(ctx, &aot_mem) && ctx.pc == 0x088D1590u) goto L_088D1590;
+    return;
+L_088D1590:
+    { const bool branch_taken = ctx.gpr[2] != ctx.gpr[17];
+    // nop
+      if (branch_taken) {
+          goto L_088D15E8;
+      }
+      goto L_088D1598;
+    }
+L_088D1598:
+    ctx.gpr[31] = (0x088D15A0u);
+    // nop
+    goto L_088D091C;
+L_088D15A0:
+    ctx.gpr[31] = (0x088D15A8u);
+    // nop
+    goto L_088D0970;
+L_088D15A8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[5]) < 2 ? 1u : 0u);
+    if (ctx.gpr[5] == 0u) {
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(16), 0u);
+        goto L_088D15CC;
+    }
+    goto L_088D15BC;
+L_088D15BC:
+    ctx.gpr[31] = (0x088D15C4u);
+    // nop
+    goto L_088D27C4;
+L_088D15C4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(16), 0u);
+    goto L_088D15CC;
+L_088D15CC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(12), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(52), static_cast<std::uint8_t>(0u));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D15E8u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    if (rt.invoke_chained_direct<&recomp_unit_0080_entry, 80u, 178u, 0x08944D00u>(ctx, &aot_mem) && ctx.pc == 0x088D15E8u) goto L_088D15E8;
+    return;
+L_088D15E8:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D1604:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-32));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    ctx.gpr[16] = (2222u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(264)));
+    ctx.gpr[4] = (0u | 144u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[31]);
+    jump_target = ctx.gpr[6];
+    ctx.gpr[31] = (0x088D162Cu);
+    ctx.gpr[5] = (0u | 160u);
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D162Cu) goto L_088D162C;
+    return;
+L_088D162C:
+    ctx.gpr[17] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(8460), ctx.gpr[2]);
+    ctx.gpr[4] = (ctx.gpr[2] + static_cast<std::uint32_t>(4));
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D1648u);
+    ctx.gpr[6] = (0u | 32u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D1648u) goto L_088D1648;
+    return;
+L_088D1648:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8460)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(0), 0u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(264)));
+    ctx.gpr[4] = (0u | 16u);
+    jump_target = ctx.gpr[6];
+    ctx.gpr[31] = (0x088D1668u);
+    ctx.gpr[5] = (0u | 160u);
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D1668u) goto L_088D1668;
+    return;
+L_088D1668:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    ctx.gpr[31] = (0x088D1678u);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(8456), ctx.gpr[2]);
+    if (rt.invoke_chained_direct<&recomp_unit_0010_entry, 10u, 741u, 0x0882EE90u>(ctx, &aot_mem) && ctx.pc == 0x088D1678u) goto L_088D1678;
+    return;
+L_088D1678:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(264)));
+    ctx.gpr[4] = (0u | 144u);
+    jump_target = ctx.gpr[6];
+    ctx.gpr[31] = (0x088D168Cu);
+    ctx.gpr[5] = (0u | 160u);
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D168Cu) goto L_088D168C;
+    return;
+L_088D168C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8464), ctx.gpr[2]);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[4] = (ctx.gpr[2] + static_cast<std::uint32_t>(4));
+    ctx.gpr[31] = (0x088D16A4u);
+    ctx.gpr[6] = (0u | 32u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D16A4u) goto L_088D16A4;
+    return;
+L_088D16A4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8464)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(0), 0u);
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(32));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D16C4:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-16));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(0), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D16D4u);
+    // nop
+    goto L_088D319C;
+L_088D16D4:
+    ctx.gpr[31] = (0x088D16DCu);
+    // nop
+    goto L_088D091C;
+L_088D16DC:
+    ctx.gpr[31] = (0x088D16E4u);
+    // nop
+    goto L_088D0970;
+L_088D16E4:
+    ctx.gpr[31] = (0x088D16ECu);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 175u, 0x088D4A68u>(ctx, &aot_mem) && ctx.pc == 0x088D16ECu) goto L_088D16EC;
+    return;
+L_088D16EC:
+    ctx.gpr[31] = (0x088D16F4u);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 216u, 0x088D50D8u>(ctx, &aot_mem) && ctx.pc == 0x088D16F4u) goto L_088D16F4;
+    return;
+L_088D16F4:
+    ctx.gpr[31] = (0x088D16FCu);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 245u, 0x088D5540u>(ctx, &aot_mem) && ctx.pc == 0x088D16FCu) goto L_088D16FC;
+    return;
+L_088D16FC:
+    ctx.gpr[31] = (0x088D1704u);
+    // nop
+    goto L_088D2460;
+L_088D1704:
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(0)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(16));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D1710:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-32));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    ctx.gpr[16] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8468)));
+    ctx.gpr[5] = (0u | 1u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[31]);
+    if (ctx.gpr[4] != ctx.gpr[5]) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+        goto L_088D1770;
+    }
+    goto L_088D1738;
+L_088D1738:
+    ctx.gpr[31] = (0x088D1740u);
+    // nop
+    goto L_088D18F0;
+L_088D1740:
+    ctx.gpr[31] = (0x088D1748u);
+    // nop
+    goto L_088D1D00;
+L_088D1748:
+    ctx.gpr[31] = (0x088D1750u);
+    // nop
+    goto L_088D209C;
+L_088D1750:
+    ctx.gpr[31] = (0x088D1758u);
+    // nop
+    goto L_088D26A0;
+L_088D1758:
+    ctx.gpr[31] = (0x088D1760u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0010_entry, 10u, 761u, 0x0882EFC4u>(ctx, &aot_mem) && ctx.pc == 0x088D1760u) goto L_088D1760;
+    return;
+L_088D1760:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D176Cu);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8456)));
+    if (rt.invoke_chained_direct<&recomp_unit_0010_entry, 10u, 742u, 0x0882EEA8u>(ctx, &aot_mem) && ctx.pc == 0x088D176Cu) goto L_088D176C;
+    return;
+L_088D176C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    goto L_088D1770;
+L_088D1770:
+    ctx.gpr[17] = (2222u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D1784u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8460)));
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D1784u) goto L_088D1784;
+    return;
+L_088D1784:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8460), 0u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D179Cu);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8456)));
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D179Cu) goto L_088D179C;
+    return;
+L_088D179C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8456), 0u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D17B4u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8464)));
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D17B4u) goto L_088D17B4;
+    return;
+L_088D17B4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8464), 0u);
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(32));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D17D0:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-16));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(0), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D17E0u);
+    // nop
+    goto L_088D1A68;
+L_088D17E0:
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[5] = (ctx.gpr[4] < static_cast<std::uint32_t>(5) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D1834;
+      }
+      goto L_088D17F8;
+    }
+L_088D17F8:
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(1));
+    { const bool branch_taken = ctx.gpr[4] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(2));
+      if (branch_taken) {
+          goto L_088D182C;
+      }
+      goto L_088D1804;
+    }
+L_088D1804:
+    { const bool branch_taken = ctx.gpr[4] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(3));
+      if (branch_taken) {
+          goto L_088D182C;
+      }
+      goto L_088D180C;
+    }
+L_088D180C:
+    { const bool branch_taken = ctx.gpr[4] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(4));
+      if (branch_taken) {
+          goto L_088D182C;
+      }
+      goto L_088D1814;
+    }
+L_088D1814:
+    { const bool branch_taken = ctx.gpr[4] == ctx.gpr[1];
+    // nop
+      if (branch_taken) {
+          goto L_088D182C;
+      }
+      goto L_088D181C;
+    }
+L_088D181C:
+    ctx.gpr[31] = (0x088D1824u);
+    // nop
+    goto L_088D1DEC;
+L_088D1824:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D1834;
+      }
+      goto L_088D182C;
+    }
+L_088D182C:
+    ctx.gpr[31] = (0x088D1834u);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 296u, 0x088D6298u>(ctx, &aot_mem) && ctx.pc == 0x088D1834u) goto L_088D1834;
+    return;
+L_088D1834:
+    ctx.gpr[31] = (0x088D183Cu);
+    // nop
+    goto L_088D2748;
+L_088D183C:
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(0)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(16));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D1848:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-16));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(0), ctx.gpr[16]);
+    ctx.gpr[16] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[4] + static_cast<std::uint32_t>(73)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(4), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D18E0;
+      }
+      goto L_088D1868;
+    }
+L_088D1868:
+    ctx.gpr[31] = (0x088D1870u);
+    // nop
+    goto L_088D1BF4;
+L_088D1870:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[4] = (ctx.gpr[16] < static_cast<std::uint32_t>(5) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D18D8;
+      }
+      goto L_088D1884;
+    }
+L_088D1884:
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(1));
+    { const bool branch_taken = ctx.gpr[16] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(2));
+      if (branch_taken) {
+          goto L_088D18B8;
+      }
+      goto L_088D1890;
+    }
+L_088D1890:
+    { const bool branch_taken = ctx.gpr[16] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(3));
+      if (branch_taken) {
+          goto L_088D18B8;
+      }
+      goto L_088D1898;
+    }
+L_088D1898:
+    { const bool branch_taken = ctx.gpr[16] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(4));
+      if (branch_taken) {
+          goto L_088D18D0;
+      }
+      goto L_088D18A0;
+    }
+L_088D18A0:
+    { const bool branch_taken = ctx.gpr[16] == ctx.gpr[1];
+    // nop
+      if (branch_taken) {
+          goto L_088D18B8;
+      }
+      goto L_088D18A8;
+    }
+L_088D18A8:
+    ctx.gpr[31] = (0x088D18B0u);
+    // nop
+    goto L_088D2010;
+L_088D18B0:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D18D8;
+      }
+      goto L_088D18B8;
+    }
+L_088D18B8:
+    ctx.gpr[31] = (0x088D18C0u);
+    // nop
+    goto L_088D2250;
+L_088D18C0:
+    ctx.gpr[31] = (0x088D18C8u);
+    // nop
+    goto L_088D2A14;
+L_088D18C8:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D18D8;
+      }
+      goto L_088D18D0;
+    }
+L_088D18D0:
+    ctx.gpr[31] = (0x088D18D8u);
+    // nop
+    goto L_088D2250;
+L_088D18D8:
+    ctx.gpr[31] = (0x088D18E0u);
+    // nop
+    goto L_088D2750;
+L_088D18E0:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(0)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(4)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(16));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D18F0:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    ctx.gpr[17] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D1918u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8476)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 283u, 0x0883A3DCu>(ctx, &aot_mem) && ctx.pc == 0x088D1918u) goto L_088D1918;
+    return;
+L_088D1918:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8476)));
+    ctx.gpr[31] = (0x088D1928u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(188));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 283u, 0x0883A3DCu>(ctx, &aot_mem) && ctx.pc == 0x088D1928u) goto L_088D1928;
+    return;
+L_088D1928:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[16] = (2222u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D1940u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8476)));
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D1940u) goto L_088D1940;
+    return;
+L_088D1940:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8480)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8476), 0u);
+    ctx.gpr[31] = (0x088D1954u);
+    ctx.gpr[4] = (ctx.gpr[5] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 244u, 0x08839E60u>(ctx, &aot_mem) && ctx.pc == 0x088D1954u) goto L_088D1954;
+    return;
+L_088D1954:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D1968u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8480)));
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D1968u) goto L_088D1968;
+    return;
+L_088D1968:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8480), 0u);
+    ctx.gpr[31] = (0x088D197Cu);
+    ctx.gpr[4] = (ctx.gpr[5] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 60u, 0x08838878u>(ctx, &aot_mem) && ctx.pc == 0x088D197Cu) goto L_088D197C;
+    return;
+L_088D197C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    ctx.gpr[31] = (0x088D198Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(92));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 474u, 0x0883B820u>(ctx, &aot_mem) && ctx.pc == 0x088D198Cu) goto L_088D198C;
+    return;
+L_088D198C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    ctx.gpr[31] = (0x088D199Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(184));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 474u, 0x0883B820u>(ctx, &aot_mem) && ctx.pc == 0x088D199Cu) goto L_088D199C;
+    return;
+L_088D199C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    ctx.gpr[31] = (0x088D19ACu);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(276));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 185u, 0x088397D4u>(ctx, &aot_mem) && ctx.pc == 0x088D19ACu) goto L_088D19AC;
+    return;
+L_088D19AC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    ctx.gpr[31] = (0x088D19BCu);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(368));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 206u, 0x08839AC8u>(ctx, &aot_mem) && ctx.pc == 0x088D19BCu) goto L_088D19BC;
+    return;
+L_088D19BC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[19] = (0u | 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    ctx.gpr[18] = (0u | 0u);
+    goto L_088D19CC;
+L_088D19CC:
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D19D8u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(460));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D19D8u) goto L_088D19D8;
+    return;
+L_088D19D8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[19] = (ctx.gpr[19] + static_cast<std::uint32_t>(1));
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(92));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[19]) < 2 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+      if (branch_taken) {
+          goto L_088D19CC;
+      }
+      goto L_088D19F0;
+    }
+L_088D19F0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D1A00u);
+    // nop
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D1A00u) goto L_088D1A00;
+    return;
+L_088D1A00:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[19] = (0u | 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8484), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[18] = (0u | 0u);
+    goto L_088D1A14;
+L_088D1A14:
+    ctx.gpr[31] = (0x088D1A1Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 139u, 0x08844B3Cu>(ctx, &aot_mem) && ctx.pc == 0x088D1A1Cu) goto L_088D1A1C;
+    return;
+L_088D1A1C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[19] = (ctx.gpr[19] + static_cast<std::uint32_t>(1));
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(180));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[19]) < 4 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+      if (branch_taken) {
+          goto L_088D1A14;
+      }
+      goto L_088D1A34;
+    }
+L_088D1A34:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D1A44u);
+    // nop
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D1A44u) goto L_088D1A44;
+    return;
+L_088D1A44:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8488), 0u);
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D1A68:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-64));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[16]);
+    ctx.gpr[16] = (2221u << 16u);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(8)));
+    ctx.gpr[4] = (0u | 1u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(36), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(40), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(44), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(48), ctx.gpr[20]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(52), ctx.gpr[21]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(56), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[7] != 0u;
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(8476)));
+      if (branch_taken) {
+          goto L_088D1AB8;
+      }
+      goto L_088D1AA0;
+    }
+L_088D1AA0:
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(0), 0u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(8476)));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(188), ctx.gpr[4]);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(8488)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(212));
+      if (branch_taken) {
+          goto L_088D1AE0;
+      }
+      goto L_088D1AB8;
+    }
+L_088D1AB8:
+    { const bool branch_taken = ctx.gpr[7] != ctx.gpr[4];
+    ctx.gpr[4] = (0u | 3u);
+      if (branch_taken) {
+          goto L_088D1AD4;
+      }
+      goto L_088D1AC0;
+    }
+L_088D1AC0:
+    ctx.gpr[4] = (0u | 2u);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(0), ctx.gpr[4]);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(8488)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(212));
+      if (branch_taken) {
+          goto L_088D1AE0;
+      }
+      goto L_088D1AD4;
+    }
+L_088D1AD4:
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(188), ctx.gpr[4]);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[6] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(212));
+    goto L_088D1AE0;
+L_088D1AE0:
+    ctx.gpr[4] = (ctx.gpr[6] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D1AF0u);
+    ctx.gpr[6] = (0u | 128u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D1AF0u) goto L_088D1AF0;
+    return;
+L_088D1AF0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (2221u << 16u);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[6] = (ctx.gpr[6] << 2u);
+    ctx.gpr[17] = (ctx.gpr[5] + static_cast<std::uint32_t>(18216));
+    ctx.gpr[5] = (ctx.gpr[6] + ctx.gpr[17]);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(212));
+    ctx.gpr[31] = (0x088D1B18u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(4)));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D1B18u) goto L_088D1B18;
+    return;
+L_088D1B18:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[31] = (0x088D1B28u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(180));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 256u, 0x08845328u>(ctx, &aot_mem) && ctx.pc == 0x088D1B28u) goto L_088D1B28;
+    return;
+L_088D1B28:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[6] = (0u | 128u);
+    ctx.gpr[31] = (0x088D1B40u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(392));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D1B40u) goto L_088D1B40;
+    return;
+L_088D1B40:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[18] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6864));
+    ctx.gpr[31] = (0x088D1B58u);
+    ctx.gpr[19] = (ctx.gpr[4] + static_cast<std::uint32_t>(392));
+    goto L_088D2B20;
+L_088D1B58:
+    ctx.gpr[20] = (ctx.gpr[2] | 0u);
+    ctx.gpr[31] = (0x088D1B64u);
+    ctx.gpr[21] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(16)));
+    goto L_088D2BE8;
+L_088D1B64:
+    ctx.gpr[9] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[5] = (ctx.gpr[18] | 0u);
+    ctx.gpr[6] = (ctx.gpr[20] | 0u);
+    ctx.gpr[7] = (ctx.gpr[21] | 0u);
+    ctx.gpr[31] = (0x088D1B80u);
+    ctx.gpr[8] = (ctx.gpr[2] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0165_entry, 165u, 569u, 0x08A9B9ECu>(ctx, &aot_mem) && ctx.pc == 0x088D1B80u) goto L_088D1B80;
+    return;
+L_088D1B80:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[31] = (0x088D1B90u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(360));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 256u, 0x08845328u>(ctx, &aot_mem) && ctx.pc == 0x088D1B90u) goto L_088D1B90;
+    return;
+L_088D1B90:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[6] = (0u | 128u);
+    ctx.gpr[31] = (0x088D1BA8u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(572));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D1BA8u) goto L_088D1BA8;
+    return;
+L_088D1BA8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(76)));
+    ctx.gpr[4] = (ctx.gpr[5] + static_cast<std::uint32_t>(572));
+    ctx.gpr[31] = (0x088D1BC0u);
+    ctx.gpr[5] = (ctx.gpr[6] | 0u);
+    goto L_088D2C7C;
+L_088D1BC0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[31] = (0x088D1BD0u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(540));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 256u, 0x08845328u>(ctx, &aot_mem) && ctx.pc == 0x088D1BD0u) goto L_088D1BD0;
+    return;
+L_088D1BD0:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(36)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(40)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(44)));
+    ctx.gpr[20] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(48)));
+    ctx.gpr[21] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(52)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(56)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(64));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D1BF4:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-32));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    ctx.gpr[16] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D1C10u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 62u, 0x08838894u>(ctx, &aot_mem) && ctx.pc == 0x088D1C10u) goto L_088D1C10;
+    return;
+L_088D1C10:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    ctx.gpr[31] = (0x088D1C20u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(92));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 478u, 0x0883B858u>(ctx, &aot_mem) && ctx.pc == 0x088D1C20u) goto L_088D1C20;
+    return;
+L_088D1C20:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    ctx.gpr[31] = (0x088D1C30u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(184));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 478u, 0x0883B858u>(ctx, &aot_mem) && ctx.pc == 0x088D1C30u) goto L_088D1C30;
+    return;
+L_088D1C30:
+    ctx.gpr[31] = (0x088D1C38u);
+    ctx.gpr[4] = (0u | 32768u);
+    if (rt.invoke_chained_direct<&recomp_unit_0080_entry, 80u, 170u, 0x08944C38u>(ctx, &aot_mem) && ctx.pc == 0x088D1C38u) goto L_088D1C38;
+    return;
+L_088D1C38:
+    ctx.gpr[5] = (0u | 1u);
+    { const bool branch_taken = ctx.gpr[2] != ctx.gpr[5];
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+      if (branch_taken) {
+          goto L_088D1C60;
+      }
+      goto L_088D1C44;
+    }
+L_088D1C44:
+    ctx.gpr[31] = (0x088D1C4Cu);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8476)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 286u, 0x0883A40Cu>(ctx, &aot_mem) && ctx.pc == 0x088D1C4Cu) goto L_088D1C4C;
+    return;
+L_088D1C4C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8476)));
+    ctx.gpr[31] = (0x088D1C5Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(188));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 286u, 0x0883A40Cu>(ctx, &aot_mem) && ctx.pc == 0x088D1C5Cu) goto L_088D1C5C;
+    return;
+L_088D1C5C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    goto L_088D1C60;
+L_088D1C60:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    ctx.gpr[31] = (0x088D1C6Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(276));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 187u, 0x088397F0u>(ctx, &aot_mem) && ctx.pc == 0x088D1C6Cu) goto L_088D1C6C;
+    return;
+L_088D1C6C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D1C78u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8480)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 250u, 0x08839F40u>(ctx, &aot_mem) && ctx.pc == 0x088D1C78u) goto L_088D1C78;
+    return;
+L_088D1C78:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    ctx.gpr[31] = (0x088D1C88u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(368));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 208u, 0x08839AE4u>(ctx, &aot_mem) && ctx.pc == 0x088D1C88u) goto L_088D1C88;
+    return;
+L_088D1C88:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(16)));
+    if (ctx.gpr[5] != 0u) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+        goto L_088D1CAC;
+    }
+    goto L_088D1C98;
+L_088D1C98:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8484)));
+    ctx.gpr[31] = (0x088D1CA4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(460));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D1CA4u) goto L_088D1CA4;
+    return;
+L_088D1CA4:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+      if (branch_taken) {
+          goto L_088D1CD4;
+      }
+      goto L_088D1CAC;
+    }
+L_088D1CAC:
+    ctx.gpr[31] = (0x088D1CB4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(552));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D1CB4u) goto L_088D1CB4;
+    return;
+L_088D1CB4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D1CC0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 168u, 0x08844DE0u>(ctx, &aot_mem) && ctx.pc == 0x088D1CC0u) goto L_088D1CC0;
+    return;
+L_088D1CC0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[31] = (0x088D1CD0u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(180));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 168u, 0x08844DE0u>(ctx, &aot_mem) && ctx.pc == 0x088D1CD0u) goto L_088D1CD0;
+    return;
+L_088D1CD0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    goto L_088D1CD4;
+L_088D1CD4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[31] = (0x088D1CE0u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(360));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 168u, 0x08844DE0u>(ctx, &aot_mem) && ctx.pc == 0x088D1CE0u) goto L_088D1CE0;
+    return;
+L_088D1CE0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8488)));
+    ctx.gpr[31] = (0x088D1CF0u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(540));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 168u, 0x08844DE0u>(ctx, &aot_mem) && ctx.pc == 0x088D1CF0u) goto L_088D1CF0;
+    return;
+L_088D1CF0:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(32));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D1D00:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    ctx.gpr[17] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D1D28u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8492)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 244u, 0x08839E60u>(ctx, &aot_mem) && ctx.pc == 0x088D1D28u) goto L_088D1D28;
+    return;
+L_088D1D28:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[16] = (2222u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D1D40u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8492)));
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D1D40u) goto L_088D1D40;
+    return;
+L_088D1D40:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8492), 0u);
+    ctx.gpr[19] = (0u | 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8496)));
+    ctx.gpr[18] = (0u | 0u);
+    goto L_088D1D54;
+L_088D1D54:
+    ctx.gpr[31] = (0x088D1D5Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D1D5Cu) goto L_088D1D5C;
+    return;
+L_088D1D5C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[19] = (ctx.gpr[19] + static_cast<std::uint32_t>(1));
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(92));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[19]) < 2 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8496)));
+      if (branch_taken) {
+          goto L_088D1D54;
+      }
+      goto L_088D1D74;
+    }
+L_088D1D74:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D1D84u);
+    // nop
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D1D84u) goto L_088D1D84;
+    return;
+L_088D1D84:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[19] = (0u | 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8496), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8500)));
+    ctx.gpr[18] = (0u | 0u);
+    goto L_088D1D98;
+L_088D1D98:
+    ctx.gpr[31] = (0x088D1DA0u);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 139u, 0x08844B3Cu>(ctx, &aot_mem) && ctx.pc == 0x088D1DA0u) goto L_088D1DA0;
+    return;
+L_088D1DA0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[19] = (ctx.gpr[19] + static_cast<std::uint32_t>(1));
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(180));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[19]) < 3 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8500)));
+      if (branch_taken) {
+          goto L_088D1D98;
+      }
+      goto L_088D1DB8;
+    }
+L_088D1DB8:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D1DC8u);
+    // nop
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D1DC8u) goto L_088D1DC8;
+    return;
+L_088D1DC8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8500), 0u);
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D1DEC:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-80));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(48), ctx.gpr[18]);
+    ctx.gpr[18] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    ctx.fpr[12] = std::bit_cast<float>(ctx.gpr[5]);
+    ctx.fpr[12] = static_cast<float>(static_cast<std::int32_t>(std::bit_cast<std::uint32_t>(ctx.fpr[12])));
+    ctx.gpr[5] = (16900u << 16u);
+    ctx.fpr[13] = std::bit_cast<float>(ctx.gpr[5]);
+    { const float fs = ctx.fpr[12]; const float ft = ctx.fpr[13]; if ((std::isinf(fs) && ft == 0.0f) || (std::isinf(ft) && fs == 0.0f)) ctx.fpr[12] = std::bit_cast<float>(0x7FC00000u); else ctx.fpr[12] = fs * ft; }
+    ctx.gpr[5] = (17108u << 16u);
+    ctx.fpr[14] = std::bit_cast<float>(ctx.gpr[5]);
+    ctx.fpr[12] = ctx.fpr[12] + ctx.fpr[14];
+    ctx.fpr[12] = std::bit_cast<float>(ctx.fpu_float_to_word_ct<1u>(ctx.fpr[12]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8492)));
+    ctx.gpr[6] = (std::bit_cast<std::uint32_t>(ctx.fpr[12]));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(40), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(8), ctx.gpr[6]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(44), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(52), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(56), ctx.gpr[20]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(60), ctx.gpr[21]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(64), ctx.gpr[22]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(68), ctx.gpr[23]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(72), ctx.gpr[30]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(76), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D1E5Cu);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8492)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 247u, 0x08839E90u>(ctx, &aot_mem) && ctx.pc == 0x088D1E5Cu) goto L_088D1E5C;
+    return;
+L_088D1E5C:
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[5] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(17)));
+    ctx.gpr[6] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(18)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(36), ctx.gpr[4]);
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[19] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(19)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[5]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[6]);
+    ctx.gpr[30] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(21)));
+    ctx.gpr[20] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(22)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[4]);
+    ctx.gpr[22] = (2221u << 16u);
+    ctx.gpr[17] = (0u | 0u);
+    ctx.gpr[23] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(23)));
+    ctx.gpr[16] = (0u | 0u);
+    ctx.gpr[22] = (ctx.gpr[22] + static_cast<std::uint32_t>(18216));
+    goto L_088D1E9C;
+L_088D1E9C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8500)));
+    ctx.gpr[6] = (0u | 128u);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[16]);
+    ctx.gpr[31] = (0x088D1EB8u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(32));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D1EB8u) goto L_088D1EB8;
+    return;
+L_088D1EB8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[21] = (0u | 255u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8500)));
+    ctx.gpr[21] = (ctx.gpr[21] & 255u);
+    { const bool branch_taken = ctx.gpr[17] != 0u;
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+      if (branch_taken) {
+          goto L_088D1EEC;
+      }
+      goto L_088D1ED0;
+    }
+L_088D1ED0:
+    ctx.gpr[4] = (ctx.gpr[5] + static_cast<std::uint32_t>(32));
+    ctx.gpr[31] = (0x088D1EDCu);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[22] + static_cast<std::uint32_t>(4)));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D1EDCu) goto L_088D1EDC;
+    return;
+L_088D1EDC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8500)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+      if (branch_taken) {
+          goto L_088D1F34;
+      }
+      goto L_088D1EEC;
+    }
+L_088D1EEC:
+    ctx.gpr[6] = (0u | 1u);
+    { const bool branch_taken = ctx.gpr[17] != ctx.gpr[6];
+    ctx.gpr[6] = (0u | 2u);
+      if (branch_taken) {
+          goto L_088D1F14;
+      }
+      goto L_088D1EF8;
+    }
+L_088D1EF8:
+    ctx.gpr[4] = (ctx.gpr[5] + static_cast<std::uint32_t>(32));
+    ctx.gpr[31] = (0x088D1F04u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[22] + static_cast<std::uint32_t>(8)));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D1F04u) goto L_088D1F04;
+    return;
+L_088D1F04:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8500)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+      if (branch_taken) {
+          goto L_088D1F34;
+      }
+      goto L_088D1F14;
+    }
+L_088D1F14:
+    if (ctx.gpr[17] != ctx.gpr[6]) {
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+        goto L_088D1F38;
+    }
+    goto L_088D1F1C;
+L_088D1F1C:
+    ctx.gpr[4] = (ctx.gpr[5] + static_cast<std::uint32_t>(32));
+    ctx.gpr[31] = (0x088D1F28u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[22] + static_cast<std::uint32_t>(12)));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D1F28u) goto L_088D1F28;
+    return;
+L_088D1F28:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8500)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    goto L_088D1F34;
+L_088D1F34:
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    goto L_088D1F38;
+L_088D1F38:
+    { const bool branch_taken = ctx.gpr[17] != ctx.gpr[6];
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(168));
+      if (branch_taken) {
+          goto L_088D1F6C;
+      }
+      goto L_088D1F40;
+    }
+L_088D1F40:
+    ctx.gpr[19] = (ctx.gpr[21] | 0u);
+    aot_mem.aot_store8(ctx.gpr[5] + static_cast<std::uint32_t>(0), static_cast<std::uint8_t>(ctx.gpr[19]));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(36), ctx.gpr[21]);
+    aot_mem.aot_store8(ctx.gpr[5] + static_cast<std::uint32_t>(1), static_cast<std::uint8_t>(ctx.gpr[19]));
+    aot_mem.aot_store8(ctx.gpr[5] + static_cast<std::uint32_t>(2), static_cast<std::uint8_t>(ctx.gpr[19]));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[21]);
+    aot_mem.aot_store8(ctx.gpr[5] + static_cast<std::uint32_t>(3), static_cast<std::uint8_t>(ctx.gpr[19]));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[21]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8500)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[16]);
+      if (branch_taken) {
+          goto L_088D1F98;
+      }
+      goto L_088D1F6C;
+    }
+L_088D1F6C:
+    ctx.gpr[30] = (0u | 64u);
+    ctx.gpr[30] = (ctx.gpr[30] & 255u);
+    ctx.gpr[20] = (ctx.gpr[30] | 0u);
+    aot_mem.aot_store8(ctx.gpr[5] + static_cast<std::uint32_t>(0), static_cast<std::uint8_t>(ctx.gpr[20]));
+    aot_mem.aot_store8(ctx.gpr[5] + static_cast<std::uint32_t>(1), static_cast<std::uint8_t>(ctx.gpr[20]));
+    aot_mem.aot_store8(ctx.gpr[5] + static_cast<std::uint32_t>(2), static_cast<std::uint8_t>(ctx.gpr[20]));
+    ctx.gpr[23] = (ctx.gpr[21] | 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[30]);
+    aot_mem.aot_store8(ctx.gpr[5] + static_cast<std::uint32_t>(3), static_cast<std::uint8_t>(ctx.gpr[23]));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8500)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[16]);
+    goto L_088D1F98;
+L_088D1F98:
+    ctx.gpr[31] = (0x088D1FA0u);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 256u, 0x08845328u>(ctx, &aot_mem) && ctx.pc == 0x088D1FA0u) goto L_088D1FA0;
+    return;
+L_088D1FA0:
+    ctx.gpr[17] = (ctx.gpr[17] + static_cast<std::uint32_t>(1));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[17]) < 3 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[16] = (ctx.gpr[16] + static_cast<std::uint32_t>(180));
+      if (branch_taken) {
+          goto L_088D1E9C;
+      }
+      goto L_088D1FB0;
+    }
+L_088D1FB0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(36)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(16), static_cast<std::uint8_t>(ctx.gpr[4]));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(17), static_cast<std::uint8_t>(ctx.gpr[5]));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(18), static_cast<std::uint8_t>(ctx.gpr[6]));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(19), static_cast<std::uint8_t>(ctx.gpr[19]));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(20), static_cast<std::uint8_t>(ctx.gpr[4]));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(21), static_cast<std::uint8_t>(ctx.gpr[30]));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(22), static_cast<std::uint8_t>(ctx.gpr[20]));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(23), static_cast<std::uint8_t>(ctx.gpr[23]));
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(40)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(44)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(48)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(52)));
+    ctx.gpr[20] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(56)));
+    ctx.gpr[21] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(60)));
+    ctx.gpr[22] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(64)));
+    ctx.gpr[23] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[30] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(72)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(76)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(80));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2010:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-32));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    ctx.gpr[16] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D2034u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8492)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 250u, 0x08839F40u>(ctx, &aot_mem) && ctx.pc == 0x088D2034u) goto L_088D2034;
+    return;
+L_088D2034:
+    ctx.gpr[18] = (0u | 0u);
+    ctx.gpr[17] = (0u | 0u);
+    goto L_088D203C;
+L_088D203C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8496)));
+    ctx.gpr[31] = (0x088D204Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[17]);
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D204Cu) goto L_088D204C;
+    return;
+L_088D204C:
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(1));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[18]) < 2 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[17] = (ctx.gpr[17] + static_cast<std::uint32_t>(92));
+      if (branch_taken) {
+          goto L_088D203C;
+      }
+      goto L_088D205C;
+    }
+L_088D205C:
+    ctx.gpr[18] = (0u | 0u);
+    ctx.gpr[17] = (0u | 0u);
+    goto L_088D2064;
+L_088D2064:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8500)));
+    ctx.gpr[31] = (0x088D2074u);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[17]);
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 168u, 0x08844DE0u>(ctx, &aot_mem) && ctx.pc == 0x088D2074u) goto L_088D2074;
+    return;
+L_088D2074:
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(1));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[18]) < 3 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[17] = (ctx.gpr[17] + static_cast<std::uint32_t>(180));
+      if (branch_taken) {
+          goto L_088D2064;
+      }
+      goto L_088D2084;
+    }
+L_088D2084:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(32));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D209C:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    ctx.gpr[16] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D20C4u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 321u, 0x0883A768u>(ctx, &aot_mem) && ctx.pc == 0x088D20C4u) goto L_088D20C4;
+    return;
+L_088D20C4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D20D4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(92));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D20D4u) goto L_088D20D4;
+    return;
+L_088D20D4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D20E4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(368));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 304u, 0x0883A5BCu>(ctx, &aot_mem) && ctx.pc == 0x088D20E4u) goto L_088D20E4;
+    return;
+L_088D20E4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[17] = (0u | 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[18] = (0u | 0u);
+    ctx.gpr[19] = (2222u << 16u);
+    goto L_088D20F8;
+L_088D20F8:
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D2104u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(460));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D2104u) goto L_088D2104;
+    return;
+L_088D2104:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[17] = (ctx.gpr[17] + static_cast<std::uint32_t>(1));
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(92));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[17]) < 3 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+      if (branch_taken) {
+          goto L_088D20F8;
+      }
+      goto L_088D211C;
+    }
+L_088D211C:
+    ctx.gpr[31] = (0x088D2124u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(184));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D2124u) goto L_088D2124;
+    return;
+L_088D2124:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D2134u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(276));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D2134u) goto L_088D2134;
+    return;
+L_088D2134:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[17] = (0u | 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[18] = (0u | 0u);
+    goto L_088D2144;
+L_088D2144:
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D2150u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(736));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D2150u) goto L_088D2150;
+    return;
+L_088D2150:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D2164u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(1656));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D2164u) goto L_088D2164;
+    return;
+L_088D2164:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[17] = (ctx.gpr[17] + static_cast<std::uint32_t>(1));
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(92));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[17]) < 10 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+      if (branch_taken) {
+          goto L_088D2144;
+      }
+      goto L_088D217C;
+    }
+L_088D217C:
+    ctx.gpr[31] = (0x088D2184u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2576));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 199u, 0x088399CCu>(ctx, &aot_mem) && ctx.pc == 0x088D2184u) goto L_088D2184;
+    return;
+L_088D2184:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D2194u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2668));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 321u, 0x0883A768u>(ctx, &aot_mem) && ctx.pc == 0x088D2194u) goto L_088D2194;
+    return;
+L_088D2194:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D21A4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2760));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D21A4u) goto L_088D21A4;
+    return;
+L_088D21A4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D21B4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2852));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D21B4u) goto L_088D21B4;
+    return;
+L_088D21B4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D21C4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2944));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D21C4u) goto L_088D21C4;
+    return;
+L_088D21C4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D21D4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(3036));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 135u, 0x08844B08u>(ctx, &aot_mem) && ctx.pc == 0x088D21D4u) goto L_088D21D4;
+    return;
+L_088D21D4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D21E8u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D21E8u) goto L_088D21E8;
+    return;
+L_088D21E8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[17] = (0u | 0u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8504), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8508)));
+    ctx.gpr[18] = (0u | 0u);
+    goto L_088D21FC;
+L_088D21FC:
+    ctx.gpr[31] = (0x088D2204u);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 139u, 0x08844B3Cu>(ctx, &aot_mem) && ctx.pc == 0x088D2204u) goto L_088D2204;
+    return;
+L_088D2204:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[17] = (ctx.gpr[17] + static_cast<std::uint32_t>(1));
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(180));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[17]) < 5 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8508)));
+      if (branch_taken) {
+          goto L_088D21FC;
+      }
+      goto L_088D221C;
+    }
+L_088D221C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D222Cu);
+    // nop
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D222Cu) goto L_088D222C;
+    return;
+L_088D222C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8508), 0u);
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2250:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    ctx.gpr[16] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D2278u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 334u, 0x0883A8B4u>(ctx, &aot_mem) && ctx.pc == 0x088D2278u) goto L_088D2278;
+    return;
+L_088D2278:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D2288u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(92));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D2288u) goto L_088D2288;
+    return;
+L_088D2288:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D2294u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8508)));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 168u, 0x08844DE0u>(ctx, &aot_mem) && ctx.pc == 0x088D2294u) goto L_088D2294;
+    return;
+L_088D2294:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8508)));
+    ctx.gpr[31] = (0x088D22A4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(180));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 168u, 0x08844DE0u>(ctx, &aot_mem) && ctx.pc == 0x088D22A4u) goto L_088D22A4;
+    return;
+L_088D22A4:
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[5] = (0u | 1u);
+    { const bool branch_taken = ctx.gpr[4] == ctx.gpr[5];
+    ctx.gpr[17] = (0u | 2u);
+      if (branch_taken) {
+          goto L_088D22C8;
+      }
+      goto L_088D22B8;
+    }
+L_088D22B8:
+    { const bool branch_taken = ctx.gpr[4] == ctx.gpr[17];
+    ctx.gpr[5] = (0u | 3u);
+      if (branch_taken) {
+          goto L_088D22C8;
+      }
+      goto L_088D22C0;
+    }
+L_088D22C0:
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[5];
+    ctx.gpr[5] = (0u | 4u);
+      if (branch_taken) {
+          goto L_088D23A8;
+      }
+      goto L_088D22C8;
+    }
+L_088D22C8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D22D4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(368));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 308u, 0x0883A5F4u>(ctx, &aot_mem) && ctx.pc == 0x088D22D4u) goto L_088D22D4;
+    return;
+L_088D22D4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[18] = (0u | 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[19] = (0u | 0u);
+    goto L_088D22E4;
+L_088D22E4:
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[19]);
+    ctx.gpr[31] = (0x088D22F0u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(460));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D22F0u) goto L_088D22F0;
+    return;
+L_088D22F0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(1));
+    ctx.gpr[19] = (ctx.gpr[19] + static_cast<std::uint32_t>(92));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[18]) < 3 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+      if (branch_taken) {
+          goto L_088D22E4;
+      }
+      goto L_088D2308;
+    }
+L_088D2308:
+    ctx.gpr[31] = (0x088D2310u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(184));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D2310u) goto L_088D2310;
+    return;
+L_088D2310:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D2320u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(276));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D2320u) goto L_088D2320;
+    return;
+L_088D2320:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[17];
+    // nop
+      if (branch_taken) {
+          goto L_088D2444;
+      }
+      goto L_088D2330;
+    }
+L_088D2330:
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(36)));
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(40)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(92)));
+    ctx.gpr[4] = (ctx.gpr[6] - ctx.gpr[7]);
+    ctx.gpr[6] = (ctx.gpr[5] + static_cast<std::uint32_t>(-1));
+    ctx.gpr[7] = (ctx.gpr[4] + static_cast<std::uint32_t>(10));
+    ctx.gpr[17] = (0u | 10u);
+    ctx.gpr[6] = (static_cast<std::int32_t>(ctx.gpr[6]) < static_cast<std::int32_t>(ctx.gpr[7]) ? 1u : 0u);
+    if (ctx.gpr[6] != 0u) {
+    ctx.gpr[17] = (ctx.gpr[5] - ctx.gpr[4]);
+        goto L_088D2358;
+    }
+    goto L_088D2358;
+L_088D2358:
+    ctx.gpr[18] = (0u | 0u);
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[18]) < static_cast<std::int32_t>(ctx.gpr[17]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] == 0u;
+    ctx.gpr[19] = (0u | 0u);
+      if (branch_taken) {
+          goto L_088D2444;
+      }
+      goto L_088D2368;
+    }
+L_088D2368:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[19]);
+    ctx.gpr[31] = (0x088D237Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(1656));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D237Cu) goto L_088D237C;
+    return;
+L_088D237C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[19]);
+    ctx.gpr[31] = (0x088D2390u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(736));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D2390u) goto L_088D2390;
+    return;
+L_088D2390:
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(1));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[18]) < static_cast<std::int32_t>(ctx.gpr[17]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[19] = (ctx.gpr[19] + static_cast<std::uint32_t>(92));
+      if (branch_taken) {
+          goto L_088D2368;
+      }
+      goto L_088D23A0;
+    }
+L_088D23A0:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D2444;
+      }
+      goto L_088D23A8;
+    }
+L_088D23A8:
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[5];
+    // nop
+      if (branch_taken) {
+          goto L_088D2444;
+      }
+      goto L_088D23B0;
+    }
+L_088D23B0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D23BCu);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2576));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 201u, 0x088399E8u>(ctx, &aot_mem) && ctx.pc == 0x088D23BCu) goto L_088D23BC;
+    return;
+L_088D23BC:
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(12)));
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[17];
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(8504)));
+      if (branch_taken) {
+          goto L_088D23EC;
+      }
+      goto L_088D23CC;
+    }
+L_088D23CC:
+    ctx.gpr[31] = (0x088D23D4u);
+    ctx.gpr[4] = (ctx.gpr[18] + static_cast<std::uint32_t>(3036));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D23D4u) goto L_088D23D4;
+    return;
+L_088D23D4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D23E4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2944));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D23E4u) goto L_088D23E4;
+    return;
+L_088D23E4:
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(8504)));
+    goto L_088D23EC;
+L_088D23EC:
+    ctx.gpr[31] = (0x088D23F4u);
+    ctx.gpr[4] = (ctx.gpr[18] + static_cast<std::uint32_t>(2668));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 334u, 0x0883A8B4u>(ctx, &aot_mem) && ctx.pc == 0x088D23F4u) goto L_088D23F4;
+    return;
+L_088D23F4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D2404u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2760));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D2404u) goto L_088D2404;
+    return;
+L_088D2404:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8504)));
+    ctx.gpr[31] = (0x088D2414u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2852));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 165u, 0x08844DBCu>(ctx, &aot_mem) && ctx.pc == 0x088D2414u) goto L_088D2414;
+    return;
+L_088D2414:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8508)));
+    ctx.gpr[31] = (0x088D2424u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(360));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 168u, 0x08844DE0u>(ctx, &aot_mem) && ctx.pc == 0x088D2424u) goto L_088D2424;
+    return;
+L_088D2424:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8508)));
+    ctx.gpr[31] = (0x088D2434u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(540));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 168u, 0x08844DE0u>(ctx, &aot_mem) && ctx.pc == 0x088D2434u) goto L_088D2434;
+    return;
+L_088D2434:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8508)));
+    ctx.gpr[31] = (0x088D2444u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(720));
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 168u, 0x08844DE0u>(ctx, &aot_mem) && ctx.pc == 0x088D2444u) goto L_088D2444;
+    return;
+L_088D2444:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2460:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-80));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(40), ctx.gpr[16]);
+    ctx.gpr[16] = (2222u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(264)));
+    ctx.gpr[4] = (0u | 92u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), std::bit_cast<std::uint32_t>(ctx.fpr[20]));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), std::bit_cast<std::uint32_t>(ctx.fpr[22]));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), std::bit_cast<std::uint32_t>(ctx.fpr[24]));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(36), std::bit_cast<std::uint32_t>(ctx.fpr[26]));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(44), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(48), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(52), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(56), ctx.gpr[20]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(60), ctx.gpr[21]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(64), ctx.gpr[22]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(68), ctx.gpr[23]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(72), ctx.gpr[30]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(76), ctx.gpr[31]);
+    jump_target = ctx.gpr[6];
+    ctx.gpr[31] = (0x088D24B4u);
+    ctx.gpr[5] = (0u | 160u);
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D24B4u) goto L_088D24B4;
+    return;
+L_088D24B4:
+    ctx.gpr[17] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8512), ctx.gpr[2]);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    ctx.gpr[31] = (0x088D24D0u);
+    ctx.gpr[6] = (0u | 92u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D24D0u) goto L_088D24D0;
+    return;
+L_088D24D0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D24DCu);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8512)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 189u, 0x0883980Cu>(ctx, &aot_mem) && ctx.pc == 0x088D24DCu) goto L_088D24DC;
+    return;
+L_088D24DC:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(264)));
+    ctx.gpr[4] = (0u | 360u);
+    jump_target = ctx.gpr[6];
+    ctx.gpr[31] = (0x088D24F0u);
+    ctx.gpr[5] = (0u | 160u);
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D24F0u) goto L_088D24F0;
+    return;
+L_088D24F0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(8516), ctx.gpr[2]);
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D2508u);
+    ctx.gpr[6] = (0u | 360u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D2508u) goto L_088D2508;
+    return;
+L_088D2508:
+    ctx.gpr[4] = (0u | 147u);
+    ctx.gpr[5] = (0u | 10u);
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(16), static_cast<std::uint8_t>(ctx.gpr[4]));
+    ctx.gpr[6] = (0u | 13u);
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(17), static_cast<std::uint8_t>(ctx.gpr[5]));
+    ctx.gpr[7] = (0u | 255u);
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(18), static_cast<std::uint8_t>(ctx.gpr[6]));
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(19), static_cast<std::uint8_t>(ctx.gpr[7]));
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[5] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(17)));
+    ctx.gpr[6] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(18)));
+    ctx.gpr[4] = (ctx.gpr[4] << 24u);
+    ctx.gpr[7] = (aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(19)));
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(ctx.gpr[4]) >> 24u));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[4]);
+    ctx.gpr[4] = (16688u << 16u);
+    ctx.fpr[20] = std::bit_cast<float>(ctx.gpr[4]);
+    ctx.gpr[4] = (17142u << 16u);
+    ctx.fpr[22] = std::bit_cast<float>(ctx.gpr[4]);
+    ctx.gpr[4] = (16720u << 16u);
+    ctx.fpr[24] = std::bit_cast<float>(ctx.gpr[4]);
+    ctx.gpr[30] = (ctx.gpr[5] << 24u);
+    ctx.gpr[23] = (ctx.gpr[6] << 24u);
+    ctx.gpr[22] = (ctx.gpr[7] << 24u);
+    ctx.gpr[19] = (2221u << 16u);
+    ctx.gpr[4] = (17226u << 16u);
+    ctx.gpr[21] = (2220u << 16u);
+    ctx.gpr[20] = (2220u << 16u);
+    ctx.fpr[26] = std::bit_cast<float>(ctx.gpr[4]);
+    ctx.gpr[18] = (0u | 0u);
+    ctx.gpr[16] = (0u | 0u);
+    ctx.gpr[30] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(ctx.gpr[30]) >> 24u));
+    ctx.gpr[23] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(ctx.gpr[23]) >> 24u));
+    ctx.gpr[22] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(ctx.gpr[22]) >> 24u));
+    ctx.gpr[19] = (ctx.gpr[19] + static_cast<std::uint32_t>(18216));
+    ctx.gpr[21] = (ctx.gpr[21] + static_cast<std::uint32_t>(-6852));
+    ctx.gpr[20] = (ctx.gpr[20] + static_cast<std::uint32_t>(-6836));
+    goto L_088D259C;
+L_088D259C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(52)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8516)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[16]);
+    ctx.gpr[31] = (0x088D25B4u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(32));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D25B4u) goto L_088D25B4;
+    return;
+L_088D25B4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.fpr[12] = std::bit_cast<float>(ctx.gpr[18]);
+    ctx.gpr[5] = (0u | 1u);
+    ctx.fpr[12] = static_cast<float>(static_cast<std::int32_t>(std::bit_cast<std::uint32_t>(ctx.fpr[12])));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8516)));
+    ctx.gpr[6] = (ctx.gpr[6] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[6] + static_cast<std::uint32_t>(4), ctx.gpr[5]);
+    { const float fs = ctx.fpr[12]; const float ft = ctx.fpr[24]; if ((std::isinf(fs) && ft == 0.0f) || (std::isinf(ft) && fs == 0.0f)) ctx.fpr[12] = std::bit_cast<float>(0x7FC00000u); else ctx.fpr[12] = fs * ft; }
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8516)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(16), std::bit_cast<std::uint32_t>(ctx.fpr[20]));
+    ctx.fpr[12] = ctx.fpr[12] + ctx.fpr[26];
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8516)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(8), std::bit_cast<std::uint32_t>(ctx.fpr[22]));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8516)));
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(12), std::bit_cast<std::uint32_t>(ctx.fpr[12]));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8516)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[16]);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(168));
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(0), static_cast<std::uint8_t>(ctx.gpr[5]));
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(1), static_cast<std::uint8_t>(ctx.gpr[30]));
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(2), static_cast<std::uint8_t>(ctx.gpr[23]));
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(3), static_cast<std::uint8_t>(ctx.gpr[22]));
+    ctx.gpr[31] = (0x088D2624u);
+    ctx.gpr[4] = (ctx.gpr[21] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 306u, 0x088456A0u>(ctx, &aot_mem) && ctx.pc == 0x088D2624u) goto L_088D2624;
+    return;
+L_088D2624:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (ctx.gpr[20] | 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8516)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[16]);
+    ctx.gpr[31] = (0x088D263Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(160));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D263Cu) goto L_088D263C;
+    return;
+L_088D263C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8516)));
+    ctx.gpr[31] = (0x088D264Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[16]);
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 209u, 0x08844FFCu>(ctx, &aot_mem) && ctx.pc == 0x088D264Cu) goto L_088D264C;
+    return;
+L_088D264C:
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(1));
+    ctx.gpr[16] = (ctx.gpr[16] + static_cast<std::uint32_t>(180));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[18]) < 2 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[19] = (ctx.gpr[19] + static_cast<std::uint32_t>(4));
+      if (branch_taken) {
+          goto L_088D259C;
+      }
+      goto L_088D2660;
+    }
+L_088D2660:
+    ctx.fpr[20] = std::bit_cast<float>(aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.fpr[22] = std::bit_cast<float>(aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.fpr[24] = std::bit_cast<float>(aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    ctx.fpr[26] = std::bit_cast<float>(aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(36)));
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(40)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(44)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(48)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(52)));
+    ctx.gpr[20] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(56)));
+    ctx.gpr[21] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(60)));
+    ctx.gpr[22] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(64)));
+    ctx.gpr[23] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[30] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(72)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(76)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(80));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D26A0:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    ctx.gpr[19] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D26C8u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8512)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 192u, 0x088398D0u>(ctx, &aot_mem) && ctx.pc == 0x088D26C8u) goto L_088D26C8;
+    return;
+L_088D26C8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[18] = (2222u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D26E0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8512)));
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D26E0u) goto L_088D26E0;
+    return;
+L_088D26E0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8512), 0u);
+    ctx.gpr[17] = (0u | 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8516)));
+    ctx.gpr[16] = (0u | 0u);
+    goto L_088D26F4;
+L_088D26F4:
+    ctx.gpr[31] = (0x088D26FCu);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[16]);
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 139u, 0x08844B3Cu>(ctx, &aot_mem) && ctx.pc == 0x088D26FCu) goto L_088D26FC;
+    return;
+L_088D26FC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[17] = (ctx.gpr[17] + static_cast<std::uint32_t>(1));
+    ctx.gpr[16] = (ctx.gpr[16] + static_cast<std::uint32_t>(180));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[17]) < 2 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8516)));
+      if (branch_taken) {
+          goto L_088D26F4;
+      }
+      goto L_088D2714;
+    }
+L_088D2714:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D2724u);
+    // nop
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D2724u) goto L_088D2724;
+    return;
+L_088D2724:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8516), 0u);
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2748:
+    jump_target = ctx.gpr[31];
+    // nop
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2750:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-32));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    ctx.gpr[18] = (2221u << 16u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(48)));
+    ctx.gpr[4] = (0u | 1u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[4];
+    // nop
+      if (branch_taken) {
+          goto L_088D27AC;
+      }
+      goto L_088D277C;
+    }
+L_088D277C:
+    ctx.gpr[31] = (0x088D2784u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(8512)));
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 194u, 0x088398ECu>(ctx, &aot_mem) && ctx.pc == 0x088D2784u) goto L_088D2784;
+    return;
+L_088D2784:
+    ctx.gpr[17] = (0u | 0u);
+    ctx.gpr[16] = (0u | 0u);
+    goto L_088D278C;
+L_088D278C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[18] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8516)));
+    ctx.gpr[31] = (0x088D279Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[16]);
+    if (rt.invoke_chained_direct<&recomp_unit_0016_entry, 16u, 168u, 0x08844DE0u>(ctx, &aot_mem) && ctx.pc == 0x088D279Cu) goto L_088D279C;
+    return;
+L_088D279C:
+    ctx.gpr[17] = (ctx.gpr[17] + static_cast<std::uint32_t>(1));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[17]) < 2 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[16] = (ctx.gpr[16] + static_cast<std::uint32_t>(180));
+      if (branch_taken) {
+          goto L_088D278C;
+      }
+      goto L_088D27AC;
+    }
+L_088D27AC:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(32));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D27C4:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-32));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    ctx.gpr[17] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[5]) < 2 ? 1u : 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D2848;
+      }
+      goto L_088D27F0;
+    }
+L_088D27F0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8520)));
+    ctx.gpr[16] = (0u | 0u);
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[16]) < static_cast<std::int32_t>(ctx.gpr[5]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8524)));
+      if (branch_taken) {
+          goto L_088D282C;
+      }
+      goto L_088D2804;
+    }
+L_088D2804:
+    ctx.gpr[18] = (0u | 0u);
+    goto L_088D2808;
+L_088D2808:
+    ctx.gpr[31] = (0x088D2810u);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    if (rt.invoke_chained_direct<&recomp_unit_0064_entry, 64u, 273u, 0x08906E8Cu>(ctx, &aot_mem) && ctx.pc == 0x088D2810u) goto L_088D2810;
+    return;
+L_088D2810:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[16] = (ctx.gpr[16] + static_cast<std::uint32_t>(1));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8520)));
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(56));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[16]) < static_cast<std::int32_t>(ctx.gpr[5]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8524)));
+      if (branch_taken) {
+          goto L_088D2808;
+      }
+      goto L_088D282C;
+    }
+L_088D282C:
+    ctx.gpr[5] = (2222u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(-23940)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(268)));
+    jump_target = ctx.gpr[5];
+    ctx.gpr[31] = (0x088D2840u);
+    // nop
+    ctx.pc = jump_target;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == 0x088D2840u) goto L_088D2840;
+    return;
+L_088D2840:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8524), 0u);
+    goto L_088D2848;
+L_088D2848:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8528), 0u);
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(32));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2864:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-32));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    ctx.gpr[16] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[5]) < 2 ? 1u : 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D29FC;
+      }
+      goto L_088D2890;
+    }
+L_088D2890:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[6] = (0u | 1u);
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[6];
+    ctx.gpr[7] = (0u | 2u);
+      if (branch_taken) {
+          goto L_088D28A8;
+      }
+      goto L_088D28A0;
+    }
+L_088D28A0:
+    if (ctx.gpr[5] != ctx.gpr[7]) {
+    ctx.gpr[6] = (0u | 4u);
+        goto L_088D29E4;
+    }
+    goto L_088D28A8;
+L_088D28A8:
+    if (ctx.gpr[5] != ctx.gpr[6]) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+        goto L_088D28DC;
+    }
+    goto L_088D28B0;
+L_088D28B0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(32)));
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(88)));
+    ctx.gpr[5] = (ctx.gpr[5] - ctx.gpr[6]);
+    ctx.gpr[6] = (ctx.gpr[5] + static_cast<std::uint32_t>(10));
+    ctx.gpr[8] = (ctx.gpr[7] + static_cast<std::uint32_t>(-1));
+    ctx.gpr[8] = (static_cast<std::int32_t>(ctx.gpr[8]) < static_cast<std::int32_t>(ctx.gpr[6]) ? 1u : 0u);
+    if (ctx.gpr[8] == 0u) {
+    ctx.gpr[7] = (ctx.gpr[5] | 0u);
+        goto L_088D2904;
+    }
+    goto L_088D28D4;
+L_088D28D4:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[6] = (ctx.gpr[7] | 0u);
+      if (branch_taken) {
+          goto L_088D2900;
+      }
+      goto L_088D28DC;
+    }
+L_088D28DC:
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(84)));
+    ctx.gpr[5] = (ctx.gpr[5] - ctx.gpr[6]);
+    ctx.gpr[6] = (ctx.gpr[5] + static_cast<std::uint32_t>(10));
+    ctx.gpr[8] = (ctx.gpr[7] + static_cast<std::uint32_t>(-1));
+    ctx.gpr[8] = (static_cast<std::int32_t>(ctx.gpr[8]) < static_cast<std::int32_t>(ctx.gpr[6]) ? 1u : 0u);
+    if (ctx.gpr[8] == 0u) {
+    ctx.gpr[7] = (ctx.gpr[5] | 0u);
+        goto L_088D2904;
+    }
+    goto L_088D28FC;
+L_088D28FC:
+    ctx.gpr[6] = (ctx.gpr[7] | 0u);
+    goto L_088D2900;
+L_088D2900:
+    ctx.gpr[7] = (ctx.gpr[5] | 0u);
+    goto L_088D2904;
+L_088D2904:
+    ctx.gpr[8] = (static_cast<std::int32_t>(ctx.gpr[7]) < static_cast<std::int32_t>(ctx.gpr[6]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[8] == 0u;
+    ctx.gpr[9] = (ctx.gpr[5] << 6u);
+      if (branch_taken) {
+          goto L_088D29A0;
+      }
+      goto L_088D2910;
+    }
+L_088D2910:
+    ctx.gpr[10] = (ctx.gpr[5] << 3u);
+    ctx.gpr[9] = (ctx.gpr[9] - ctx.gpr[10]);
+    ctx.gpr[10] = (16932u << 16u);
+    ctx.fpr[12] = std::bit_cast<float>(ctx.gpr[10]);
+    ctx.gpr[8] = (0u | 5u);
+    ctx.gpr[10] = (16808u << 16u);
+    ctx.fpr[13] = std::bit_cast<float>(ctx.gpr[10]);
+    ctx.gpr[10] = (16960u << 16u);
+    ctx.fpr[14] = std::bit_cast<float>(ctx.gpr[10]);
+    ctx.gpr[10] = (17050u << 16u);
+    ctx.fpr[15] = std::bit_cast<float>(ctx.gpr[10]);
+    goto L_088D293C;
+L_088D293C:
+    ctx.gpr[10] = (ctx.gpr[7] - ctx.gpr[5]);
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[10]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[8]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.gpr[11] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8524)));
+    ctx.gpr[11] = (ctx.gpr[11] + ctx.gpr[9]);
+    ctx.gpr[7] = (ctx.gpr[7] + static_cast<std::uint32_t>(1));
+    ctx.gpr[2] = (static_cast<std::int32_t>(ctx.gpr[7]) < static_cast<std::int32_t>(ctx.gpr[6]) ? 1u : 0u);
+    ctx.gpr[3] = (ctx.hi);
+    // nop
+    // nop
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[10]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[8]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.fpr[16] = std::bit_cast<float>(ctx.gpr[3]);
+    ctx.fpr[16] = static_cast<float>(static_cast<std::int32_t>(std::bit_cast<std::uint32_t>(ctx.fpr[16])));
+    { const float fs = ctx.fpr[16]; const float ft = ctx.fpr[12]; if ((std::isinf(fs) && ft == 0.0f) || (std::isinf(ft) && fs == 0.0f)) ctx.fpr[16] = std::bit_cast<float>(0x7FC00000u); else ctx.fpr[16] = fs * ft; }
+    ctx.fpr[16] = ctx.fpr[16] + ctx.fpr[13];
+    aot_mem.aot_store32(ctx.gpr[11] + static_cast<std::uint32_t>(4), std::bit_cast<std::uint32_t>(ctx.fpr[16]));
+    ctx.gpr[10] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8524)));
+    ctx.gpr[10] = (ctx.gpr[10] + ctx.gpr[9]);
+    ctx.gpr[9] = (ctx.gpr[9] + static_cast<std::uint32_t>(56));
+    ctx.gpr[11] = (ctx.lo);
+    ctx.fpr[16] = std::bit_cast<float>(ctx.gpr[11]);
+    ctx.fpr[16] = static_cast<float>(static_cast<std::int32_t>(std::bit_cast<std::uint32_t>(ctx.fpr[16])));
+    { const float fs = ctx.fpr[16]; const float ft = ctx.fpr[14]; if ((std::isinf(fs) && ft == 0.0f) || (std::isinf(ft) && fs == 0.0f)) ctx.fpr[16] = std::bit_cast<float>(0x7FC00000u); else ctx.fpr[16] = fs * ft; }
+    ctx.fpr[16] = ctx.fpr[16] + ctx.fpr[15];
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    aot_mem.aot_store32(ctx.gpr[10] + static_cast<std::uint32_t>(8), std::bit_cast<std::uint32_t>(ctx.fpr[16]));
+      if (branch_taken) {
+          goto L_088D293C;
+      }
+      goto L_088D29A0;
+    }
+L_088D29A0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8520)));
+    ctx.gpr[17] = (0u | 0u);
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[17]) < static_cast<std::int32_t>(ctx.gpr[5]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    ctx.gpr[18] = (0u | 0u);
+      if (branch_taken) {
+          goto L_088D29FC;
+      }
+      goto L_088D29B4;
+    }
+L_088D29B4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8524)));
+    ctx.gpr[31] = (0x088D29C0u);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    if (rt.invoke_chained_direct<&recomp_unit_0064_entry, 64u, 275u, 0x08906EA8u>(ctx, &aot_mem) && ctx.pc == 0x088D29C0u) goto L_088D29C0;
+    return;
+L_088D29C0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[17] = (ctx.gpr[17] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8528), ctx.gpr[2]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8520)));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[17]) < static_cast<std::int32_t>(ctx.gpr[5]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(56));
+      if (branch_taken) {
+          goto L_088D29B4;
+      }
+      goto L_088D29DC;
+    }
+L_088D29DC:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D29FC;
+      }
+      goto L_088D29E4;
+    }
+L_088D29E4:
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[6];
+    // nop
+      if (branch_taken) {
+          goto L_088D29FC;
+      }
+      goto L_088D29EC;
+    }
+L_088D29EC:
+    ctx.gpr[31] = (0x088D29F4u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8524)));
+    if (rt.invoke_chained_direct<&recomp_unit_0064_entry, 64u, 275u, 0x08906EA8u>(ctx, &aot_mem) && ctx.pc == 0x088D29F4u) goto L_088D29F4;
+    return;
+L_088D29F4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8528), ctx.gpr[2]);
+    goto L_088D29FC;
+L_088D29FC:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(32));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2A14:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    ctx.gpr[17] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[5]) < 2 ? 1u : 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D2B04;
+      }
+      goto L_088D2A44;
+    }
+L_088D2A44:
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[5] = (0u | 4u);
+    { const bool branch_taken = ctx.gpr[6] != ctx.gpr[5];
+    ctx.gpr[18] = (0u | 0u);
+      if (branch_taken) {
+          goto L_088D2A64;
+      }
+      goto L_088D2A54;
+    }
+L_088D2A54:
+    ctx.gpr[31] = (0x088D2A5Cu);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8524)));
+    if (rt.invoke_chained_direct<&recomp_unit_0064_entry, 64u, 285u, 0x08906F3Cu>(ctx, &aot_mem) && ctx.pc == 0x088D2A5Cu) goto L_088D2A5C;
+    return;
+L_088D2A5C:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D2B04;
+      }
+      goto L_088D2A64;
+    }
+L_088D2A64:
+    ctx.gpr[5] = (0u | 1u);
+    { const bool branch_taken = ctx.gpr[6] != ctx.gpr[5];
+    ctx.gpr[16] = (0u | 0u);
+      if (branch_taken) {
+          goto L_088D2A98;
+      }
+      goto L_088D2A70;
+    }
+L_088D2A70:
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(32)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(88)));
+    ctx.gpr[18] = (ctx.gpr[18] - ctx.gpr[7]);
+    ctx.gpr[16] = (ctx.gpr[18] + static_cast<std::uint32_t>(10));
+    ctx.gpr[7] = (ctx.gpr[5] + static_cast<std::uint32_t>(-1));
+    ctx.gpr[7] = (static_cast<std::int32_t>(ctx.gpr[7]) < static_cast<std::int32_t>(ctx.gpr[16]) ? 1u : 0u);
+    if (ctx.gpr[7] == 0u) {
+    ctx.gpr[5] = (0u | 2u);
+        goto L_088D2A9C;
+    }
+    goto L_088D2A94;
+L_088D2A94:
+    ctx.gpr[16] = (ctx.gpr[5] | 0u);
+    goto L_088D2A98;
+L_088D2A98:
+    ctx.gpr[5] = (0u | 2u);
+    goto L_088D2A9C;
+L_088D2A9C:
+    { const bool branch_taken = ctx.gpr[6] != ctx.gpr[5];
+    ctx.gpr[19] = (ctx.gpr[18] | 0u);
+      if (branch_taken) {
+          goto L_088D2AD0;
+      }
+      goto L_088D2AA4;
+    }
+L_088D2AA4:
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(84)));
+    ctx.gpr[18] = (ctx.gpr[18] - ctx.gpr[5]);
+    ctx.gpr[16] = (ctx.gpr[18] + static_cast<std::uint32_t>(10));
+    ctx.gpr[5] = (ctx.gpr[4] + static_cast<std::uint32_t>(-1));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[5]) < static_cast<std::int32_t>(ctx.gpr[16]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    ctx.gpr[19] = (ctx.gpr[18] | 0u);
+      if (branch_taken) {
+          goto L_088D2AD0;
+      }
+      goto L_088D2AC8;
+    }
+L_088D2AC8:
+    ctx.gpr[16] = (ctx.gpr[4] | 0u);
+    ctx.gpr[19] = (ctx.gpr[18] | 0u);
+    goto L_088D2AD0;
+L_088D2AD0:
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[19]) < static_cast<std::int32_t>(ctx.gpr[16]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] == 0u;
+    ctx.gpr[4] = (ctx.gpr[18] << 6u);
+      if (branch_taken) {
+          goto L_088D2B04;
+      }
+      goto L_088D2ADC;
+    }
+L_088D2ADC:
+    ctx.gpr[18] = (ctx.gpr[18] << 3u);
+    ctx.gpr[18] = (ctx.gpr[4] - ctx.gpr[18]);
+    goto L_088D2AE4;
+L_088D2AE4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8524)));
+    ctx.gpr[31] = (0x088D2AF4u);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    if (rt.invoke_chained_direct<&recomp_unit_0064_entry, 64u, 285u, 0x08906F3Cu>(ctx, &aot_mem) && ctx.pc == 0x088D2AF4u) goto L_088D2AF4;
+    return;
+L_088D2AF4:
+    ctx.gpr[19] = (ctx.gpr[19] + static_cast<std::uint32_t>(1));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[19]) < static_cast<std::int32_t>(ctx.gpr[16]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(56));
+      if (branch_taken) {
+          goto L_088D2AE4;
+      }
+      goto L_088D2B04;
+    }
+L_088D2B04:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2B20:
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[6] = (ctx.gpr[5] < static_cast<std::uint32_t>(5) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[6] == 0u;
+    ctx.gpr[2] = (0u | 0u);
+      if (branch_taken) {
+          goto L_088D2BE0;
+      }
+      goto L_088D2B38;
+    }
+L_088D2B38:
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(1));
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(2));
+      if (branch_taken) {
+          goto L_088D2B80;
+      }
+      goto L_088D2B44;
+    }
+L_088D2B44:
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(3));
+      if (branch_taken) {
+          goto L_088D2B8C;
+      }
+      goto L_088D2B4C;
+    }
+L_088D2B4C:
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(4));
+      if (branch_taken) {
+          goto L_088D2B98;
+      }
+      goto L_088D2B54;
+    }
+L_088D2B54:
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[1];
+    // nop
+      if (branch_taken) {
+          goto L_088D2BA4;
+      }
+      goto L_088D2B5C;
+    }
+L_088D2B5C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(88)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(84)));
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(1));
+    ctx.gpr[5] = (ctx.gpr[6] + ctx.gpr[5]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(92)));
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(1));
+    ctx.gpr[2] = (ctx.gpr[4] + ctx.gpr[5]);
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (ctx.gpr[2] + static_cast<std::uint32_t>(1));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2B80:
+    ctx.gpr[2] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(88)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (ctx.gpr[2] + static_cast<std::uint32_t>(1));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2B8C:
+    ctx.gpr[2] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(84)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (ctx.gpr[2] + static_cast<std::uint32_t>(1));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2B98:
+    ctx.gpr[2] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(92)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (ctx.gpr[2] + static_cast<std::uint32_t>(1));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2BA4:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[6] = (0u | 1u);
+      if (branch_taken) {
+          goto L_088D2BBC;
+      }
+      goto L_088D2BB0;
+    }
+L_088D2BB0:
+    ctx.gpr[2] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(88)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (ctx.gpr[2] + static_cast<std::uint32_t>(1));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2BBC:
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[6];
+    ctx.gpr[6] = (0u | 2u);
+      if (branch_taken) {
+          goto L_088D2BD0;
+      }
+      goto L_088D2BC4;
+    }
+L_088D2BC4:
+    ctx.gpr[2] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(84)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (ctx.gpr[2] + static_cast<std::uint32_t>(1));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2BD0:
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[6];
+    // nop
+      if (branch_taken) {
+          goto L_088D2BE0;
+      }
+      goto L_088D2BD8;
+    }
+L_088D2BD8:
+    ctx.gpr[2] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(92)));
+    ctx.gpr[2] = (ctx.gpr[2] + static_cast<std::uint32_t>(1));
+    goto L_088D2BE0;
+L_088D2BE0:
+    jump_target = ctx.gpr[31];
+    // nop
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2BE8:
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[6] = (ctx.gpr[5] < static_cast<std::uint32_t>(5) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[6] == 0u;
+    ctx.gpr[2] = (0u | 0u);
+      if (branch_taken) {
+          goto L_088D2C74;
+      }
+      goto L_088D2C00;
+    }
+L_088D2C00:
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(1));
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(2));
+      if (branch_taken) {
+          goto L_088D2C2C;
+      }
+      goto L_088D2C0C;
+    }
+L_088D2C0C:
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(3));
+      if (branch_taken) {
+          goto L_088D2C34;
+      }
+      goto L_088D2C14;
+    }
+L_088D2C14:
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(4));
+      if (branch_taken) {
+          goto L_088D2C3C;
+      }
+      goto L_088D2C1C;
+    }
+L_088D2C1C:
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[1];
+    // nop
+      if (branch_taken) {
+          goto L_088D2C44;
+      }
+      goto L_088D2C24;
+    }
+L_088D2C24:
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (0u | 95u);
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2C2C:
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (0u | 28u);
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2C34:
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (0u | 43u);
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2C3C:
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (0u | 24u);
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2C44:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[5] = (0u | 1u);
+      if (branch_taken) {
+          goto L_088D2C58;
+      }
+      goto L_088D2C50;
+    }
+L_088D2C50:
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (0u | 28u);
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2C58:
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[5];
+    ctx.gpr[5] = (0u | 2u);
+      if (branch_taken) {
+          goto L_088D2C68;
+      }
+      goto L_088D2C60;
+    }
+L_088D2C60:
+    jump_target = ctx.gpr[31];
+    ctx.gpr[2] = (0u | 43u);
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2C68:
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[5];
+    // nop
+      if (branch_taken) {
+          goto L_088D2C74;
+      }
+      goto L_088D2C70;
+    }
+L_088D2C70:
+    ctx.gpr[2] = (0u | 24u);
+    goto L_088D2C74;
+L_088D2C74:
+    jump_target = ctx.gpr[31];
+    // nop
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2C7C:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-96));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(56), ctx.gpr[18]);
+    ctx.gpr[18] = (ctx.gpr[5] | 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(48), ctx.gpr[16]);
+    ctx.gpr[16] = (ctx.gpr[4] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(52), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(60), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(64), ctx.gpr[20]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(68), ctx.gpr[21]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(72), ctx.gpr[22]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(76), ctx.gpr[23]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(80), ctx.gpr[30]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(84), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D2CBCu);
+    ctx.gpr[6] = (0u | 4u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D2CBCu) goto L_088D2CBC;
+    return;
+L_088D2CBC:
+    ctx.gpr[17] = (ctx.gpr[29] + static_cast<std::uint32_t>(16));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D2CD0u);
+    ctx.gpr[6] = (0u | 32u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D2CD0u) goto L_088D2CD0;
+    return;
+L_088D2CD0:
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[31] = (0x088D2CE0u);
+    ctx.gpr[18] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6828));
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 197u, 0x08A9CA08u>(ctx, &aot_mem) && ctx.pc == 0x088D2CE0u) goto L_088D2CE0;
+    return;
+L_088D2CE0:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (ctx.gpr[18] | 0u);
+    ctx.gpr[31] = (0x088D2CF0u);
+    ctx.gpr[6] = (ctx.gpr[2] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0165_entry, 165u, 569u, 0x08A9B9ECu>(ctx, &aot_mem) && ctx.pc == 0x088D2CF0u) goto L_088D2CF0;
+    return;
+L_088D2CF0:
+    ctx.gpr[31] = (0x088D2CF8u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 596u, 0x08A9E200u>(ctx, &aot_mem) && ctx.pc == 0x088D2CF8u) goto L_088D2CF8;
+    return;
+L_088D2CF8:
+    ctx.gpr[18] = (ctx.gpr[2] | 0u);
+    ctx.gpr[19] = (0u | 0u);
+    ctx.gpr[23] = (2221u << 16u);
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[19]) < static_cast<std::int32_t>(ctx.gpr[18]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] == 0u;
+    ctx.gpr[23] = (ctx.gpr[23] + static_cast<std::uint32_t>(18216));
+      if (branch_taken) {
+          goto L_088D2D74;
+      }
+      goto L_088D2D10;
+    }
+L_088D2D10:
+    ctx.gpr[21] = (ctx.gpr[29] | 0u);
+    ctx.gpr[20] = (0u | 3u);
+    ctx.gpr[22] = (ctx.gpr[21] + static_cast<std::uint32_t>(16));
+    ctx.gpr[30] = (ctx.gpr[16] + ctx.gpr[18]);
+    goto L_088D2D20;
+L_088D2D20:
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[19]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[20]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.gpr[4] = (ctx.hi);
+    if (ctx.gpr[4] != 0u) {
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int8_t>(aot_mem.aot_load8(ctx.gpr[30] + static_cast<std::uint32_t>(-1))))));
+        goto L_088D2D58;
+    }
+    goto L_088D2D30;
+L_088D2D30:
+    if (ctx.gpr[19] == 0u) {
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int8_t>(aot_mem.aot_load8(ctx.gpr[30] + static_cast<std::uint32_t>(-1))))));
+        goto L_088D2D50;
+    }
+    goto L_088D2D38;
+L_088D2D38:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[23] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (0x088D2D44u);
+    ctx.gpr[4] = (ctx.gpr[22] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 577u, 0x08A9E0F4u>(ctx, &aot_mem) && ctx.pc == 0x088D2D44u) goto L_088D2D44;
+    return;
+L_088D2D44:
+    ctx.gpr[21] = (ctx.gpr[21] + static_cast<std::uint32_t>(1));
+    ctx.gpr[22] = (ctx.gpr[22] + static_cast<std::uint32_t>(1));
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int8_t>(aot_mem.aot_load8(ctx.gpr[30] + static_cast<std::uint32_t>(-1))))));
+    goto L_088D2D50;
+L_088D2D50:
+    { const bool branch_taken = 0u == 0u;
+    aot_mem.aot_store8(ctx.gpr[21] + static_cast<std::uint32_t>(16), static_cast<std::uint8_t>(ctx.gpr[4]));
+      if (branch_taken) {
+          goto L_088D2D5C;
+      }
+      goto L_088D2D58;
+    }
+L_088D2D58:
+    aot_mem.aot_store8(ctx.gpr[21] + static_cast<std::uint32_t>(16), static_cast<std::uint8_t>(ctx.gpr[4]));
+    goto L_088D2D5C;
+L_088D2D5C:
+    ctx.gpr[19] = (ctx.gpr[19] + static_cast<std::uint32_t>(1));
+    ctx.gpr[21] = (ctx.gpr[21] + static_cast<std::uint32_t>(1));
+    ctx.gpr[22] = (ctx.gpr[22] + static_cast<std::uint32_t>(1));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[19]) < static_cast<std::int32_t>(ctx.gpr[18]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[30] = (ctx.gpr[30] + static_cast<std::uint32_t>(-1));
+      if (branch_taken) {
+          goto L_088D2D20;
+      }
+      goto L_088D2D74;
+    }
+L_088D2D74:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D2D84u);
+    ctx.gpr[6] = (0u | 4u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D2D84u) goto L_088D2D84;
+    return;
+L_088D2D84:
+    ctx.gpr[31] = (0x088D2D8Cu);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 596u, 0x08A9E200u>(ctx, &aot_mem) && ctx.pc == 0x088D2D8Cu) goto L_088D2D8C;
+    return;
+L_088D2D8C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[23] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[17] = (ctx.gpr[2] + static_cast<std::uint32_t>(1));
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[31] = (0x088D2DA0u);
+    ctx.gpr[6] = (0u | 1u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 548u, 0x08A9DF34u>(ctx, &aot_mem) && ctx.pc == 0x088D2DA0u) goto L_088D2DA0;
+    return;
+L_088D2DA0:
+    ctx.gpr[4] = (0u | 1u);
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[4]) < static_cast<std::int32_t>(ctx.gpr[17]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    ctx.gpr[5] = (ctx.gpr[17] + static_cast<std::uint32_t>(-1));
+      if (branch_taken) {
+          goto L_088D2DD0;
+      }
+      goto L_088D2DB0;
+    }
+L_088D2DB0:
+    ctx.gpr[5] = (ctx.gpr[29] + ctx.gpr[5]);
+    goto L_088D2DB4;
+L_088D2DB4:
+    ctx.gpr[6] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int8_t>(aot_mem.aot_load8(ctx.gpr[5] + static_cast<std::uint32_t>(15))))));
+    ctx.gpr[7] = (ctx.gpr[4] + ctx.gpr[16]);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store8(ctx.gpr[7] + static_cast<std::uint32_t>(0), static_cast<std::uint8_t>(ctx.gpr[6]));
+    ctx.gpr[6] = (static_cast<std::int32_t>(ctx.gpr[4]) < static_cast<std::int32_t>(ctx.gpr[17]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[6] != 0u;
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-1));
+      if (branch_taken) {
+          goto L_088D2DB4;
+      }
+      goto L_088D2DD0;
+    }
+L_088D2DD0:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(48)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(52)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(56)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(60)));
+    ctx.gpr[20] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(64)));
+    ctx.gpr[21] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[22] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(72)));
+    ctx.gpr[23] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(76)));
+    ctx.gpr[30] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(80)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(84)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(96));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2E00:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    ctx.gpr[17] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load8(ctx.gpr[17] + static_cast<std::uint32_t>(18204)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    ctx.gpr[18] = (0u | 1u);
+    ctx.gpr[16] = (ctx.gpr[4] | 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[31]);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[19] = (2221u << 16u);
+      if (branch_taken) {
+          goto L_088D2EDC;
+      }
+      goto L_088D2E30;
+    }
+L_088D2E30:
+    ctx.gpr[31] = (0x088D2E38u);
+    ctx.gpr[4] = (0u | 1u);
+    if (rt.invoke_chained_direct<&recomp_unit_0007_entry, 7u, 208u, 0x088213B0u>(ctx, &aot_mem) && ctx.pc == 0x088D2E38u) goto L_088D2E38;
+    return;
+L_088D2E38:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[4] + static_cast<std::uint32_t>(64)));
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[16] = (2221u << 16u);
+      if (branch_taken) {
+          goto L_088D2E68;
+      }
+      goto L_088D2E48;
+    }
+L_088D2E48:
+    ctx.gpr[31] = (0x088D2E50u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0018_entry, 18u, 141u, 0x0884C934u>(ctx, &aot_mem) && ctx.pc == 0x088D2E50u) goto L_088D2E50;
+    return;
+L_088D2E50:
+    ctx.gpr[4] = (0u | 1u);
+    { const bool branch_taken = ctx.gpr[2] != ctx.gpr[4];
+    // nop
+      if (branch_taken) {
+          goto L_088D3180;
+      }
+      goto L_088D2E5C;
+    }
+L_088D2E5C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    { const bool branch_taken = 0u == 0u;
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(64), static_cast<std::uint8_t>(ctx.gpr[18]));
+      if (branch_taken) {
+          goto L_088D3180;
+      }
+      goto L_088D2E68;
+    }
+L_088D2E68:
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[16] + static_cast<std::uint32_t>(18205)));
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D2E88;
+      }
+      goto L_088D2E74;
+    }
+L_088D2E74:
+    ctx.gpr[31] = (0x088D2E7Cu);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0000_entry, 0u, 716u, 0x08806E2Cu>(ctx, &aot_mem) && ctx.pc == 0x088D2E7Cu) goto L_088D2E7C;
+    return;
+L_088D2E7C:
+    ctx.gpr[31] = (0x088D2E84u);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0024_entry, 24u, 518u, 0x08867460u>(ctx, &aot_mem) && ctx.pc == 0x088D2E84u) goto L_088D2E84;
+    return;
+L_088D2E84:
+    aot_mem.aot_store8(ctx.gpr[16] + static_cast<std::uint32_t>(18205), static_cast<std::uint8_t>(ctx.gpr[18]));
+    goto L_088D2E88;
+L_088D2E88:
+    ctx.gpr[31] = (0x088D2E90u);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0000_entry, 0u, 715u, 0x08806E20u>(ctx, &aot_mem) && ctx.pc == 0x088D2E90u) goto L_088D2E90;
+    return;
+L_088D2E90:
+    { const bool branch_taken = ctx.gpr[2] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3180;
+      }
+      goto L_088D2E98;
+    }
+L_088D2E98:
+    ctx.gpr[31] = (0x088D2EA0u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0018_entry, 18u, 449u, 0x0884DC1Cu>(ctx, &aot_mem) && ctx.pc == 0x088D2EA0u) goto L_088D2EA0;
+    return;
+L_088D2EA0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8468)));
+    { const bool branch_taken = ctx.gpr[4] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D2EB8;
+      }
+      goto L_088D2EB0;
+    }
+L_088D2EB0:
+    { const bool branch_taken = 0u == 0u;
+    aot_mem.aot_store8(ctx.gpr[17] + static_cast<std::uint32_t>(18204), static_cast<std::uint8_t>(ctx.gpr[18]));
+      if (branch_taken) {
+          goto L_088D3180;
+      }
+      goto L_088D2EB8;
+    }
+L_088D2EB8:
+    ctx.gpr[31] = (0x088D2EC0u);
+    // nop
+    if (rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 146u, 0x088D489Cu>(ctx, &aot_mem) && ctx.pc == 0x088D2EC0u) goto L_088D2EC0;
+    return;
+L_088D2EC0:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2EDC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[17] = (0u | 1u);
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[4] + static_cast<std::uint32_t>(73)));
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[17];
+    // nop
+      if (branch_taken) {
+          goto L_088D2F98;
+      }
+      goto L_088D2EF0;
+    }
+L_088D2EF0:
+    ctx.gpr[31] = (0x088D2EF8u);
+    ctx.gpr[4] = (0u | 1u);
+    if (rt.invoke_chained_direct<&recomp_unit_0007_entry, 7u, 208u, 0x088213B0u>(ctx, &aot_mem) && ctx.pc == 0x088D2EF8u) goto L_088D2EF8;
+    return;
+L_088D2EF8:
+    ctx.gpr[31] = (0x088D2F00u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 952u, 0x0881FB40u>(ctx, &aot_mem) && ctx.pc == 0x088D2F00u) goto L_088D2F00;
+    return;
+L_088D2F00:
+    ctx.gpr[31] = (0x088D2F08u);
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 565u, 0x0881E2BCu>(ctx, &aot_mem) && ctx.pc == 0x088D2F08u) goto L_088D2F08;
+    return;
+L_088D2F08:
+    ctx.gpr[31] = (0x088D2F10u);
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0005_entry, 5u, 1018u, 0x0881BEC4u>(ctx, &aot_mem) && ctx.pc == 0x088D2F10u) goto L_088D2F10;
+    return;
+L_088D2F10:
+    { const bool branch_taken = ctx.gpr[2] != ctx.gpr[17];
+    // nop
+      if (branch_taken) {
+          goto L_088D3180;
+      }
+      goto L_088D2F18;
+    }
+L_088D2F18:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(73), static_cast<std::uint8_t>(0u));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load8(ctx.gpr[4] + static_cast<std::uint32_t>(74)));
+    { const bool branch_taken = ctx.gpr[4] == ctx.gpr[17];
+    ctx.gpr[4] = (2189u << 16u);
+      if (branch_taken) {
+          goto L_088D2F40;
+      }
+      goto L_088D2F30;
+    }
+L_088D2F30:
+    ctx.gpr[31] = (0x088D2F38u);
+    ctx.gpr[4] = (0u | 1u);
+    if (rt.invoke_chained_direct<&recomp_unit_0018_entry, 18u, 18u, 0x0884C14Cu>(ctx, &aot_mem) && ctx.pc == 0x088D2F38u) goto L_088D2F38;
+    return;
+L_088D2F38:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3180;
+      }
+      goto L_088D2F40;
+    }
+L_088D2F40:
+    ctx.gpr[5] = (0u | 8u);
+    ctx.gpr[31] = (0x088D2F4Cu);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(2136));
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 698u, 0x0884BC60u>(ctx, &aot_mem) && ctx.pc == 0x088D2F4Cu) goto L_088D2F4C;
+    return;
+L_088D2F4C:
+    ctx.gpr[31] = (0x088D2F54u);
+    ctx.gpr[4] = (0u | 8u);
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 705u, 0x0884BCE4u>(ctx, &aot_mem) && ctx.pc == 0x088D2F54u) goto L_088D2F54;
+    return;
+L_088D2F54:
+    ctx.gpr[31] = (0x088D2F5Cu);
+    ctx.gpr[4] = (0u | 7u);
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 712u, 0x0884BD54u>(ctx, &aot_mem) && ctx.pc == 0x088D2F5Cu) goto L_088D2F5C;
+    return;
+L_088D2F5C:
+    ctx.gpr[31] = (0x088D2F64u);
+    ctx.gpr[4] = (0u | 7u);
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 713u, 0x0884BD6Cu>(ctx, &aot_mem) && ctx.pc == 0x088D2F64u) goto L_088D2F64;
+    return;
+L_088D2F64:
+    ctx.gpr[4] = (2182u << 16u);
+    ctx.gpr[5] = (2182u << 16u);
+    ctx.gpr[6] = (0u | 6u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(17012));
+    ctx.gpr[31] = (0x088D2F7Cu);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(17564));
+    if (rt.invoke_chained_direct<&recomp_unit_0017_entry, 17u, 695u, 0x0884BC14u>(ctx, &aot_mem) && ctx.pc == 0x088D2F7Cu) goto L_088D2F7C;
+    return;
+L_088D2F7C:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D2F98:
+    ctx.gpr[31] = (0x088D2FA0u);
+    ctx.gpr[4] = (0u | 1u);
+    if (rt.invoke_chained_direct<&recomp_unit_0007_entry, 7u, 208u, 0x088213B0u>(ctx, &aot_mem) && ctx.pc == 0x088D2FA0u) goto L_088D2FA0;
+    return;
+L_088D2FA0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load8(ctx.gpr[4] + static_cast<std::uint32_t>(8472)));
+    if (ctx.gpr[5] != 0u) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(4)));
+        goto L_088D2FE0;
+    }
+    goto L_088D2FB0;
+L_088D2FB0:
+    ctx.gpr[31] = (0x088D2FB8u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0000_entry, 0u, 718u, 0x08806E50u>(ctx, &aot_mem) && ctx.pc == 0x088D2FB8u) goto L_088D2FB8;
+    return;
+L_088D2FB8:
+    { const bool branch_taken = ctx.gpr[2] != ctx.gpr[17];
+    // nop
+      if (branch_taken) {
+          goto L_088D3180;
+      }
+      goto L_088D2FC0;
+    }
+L_088D2FC0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (0u | 1u);
+    ctx.gpr[31] = (0x088D2FD0u);
+    aot_mem.aot_store8(ctx.gpr[5] + static_cast<std::uint32_t>(8472), static_cast<std::uint8_t>(ctx.gpr[18]));
+    if (rt.invoke_chained_direct<&recomp_unit_0018_entry, 18u, 18u, 0x0884C14Cu>(ctx, &aot_mem) && ctx.pc == 0x088D2FD0u) goto L_088D2FD0;
+    return;
+L_088D2FD0:
+    ctx.gpr[31] = (0x088D2FD8u);
+    // nop
+    goto L_088D17D0;
+L_088D2FD8:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3180;
+      }
+      goto L_088D2FE0;
+    }
+L_088D2FE0:
+    { const bool branch_taken = static_cast<std::int32_t>(ctx.gpr[5]) <= 0;
+    ctx.gpr[18] = (0u + static_cast<std::uint32_t>(-1));
+      if (branch_taken) {
+          goto L_088D3008;
+      }
+      goto L_088D2FE8;
+    }
+L_088D2FE8:
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-1));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(4), ctx.gpr[5]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(4)));
+    if (ctx.gpr[5] != 0u) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(16)));
+        goto L_088D300C;
+    }
+    goto L_088D3000;
+L_088D3000:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    goto L_088D3008;
+L_088D3008:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(16)));
+    goto L_088D300C;
+L_088D300C:
+    ctx.gpr[5] = (ctx.gpr[4] < static_cast<std::uint32_t>(5) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3084;
+      }
+      goto L_088D3018;
+    }
+L_088D3018:
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(1));
+    { const bool branch_taken = ctx.gpr[4] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(2));
+      if (branch_taken) {
+          goto L_088D305C;
+      }
+      goto L_088D3024;
+    }
+L_088D3024:
+    { const bool branch_taken = ctx.gpr[4] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(3));
+      if (branch_taken) {
+          goto L_088D304C;
+      }
+      goto L_088D302C;
+    }
+L_088D302C:
+    { const bool branch_taken = ctx.gpr[4] == ctx.gpr[1];
+    ctx.gpr[1] = (0u + static_cast<std::uint32_t>(4));
+      if (branch_taken) {
+          goto L_088D306C;
+      }
+      goto L_088D3034;
+    }
+L_088D3034:
+    { const bool branch_taken = ctx.gpr[4] == ctx.gpr[1];
+    // nop
+      if (branch_taken) {
+          goto L_088D307C;
+      }
+      goto L_088D303C;
+    }
+L_088D303C:
+    ctx.gpr[31] = (0x088D3044u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    goto L_088D1180;
+L_088D3044:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3084;
+      }
+      goto L_088D304C;
+    }
+L_088D304C:
+    ctx.gpr[31] = (0x088D3054u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    goto L_088D3C9C;
+L_088D3054:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3084;
+      }
+      goto L_088D305C;
+    }
+L_088D305C:
+    ctx.gpr[31] = (0x088D3064u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 12u, 0x088D40ACu>(ctx, &aot_mem) && ctx.pc == 0x088D3064u) goto L_088D3064;
+    return;
+L_088D3064:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3084;
+      }
+      goto L_088D306C;
+    }
+L_088D306C:
+    ctx.gpr[31] = (0x088D3074u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 86u, 0x088D44ECu>(ctx, &aot_mem) && ctx.pc == 0x088D3074u) goto L_088D3074;
+    return;
+L_088D3074:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3084;
+      }
+      goto L_088D307C;
+    }
+L_088D307C:
+    ctx.gpr[31] = (0x088D3084u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    goto L_088D1400;
+L_088D3084:
+    ctx.gpr[31] = (0x088D308Cu);
+    ctx.gpr[4] = (0u | 32768u);
+    if (rt.invoke_chained_direct<&recomp_unit_0080_entry, 80u, 170u, 0x08944C38u>(ctx, &aot_mem) && ctx.pc == 0x088D308Cu) goto L_088D308C;
+    return;
+L_088D308C:
+    { const bool branch_taken = ctx.gpr[2] != ctx.gpr[17];
+    // nop
+      if (branch_taken) {
+          goto L_088D30E0;
+      }
+      goto L_088D3094;
+    }
+L_088D3094:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[5] = (0u | 1024u);
+    if (ctx.gpr[4] != ctx.gpr[5]) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+        goto L_088D30BC;
+    }
+    goto L_088D30A4;
+L_088D30A4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (0u | 30u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(4), ctx.gpr[5]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8), ctx.gpr[17]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+    goto L_088D30BC;
+L_088D30BC:
+    ctx.gpr[5] = (0u | 2048u);
+    { const bool branch_taken = ctx.gpr[4] != ctx.gpr[5];
+    // nop
+      if (branch_taken) {
+          goto L_088D30E0;
+      }
+      goto L_088D30C8;
+    }
+L_088D30C8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (0u | 30u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(4), ctx.gpr[5]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (0u | 2u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(8), ctx.gpr[5]);
+    goto L_088D30E0;
+L_088D30E0:
+    ctx.gpr[31] = (0x088D30E8u);
+    // nop
+    goto L_088D17D0;
+L_088D30E8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(60)));
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3110;
+      }
+      goto L_088D30F8;
+    }
+L_088D30F8:
+    ctx.gpr[31] = (0x088D3100u);
+    // nop
+    ctx.pc = 0x08AB45BCu;
+    return;
+L_088D3100:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(60), ctx.gpr[2]);
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+      if (branch_taken) {
+          goto L_088D3150;
+      }
+      goto L_088D3110;
+    }
+L_088D3110:
+    if (static_cast<std::int32_t>(ctx.gpr[5]) <= 0) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(56)));
+        goto L_088D3154;
+    }
+    goto L_088D3118;
+L_088D3118:
+    ctx.gpr[31] = (0x088D3120u);
+    // nop
+    ctx.pc = 0x08AB45BCu;
+    return;
+L_088D3120:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (76u << 16u);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(60)));
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(19264));
+    ctx.gpr[6] = (ctx.gpr[2] - ctx.gpr[6]);
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[6]) < static_cast<std::int32_t>(ctx.gpr[5]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[5] = (0u | 3u);
+      if (branch_taken) {
+          goto L_088D3150;
+      }
+      goto L_088D3140;
+    }
+L_088D3140:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(56), ctx.gpr[5]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(60), ctx.gpr[18]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    goto L_088D3150;
+L_088D3150:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(56)));
+    goto L_088D3154;
+L_088D3154:
+    { const bool branch_taken = ctx.gpr[5] == ctx.gpr[18];
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(56));
+      if (branch_taken) {
+          goto L_088D3164;
+      }
+      goto L_088D315C;
+    }
+L_088D315C:
+    ctx.gpr[31] = (0x088D3164u);
+    ctx.gpr[5] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 363u, 0x0883ACDCu>(ctx, &aot_mem) && ctx.pc == 0x088D3164u) goto L_088D3164;
+    return;
+L_088D3164:
+    ctx.gpr[31] = (0x088D316Cu);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 952u, 0x0881FB40u>(ctx, &aot_mem) && ctx.pc == 0x088D316Cu) goto L_088D316C;
+    return;
+L_088D316C:
+    ctx.gpr[31] = (0x088D3174u);
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 565u, 0x0881E2BCu>(ctx, &aot_mem) && ctx.pc == 0x088D3174u) goto L_088D3174;
+    return;
+L_088D3174:
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    ctx.gpr[31] = (0x088D3180u);
+    ctx.gpr[5] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0004_entry, 4u, 712u, 0x08817360u>(ctx, &aot_mem) && ctx.pc == 0x088D3180u) goto L_088D3180;
+    return;
+L_088D3180:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(16)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(32)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D319C:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-384));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(36), 0u);
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(40), static_cast<std::uint8_t>(0u));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(44), 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(48), 0u);
+    ctx.gpr[4] = (2222u << 16u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(52), 0u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(19848));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(56), 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(336), ctx.gpr[4]);
+    ctx.gpr[4] = (2222u << 16u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(60), 0u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(19864));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(356), ctx.gpr[20]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(128), ctx.gpr[4]);
+    ctx.gpr[20] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(352), ctx.gpr[19]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8464)));
+    ctx.gpr[19] = (ctx.gpr[29] + static_cast<std::uint32_t>(16));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(104)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(340), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(344), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(348), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(360), ctx.gpr[21]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(364), ctx.gpr[22]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(368), ctx.gpr[23]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(372), ctx.gpr[30]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(376), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D3228u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(100)));
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 621u, 0x0880ABA0u>(ctx, &aot_mem) && ctx.pc == 0x088D3228u) goto L_088D3228;
+    return;
+L_088D3228:
+    ctx.gpr[4] = (2220u << 16u);
+    aot_mem.aot_store8(ctx.gpr[29] + static_cast<std::uint32_t>(132), static_cast<std::uint8_t>(0u));
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-6708));
+    ctx.gpr[5] = (2220u << 16u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(300), ctx.gpr[4]);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6704));
+    ctx.gpr[4] = (2220u << 16u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-6696));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(296), ctx.gpr[5]);
+    ctx.gpr[5] = (2220u << 16u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(292), ctx.gpr[4]);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6716));
+    ctx.gpr[4] = (2220u << 16u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(308), ctx.gpr[5]);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-6808));
+    ctx.gpr[5] = (2220u << 16u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(304), ctx.gpr[4]);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6784));
+    ctx.gpr[4] = (2220u << 16u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-6768));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(288), ctx.gpr[5]);
+    ctx.gpr[5] = (2220u << 16u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(284), ctx.gpr[4]);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6760));
+    ctx.gpr[4] = (2220u << 16u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-6752));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(280), ctx.gpr[5]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(276), ctx.gpr[4]);
+    ctx.gpr[4] = (2220u << 16u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-6732));
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6816));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(312), ctx.gpr[4]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(316), ctx.gpr[5]);
+    ctx.gpr[4] = (2220u << 16u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-6824));
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-7100));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(332), ctx.gpr[4]);
+    ctx.gpr[4] = (2220u << 16u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(328), ctx.gpr[5]);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-6740));
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6724));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(324), ctx.gpr[4]);
+    ctx.gpr[23] = (2220u << 16u);
+    ctx.gpr[22] = (2220u << 16u);
+    ctx.gpr[21] = (2220u << 16u);
+    ctx.gpr[30] = (2220u << 16u);
+    ctx.gpr[17] = (ctx.gpr[29] + static_cast<std::uint32_t>(132));
+    ctx.gpr[16] = (ctx.gpr[29] + static_cast<std::uint32_t>(260));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(320), ctx.gpr[5]);
+    ctx.gpr[23] = (ctx.gpr[23] + static_cast<std::uint32_t>(-6800));
+    ctx.gpr[22] = (ctx.gpr[22] + static_cast<std::uint32_t>(-6792));
+    ctx.gpr[21] = (ctx.gpr[21] + static_cast<std::uint32_t>(-6776));
+    ctx.gpr[30] = (ctx.gpr[30] + static_cast<std::uint32_t>(-6744));
+    goto L_088D3308;
+L_088D3308:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(332)));
+    ctx.gpr[31] = (0x088D3314u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3314u) goto L_088D3314;
+    return;
+L_088D3314:
+    if (ctx.gpr[2] == 0u) {
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(336)));
+        goto L_088D3874;
+    }
+    goto L_088D331C;
+L_088D331C:
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(328)));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D332Cu);
+    ctx.gpr[5] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 813u, 0x0880B7F8u>(ctx, &aot_mem) && ctx.pc == 0x088D332Cu) goto L_088D332C;
+    return;
+L_088D332C:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[31] = (0x088D3338u);
+    ctx.gpr[5] = (ctx.gpr[18] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3338u) goto L_088D3338;
+    return;
+L_088D3338:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[18] = (0u | 0u);
+      if (branch_taken) {
+          goto L_088D3504;
+      }
+      goto L_088D3340;
+    }
+L_088D3340:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(316)));
+    goto L_088D3344;
+L_088D3344:
+    ctx.gpr[31] = (0x088D334Cu);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D334Cu) goto L_088D334C;
+    return;
+L_088D334C:
+    { const bool branch_taken = ctx.gpr[2] == 0u;
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+      if (branch_taken) {
+          goto L_088D3504;
+      }
+      goto L_088D3354;
+    }
+L_088D3354:
+    ctx.gpr[31] = (0x088D335Cu);
+    ctx.gpr[5] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 813u, 0x0880B7F8u>(ctx, &aot_mem) && ctx.pc == 0x088D335Cu) goto L_088D335C;
+    return;
+L_088D335C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(304)));
+    ctx.gpr[31] = (0x088D3368u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3368u) goto L_088D3368;
+    return;
+L_088D3368:
+    if (ctx.gpr[2] != 0u) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(316)));
+        goto L_088D3344;
+    }
+    goto L_088D3370;
+L_088D3370:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    goto L_088D3374;
+L_088D3374:
+    ctx.gpr[31] = (0x088D337Cu);
+    ctx.gpr[5] = (ctx.gpr[23] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D337Cu) goto L_088D337C;
+    return;
+L_088D337C:
+    { const bool branch_taken = ctx.gpr[2] == 0u;
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+      if (branch_taken) {
+          goto L_088D34FC;
+      }
+      goto L_088D3384;
+    }
+L_088D3384:
+    ctx.gpr[31] = (0x088D338Cu);
+    ctx.gpr[5] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 813u, 0x0880B7F8u>(ctx, &aot_mem) && ctx.pc == 0x088D338Cu) goto L_088D338C;
+    return;
+L_088D338C:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[31] = (0x088D3398u);
+    ctx.gpr[5] = (ctx.gpr[22] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3398u) goto L_088D3398;
+    return;
+L_088D3398:
+    if (ctx.gpr[2] != 0u) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(288)));
+        goto L_088D33B8;
+    }
+    goto L_088D33A0;
+L_088D33A0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D33B4u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(4616));
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D33B4u) goto L_088D33B4;
+    return;
+L_088D33B4:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(288)));
+    goto L_088D33B8;
+L_088D33B8:
+    ctx.gpr[31] = (0x088D33C0u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D33C0u) goto L_088D33C0;
+    return;
+L_088D33C0:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+      if (branch_taken) {
+          goto L_088D33FC;
+      }
+      goto L_088D33C8;
+    }
+L_088D33C8:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D33D8u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D33D8u) goto L_088D33D8;
+    return;
+L_088D33D8:
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D33E4u);
+    ctx.gpr[5] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D33E4u) goto L_088D33E4;
+    return;
+L_088D33E4:
+    ctx.gpr[31] = (0x088D33ECu);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 209u, 0x08A9CADCu>(ctx, &aot_mem) && ctx.pc == 0x088D33ECu) goto L_088D33EC;
+    return;
+L_088D33EC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(4660), ctx.gpr[2]);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    goto L_088D33FC;
+L_088D33FC:
+    ctx.gpr[31] = (0x088D3404u);
+    ctx.gpr[5] = (ctx.gpr[21] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3404u) goto L_088D3404;
+    return;
+L_088D3404:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+      if (branch_taken) {
+          goto L_088D3438;
+      }
+      goto L_088D340C;
+    }
+L_088D340C:
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D3418u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D3418u) goto L_088D3418;
+    return;
+L_088D3418:
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D3424u);
+    ctx.gpr[5] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D3424u) goto L_088D3424;
+    return;
+L_088D3424:
+    ctx.gpr[31] = (0x088D342Cu);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 209u, 0x08A9CADCu>(ctx, &aot_mem) && ctx.pc == 0x088D342Cu) goto L_088D342C;
+    return;
+L_088D342C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(4664), ctx.gpr[2]);
+    goto L_088D3438;
+L_088D3438:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(284)));
+    ctx.gpr[31] = (0x088D3444u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3444u) goto L_088D3444;
+    return;
+L_088D3444:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+      if (branch_taken) {
+          goto L_088D347C;
+      }
+      goto L_088D344C;
+    }
+L_088D344C:
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D3458u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D3458u) goto L_088D3458;
+    return;
+L_088D3458:
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D3464u);
+    ctx.gpr[5] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D3464u) goto L_088D3464;
+    return;
+L_088D3464:
+    ctx.gpr[31] = (0x088D346Cu);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 209u, 0x08A9CADCu>(ctx, &aot_mem) && ctx.pc == 0x088D346Cu) goto L_088D346C;
+    return;
+L_088D346C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (0u < ctx.gpr[2] ? 1u : 0u);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(4668), static_cast<std::uint8_t>(ctx.gpr[5]));
+    goto L_088D347C;
+L_088D347C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(280)));
+    ctx.gpr[31] = (0x088D3488u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3488u) goto L_088D3488;
+    return;
+L_088D3488:
+    if (ctx.gpr[2] != 0u) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(276)));
+        goto L_088D34A8;
+    }
+    goto L_088D3490;
+L_088D3490:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D34A4u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(4669));
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D34A4u) goto L_088D34A4;
+    return;
+L_088D34A4:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(276)));
+    goto L_088D34A8;
+L_088D34A8:
+    ctx.gpr[31] = (0x088D34B0u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D34B0u) goto L_088D34B0;
+    return;
+L_088D34B0:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+      if (branch_taken) {
+          goto L_088D34D0;
+      }
+      goto L_088D34B8;
+    }
+L_088D34B8:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D34CCu);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(4685));
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D34CCu) goto L_088D34CC;
+    return;
+L_088D34CC:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    goto L_088D34D0;
+L_088D34D0:
+    ctx.gpr[31] = (0x088D34D8u);
+    ctx.gpr[5] = (ctx.gpr[30] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D34D8u) goto L_088D34D8;
+    return;
+L_088D34D8:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+      if (branch_taken) {
+          goto L_088D3374;
+      }
+      goto L_088D34E0;
+    }
+L_088D34E0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D34F4u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(4694));
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D34F4u) goto L_088D34F4;
+    return;
+L_088D34F4:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+      if (branch_taken) {
+          goto L_088D3374;
+      }
+      goto L_088D34FC;
+    }
+L_088D34FC:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(96));
+      if (branch_taken) {
+          goto L_088D3340;
+      }
+      goto L_088D3504;
+    }
+L_088D3504:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(324)));
+    ctx.gpr[31] = (0x088D3510u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3510u) goto L_088D3510;
+    return;
+L_088D3510:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[18] = (0u | 0u);
+      if (branch_taken) {
+          goto L_088D36DC;
+      }
+      goto L_088D3518;
+    }
+L_088D3518:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(312)));
+    goto L_088D351C;
+L_088D351C:
+    ctx.gpr[31] = (0x088D3524u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3524u) goto L_088D3524;
+    return;
+L_088D3524:
+    { const bool branch_taken = ctx.gpr[2] == 0u;
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+      if (branch_taken) {
+          goto L_088D36DC;
+      }
+      goto L_088D352C;
+    }
+L_088D352C:
+    ctx.gpr[31] = (0x088D3534u);
+    ctx.gpr[5] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 813u, 0x0880B7F8u>(ctx, &aot_mem) && ctx.pc == 0x088D3534u) goto L_088D3534;
+    return;
+L_088D3534:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(304)));
+    ctx.gpr[31] = (0x088D3540u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3540u) goto L_088D3540;
+    return;
+L_088D3540:
+    if (ctx.gpr[2] != 0u) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(312)));
+        goto L_088D351C;
+    }
+    goto L_088D3548;
+L_088D3548:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    goto L_088D354C;
+L_088D354C:
+    ctx.gpr[31] = (0x088D3554u);
+    ctx.gpr[5] = (ctx.gpr[23] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3554u) goto L_088D3554;
+    return;
+L_088D3554:
+    { const bool branch_taken = ctx.gpr[2] == 0u;
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+      if (branch_taken) {
+          goto L_088D36D4;
+      }
+      goto L_088D355C;
+    }
+L_088D355C:
+    ctx.gpr[31] = (0x088D3564u);
+    ctx.gpr[5] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 813u, 0x0880B7F8u>(ctx, &aot_mem) && ctx.pc == 0x088D3564u) goto L_088D3564;
+    return;
+L_088D3564:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[31] = (0x088D3570u);
+    ctx.gpr[5] = (ctx.gpr[22] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3570u) goto L_088D3570;
+    return;
+L_088D3570:
+    if (ctx.gpr[2] != 0u) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(288)));
+        goto L_088D3590;
+    }
+    goto L_088D3578;
+L_088D3578:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D358Cu);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(488));
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D358Cu) goto L_088D358C;
+    return;
+L_088D358C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(288)));
+    goto L_088D3590;
+L_088D3590:
+    ctx.gpr[31] = (0x088D3598u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3598u) goto L_088D3598;
+    return;
+L_088D3598:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+      if (branch_taken) {
+          goto L_088D35D4;
+      }
+      goto L_088D35A0;
+    }
+L_088D35A0:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D35B0u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D35B0u) goto L_088D35B0;
+    return;
+L_088D35B0:
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D35BCu);
+    ctx.gpr[5] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D35BCu) goto L_088D35BC;
+    return;
+L_088D35BC:
+    ctx.gpr[31] = (0x088D35C4u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 209u, 0x08A9CADCu>(ctx, &aot_mem) && ctx.pc == 0x088D35C4u) goto L_088D35C4;
+    return;
+L_088D35C4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(532), ctx.gpr[2]);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    goto L_088D35D4;
+L_088D35D4:
+    ctx.gpr[31] = (0x088D35DCu);
+    ctx.gpr[5] = (ctx.gpr[21] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D35DCu) goto L_088D35DC;
+    return;
+L_088D35DC:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+      if (branch_taken) {
+          goto L_088D3610;
+      }
+      goto L_088D35E4;
+    }
+L_088D35E4:
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D35F0u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D35F0u) goto L_088D35F0;
+    return;
+L_088D35F0:
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D35FCu);
+    ctx.gpr[5] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D35FCu) goto L_088D35FC;
+    return;
+L_088D35FC:
+    ctx.gpr[31] = (0x088D3604u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 209u, 0x08A9CADCu>(ctx, &aot_mem) && ctx.pc == 0x088D3604u) goto L_088D3604;
+    return;
+L_088D3604:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(536), ctx.gpr[2]);
+    goto L_088D3610;
+L_088D3610:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(284)));
+    ctx.gpr[31] = (0x088D361Cu);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D361Cu) goto L_088D361C;
+    return;
+L_088D361C:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+      if (branch_taken) {
+          goto L_088D3654;
+      }
+      goto L_088D3624;
+    }
+L_088D3624:
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D3630u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D3630u) goto L_088D3630;
+    return;
+L_088D3630:
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D363Cu);
+    ctx.gpr[5] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D363Cu) goto L_088D363C;
+    return;
+L_088D363C:
+    ctx.gpr[31] = (0x088D3644u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 209u, 0x08A9CADCu>(ctx, &aot_mem) && ctx.pc == 0x088D3644u) goto L_088D3644;
+    return;
+L_088D3644:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (0u < ctx.gpr[2] ? 1u : 0u);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    aot_mem.aot_store8(ctx.gpr[4] + static_cast<std::uint32_t>(540), static_cast<std::uint8_t>(ctx.gpr[5]));
+    goto L_088D3654;
+L_088D3654:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(280)));
+    ctx.gpr[31] = (0x088D3660u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3660u) goto L_088D3660;
+    return;
+L_088D3660:
+    if (ctx.gpr[2] != 0u) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(276)));
+        goto L_088D3680;
+    }
+    goto L_088D3668;
+L_088D3668:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D367Cu);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(541));
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D367Cu) goto L_088D367C;
+    return;
+L_088D367C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(276)));
+    goto L_088D3680;
+L_088D3680:
+    ctx.gpr[31] = (0x088D3688u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3688u) goto L_088D3688;
+    return;
+L_088D3688:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+      if (branch_taken) {
+          goto L_088D36A8;
+      }
+      goto L_088D3690;
+    }
+L_088D3690:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D36A4u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(557));
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D36A4u) goto L_088D36A4;
+    return;
+L_088D36A4:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    goto L_088D36A8;
+L_088D36A8:
+    ctx.gpr[31] = (0x088D36B0u);
+    ctx.gpr[5] = (ctx.gpr[30] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D36B0u) goto L_088D36B0;
+    return;
+L_088D36B0:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+      if (branch_taken) {
+          goto L_088D354C;
+      }
+      goto L_088D36B8;
+    }
+L_088D36B8:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D36CCu);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(566));
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D36CCu) goto L_088D36CC;
+    return;
+L_088D36CC:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+      if (branch_taken) {
+          goto L_088D354C;
+      }
+      goto L_088D36D4;
+    }
+L_088D36D4:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(96));
+      if (branch_taken) {
+          goto L_088D3518;
+      }
+      goto L_088D36DC;
+    }
+L_088D36DC:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(320)));
+    ctx.gpr[31] = (0x088D36E8u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D36E8u) goto L_088D36E8;
+    return;
+L_088D36E8:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[18] = (0u | 0u);
+      if (branch_taken) {
+          goto L_088D3308;
+      }
+      goto L_088D36F0;
+    }
+L_088D36F0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(308)));
+    ctx.gpr[31] = (0x088D36FCu);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D36FCu) goto L_088D36FC;
+    return;
+L_088D36FC:
+    { const bool branch_taken = ctx.gpr[2] == 0u;
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+      if (branch_taken) {
+          goto L_088D3308;
+      }
+      goto L_088D3704;
+    }
+L_088D3704:
+    ctx.gpr[31] = (0x088D370Cu);
+    ctx.gpr[5] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 813u, 0x0880B7F8u>(ctx, &aot_mem) && ctx.pc == 0x088D370Cu) goto L_088D370C;
+    return;
+L_088D370C:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(304)));
+    ctx.gpr[31] = (0x088D3718u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3718u) goto L_088D3718;
+    return;
+L_088D3718:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D386C;
+      }
+      goto L_088D3720;
+    }
+L_088D3720:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    goto L_088D3724;
+L_088D3724:
+    ctx.gpr[31] = (0x088D372Cu);
+    ctx.gpr[5] = (ctx.gpr[23] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D372Cu) goto L_088D372C;
+    return;
+L_088D372C:
+    { const bool branch_taken = ctx.gpr[2] == 0u;
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+      if (branch_taken) {
+          goto L_088D386C;
+      }
+      goto L_088D3734;
+    }
+L_088D3734:
+    ctx.gpr[31] = (0x088D373Cu);
+    ctx.gpr[5] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 813u, 0x0880B7F8u>(ctx, &aot_mem) && ctx.pc == 0x088D373Cu) goto L_088D373C;
+    return;
+L_088D373C:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[31] = (0x088D3748u);
+    ctx.gpr[5] = (ctx.gpr[22] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3748u) goto L_088D3748;
+    return;
+L_088D3748:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+      if (branch_taken) {
+          goto L_088D3768;
+      }
+      goto L_088D3750;
+    }
+L_088D3750:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[18]);
+    ctx.gpr[31] = (0x088D3764u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(7304));
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D3764u) goto L_088D3764;
+    return;
+L_088D3764:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    goto L_088D3768;
+L_088D3768:
+    ctx.gpr[31] = (0x088D3770u);
+    ctx.gpr[5] = (ctx.gpr[21] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3770u) goto L_088D3770;
+    return;
+L_088D3770:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+      if (branch_taken) {
+          goto L_088D37A4;
+      }
+      goto L_088D3778;
+    }
+L_088D3778:
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D3784u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D3784u) goto L_088D3784;
+    return;
+L_088D3784:
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D3790u);
+    ctx.gpr[5] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D3790u) goto L_088D3790;
+    return;
+L_088D3790:
+    ctx.gpr[31] = (0x088D3798u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 209u, 0x08A9CADCu>(ctx, &aot_mem) && ctx.pc == 0x088D3798u) goto L_088D3798;
+    return;
+L_088D3798:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(7336), ctx.gpr[2]);
+    goto L_088D37A4;
+L_088D37A4:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(300)));
+    ctx.gpr[31] = (0x088D37B0u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D37B0u) goto L_088D37B0;
+    return;
+L_088D37B0:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+      if (branch_taken) {
+          goto L_088D37E4;
+      }
+      goto L_088D37B8;
+    }
+L_088D37B8:
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D37C4u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D37C4u) goto L_088D37C4;
+    return;
+L_088D37C4:
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D37D0u);
+    ctx.gpr[5] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D37D0u) goto L_088D37D0;
+    return;
+L_088D37D0:
+    ctx.gpr[31] = (0x088D37D8u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 209u, 0x08A9CADCu>(ctx, &aot_mem) && ctx.pc == 0x088D37D8u) goto L_088D37D8;
+    return;
+L_088D37D8:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(7340), ctx.gpr[2]);
+    goto L_088D37E4;
+L_088D37E4:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(296)));
+    ctx.gpr[31] = (0x088D37F0u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D37F0u) goto L_088D37F0;
+    return;
+L_088D37F0:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+      if (branch_taken) {
+          goto L_088D3824;
+      }
+      goto L_088D37F8;
+    }
+L_088D37F8:
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D3804u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D3804u) goto L_088D3804;
+    return;
+L_088D3804:
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D3810u);
+    ctx.gpr[5] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D3810u) goto L_088D3810;
+    return;
+L_088D3810:
+    ctx.gpr[31] = (0x088D3818u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 209u, 0x08A9CADCu>(ctx, &aot_mem) && ctx.pc == 0x088D3818u) goto L_088D3818;
+    return;
+L_088D3818:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(7344), ctx.gpr[2]);
+    goto L_088D3824;
+L_088D3824:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(292)));
+    ctx.gpr[31] = (0x088D3830u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 588u, 0x08A9E188u>(ctx, &aot_mem) && ctx.pc == 0x088D3830u) goto L_088D3830;
+    return;
+L_088D3830:
+    { const bool branch_taken = ctx.gpr[2] != 0u;
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+      if (branch_taken) {
+          goto L_088D3724;
+      }
+      goto L_088D3838;
+    }
+L_088D3838:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D3848u);
+    ctx.gpr[6] = (0u | 16u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D3848u) goto L_088D3848;
+    return;
+L_088D3848:
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D3854u);
+    ctx.gpr[5] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 815u, 0x0880B814u>(ctx, &aot_mem) && ctx.pc == 0x088D3854u) goto L_088D3854;
+    return;
+L_088D3854:
+    ctx.gpr[31] = (0x088D385Cu);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 209u, 0x08A9CADCu>(ctx, &aot_mem) && ctx.pc == 0x088D385Cu) goto L_088D385C;
+    return;
+L_088D385C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[20] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[18]);
+    { const bool branch_taken = 0u == 0u;
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(7348), ctx.gpr[2]);
+      if (branch_taken) {
+          goto L_088D3720;
+      }
+      goto L_088D386C;
+    }
+L_088D386C:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(48));
+      if (branch_taken) {
+          goto L_088D36F0;
+      }
+      goto L_088D3874;
+    }
+L_088D3874:
+    ctx.gpr[31] = (0x088D387Cu);
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 624u, 0x0880ABECu>(ctx, &aot_mem) && ctx.pc == 0x088D387Cu) goto L_088D387C;
+    return;
+L_088D387C:
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(128), ctx.gpr[16]);
+    ctx.gpr[31] = (0x088D3888u);
+    ctx.gpr[4] = (ctx.gpr[19] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0001_entry, 1u, 624u, 0x0880ABECu>(ctx, &aot_mem) && ctx.pc == 0x088D3888u) goto L_088D3888;
+    return;
+L_088D3888:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(340)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(344)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(348)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(352)));
+    ctx.gpr[20] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(356)));
+    ctx.gpr[21] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(360)));
+    ctx.gpr[22] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(364)));
+    ctx.gpr[23] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(368)));
+    ctx.gpr[30] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(372)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(376)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(384));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D38B8:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-160));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(132), ctx.gpr[16]);
+    ctx.gpr[16] = (ctx.gpr[29] + static_cast<std::uint32_t>(16));
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(136), ctx.gpr[17]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(140), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(144), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(148), ctx.gpr[20]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(152), ctx.gpr[31]);
+    ctx.gpr[31] = (0x088D38E8u);
+    ctx.gpr[6] = (0u | 9u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D38E8u) goto L_088D38E8;
+    return;
+L_088D38E8:
+    ctx.gpr[17] = (ctx.gpr[29] + static_cast<std::uint32_t>(28));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D38FCu);
+    ctx.gpr[6] = (0u | 17u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D38FCu) goto L_088D38FC;
+    return;
+L_088D38FC:
+    ctx.gpr[31] = (0x088D3904u);
+    ctx.gpr[4] = (0u | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 952u, 0x0881FB40u>(ctx, &aot_mem) && ctx.pc == 0x088D3904u) goto L_088D3904;
+    return;
+L_088D3904:
+    ctx.gpr[31] = (0x088D390Cu);
+    ctx.gpr[4] = (ctx.gpr[2] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0006_entry, 6u, 565u, 0x0881E2BCu>(ctx, &aot_mem) && ctx.pc == 0x088D390Cu) goto L_088D390C;
+    return;
+L_088D390C:
+    ctx.gpr[19] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    ctx.gpr[18] = (ctx.gpr[2] | 0u);
+      if (branch_taken) {
+          goto L_088D39E4;
+      }
+      goto L_088D3920;
+    }
+L_088D3920:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(28)));
+    ctx.gpr[5] = (ctx.gpr[5] << 2u);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(276)));
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(272), ctx.gpr[5]);
+      if (branch_taken) {
+          goto L_088D3960;
+      }
+      goto L_088D3938;
+    }
+L_088D3938:
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(17984)));
+    ctx.gpr[31] = (0x088D3948u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D3948u) goto L_088D3948;
+    return;
+L_088D3948:
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(17988)));
+    ctx.gpr[31] = (0x088D3958u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D3958u) goto L_088D3958;
+    return;
+L_088D3958:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+      if (branch_taken) {
+          goto L_088D39CC;
+      }
+      goto L_088D3960;
+    }
+L_088D3960:
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(4685));
+    ctx.gpr[31] = (0x088D397Cu);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D397Cu) goto L_088D397C;
+    return;
+L_088D397C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(272)));
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[19] = (ctx.gpr[4] + static_cast<std::uint32_t>(4694));
+    ctx.gpr[4] = (2220u << 16u);
+    ctx.gpr[31] = (0x088D39A4u);
+    ctx.gpr[20] = (ctx.gpr[4] + static_cast<std::uint32_t>(-6688));
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 708u, 0x088335B4u>(ctx, &aot_mem) && ctx.pc == 0x088D39A4u) goto L_088D39A4;
+    return;
+L_088D39A4:
+    ctx.gpr[5] = (2221u << 16u);
+    ctx.gpr[4] = (ctx.gpr[2] << 2u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(18104));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(0)));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (ctx.gpr[20] | 0u);
+    ctx.gpr[31] = (0x088D39C8u);
+    ctx.gpr[6] = (ctx.gpr[19] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0165_entry, 165u, 569u, 0x08A9B9ECu>(ctx, &aot_mem) && ctx.pc == 0x088D39C8u) goto L_088D39C8;
+    return;
+L_088D39C8:
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    goto L_088D39CC;
+L_088D39CC:
+    ctx.gpr[5] = (0u | 9u);
+    ctx.gpr[6] = (ctx.gpr[16] | 0u);
+    ctx.gpr[31] = (0x088D39DCu);
+    ctx.gpr[7] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0005_entry, 5u, 292u, 0x088192E0u>(ctx, &aot_mem) && ctx.pc == 0x088D39DCu) goto L_088D39DC;
+    return;
+L_088D39DC:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3C7C;
+      }
+      goto L_088D39E4;
+    }
+L_088D39E4:
+    ctx.gpr[6] = (0u | 1u);
+    if (ctx.gpr[5] != ctx.gpr[6]) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(36)));
+        goto L_088D3AD0;
+    }
+    goto L_088D39F0;
+L_088D39F0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[5] = (ctx.gpr[5] << 2u);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(100)));
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(96), ctx.gpr[5]);
+      if (branch_taken) {
+          goto L_088D3A4C;
+      }
+      goto L_088D3A08;
+    }
+L_088D3A08:
+    ctx.gpr[5] = (24368u << 16u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(12594));
+    aot_mem.aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(0), ctx.gpr[5]);
+    ctx.gpr[5] = (12592u << 16u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(12336));
+    aot_mem.aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(4), ctx.gpr[5]);
+    aot_mem.aot_store8(ctx.gpr[16] + static_cast<std::uint32_t>(8), static_cast<std::uint8_t>(0u));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(96)));
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(566));
+    ctx.gpr[31] = (0x088D3A44u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D3A44u) goto L_088D3A44;
+    return;
+L_088D3A44:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+      if (branch_taken) {
+          goto L_088D3AB8;
+      }
+      goto L_088D3A4C;
+    }
+L_088D3A4C:
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(557));
+    ctx.gpr[31] = (0x088D3A68u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D3A68u) goto L_088D3A68;
+    return;
+L_088D3A68:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(96)));
+    ctx.gpr[5] = (ctx.gpr[5] << 5u);
+    ctx.gpr[6] = (ctx.gpr[5] + ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[5] + ctx.gpr[6]);
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[19] = (ctx.gpr[4] + static_cast<std::uint32_t>(566));
+    ctx.gpr[4] = (2220u << 16u);
+    ctx.gpr[31] = (0x088D3A90u);
+    ctx.gpr[20] = (ctx.gpr[4] + static_cast<std::uint32_t>(-6688));
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 708u, 0x088335B4u>(ctx, &aot_mem) && ctx.pc == 0x088D3A90u) goto L_088D3A90;
+    return;
+L_088D3A90:
+    ctx.gpr[5] = (2221u << 16u);
+    ctx.gpr[4] = (ctx.gpr[2] << 2u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(18104));
+    ctx.gpr[4] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(0)));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (ctx.gpr[20] | 0u);
+    ctx.gpr[31] = (0x088D3AB4u);
+    ctx.gpr[6] = (ctx.gpr[19] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0165_entry, 165u, 569u, 0x08A9B9ECu>(ctx, &aot_mem) && ctx.pc == 0x088D3AB4u) goto L_088D3AB4;
+    return;
+L_088D3AB4:
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    goto L_088D3AB8;
+L_088D3AB8:
+    ctx.gpr[5] = (0u | 8u);
+    ctx.gpr[6] = (ctx.gpr[16] | 0u);
+    ctx.gpr[31] = (0x088D3AC8u);
+    ctx.gpr[7] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0005_entry, 5u, 292u, 0x088192E0u>(ctx, &aot_mem) && ctx.pc == 0x088D3AC8u) goto L_088D3AC8;
+    return;
+L_088D3AC8:
+    { const bool branch_taken = 0u == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3C7C;
+      }
+      goto L_088D3AD0;
+    }
+L_088D3AD0:
+    ctx.gpr[6] = (2221u << 16u);
+    ctx.gpr[5] = (ctx.gpr[5] << 2u);
+    ctx.gpr[5] = (ctx.gpr[4] + ctx.gpr[5]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(392)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(388), ctx.gpr[5]);
+    ctx.gpr[7] = (ctx.gpr[5] << 2u);
+    ctx.gpr[4] = (ctx.gpr[6] + static_cast<std::uint32_t>(18104));
+    ctx.gpr[4] = (ctx.gpr[7] + ctx.gpr[4]);
+    ctx.gpr[20] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(0)));
+    ctx.gpr[31] = (0x088D3AFCu);
+    ctx.gpr[4] = (ctx.gpr[29] + static_cast<std::uint32_t>(48));
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 722u, 0x0883368Cu>(ctx, &aot_mem) && ctx.pc == 0x088D3AFCu) goto L_088D3AFC;
+    return;
+L_088D3AFC:
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int16_t>(aot_mem.aot_load16(ctx.gpr[29] + static_cast<std::uint32_t>(48))))));
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[19] = (2221u << 16u);
+      if (branch_taken) {
+          goto L_088D3B2C;
+      }
+      goto L_088D3B08;
+    }
+L_088D3B08:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17984)));
+    ctx.gpr[31] = (0x088D3B14u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D3B14u) goto L_088D3B14;
+    return;
+L_088D3B14:
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(17988)));
+    ctx.gpr[31] = (0x088D3B24u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D3B24u) goto L_088D3B24;
+    return;
+L_088D3B24:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+      if (branch_taken) {
+          goto L_088D3B54;
+      }
+      goto L_088D3B2C;
+    }
+L_088D3B2C:
+    ctx.gpr[5] = (ctx.gpr[29] + static_cast<std::uint32_t>(56));
+    ctx.gpr[31] = (0x088D3B38u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D3B38u) goto L_088D3B38;
+    return;
+L_088D3B38:
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[6] = (ctx.gpr[29] + static_cast<std::uint32_t>(65));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[7] = (ctx.gpr[20] | 0u);
+    ctx.gpr[31] = (0x088D3B50u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6688));
+    if (rt.invoke_chained_direct<&recomp_unit_0165_entry, 165u, 569u, 0x08A9B9ECu>(ctx, &aot_mem) && ctx.pc == 0x088D3B50u) goto L_088D3B50;
+    return;
+L_088D3B50:
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    goto L_088D3B54;
+L_088D3B54:
+    ctx.gpr[5] = (0u | 9u);
+    ctx.gpr[6] = (ctx.gpr[16] | 0u);
+    ctx.gpr[31] = (0x088D3B64u);
+    ctx.gpr[7] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0005_entry, 5u, 292u, 0x088192E0u>(ctx, &aot_mem) && ctx.pc == 0x088D3B64u) goto L_088D3B64;
+    return;
+L_088D3B64:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D3B74u);
+    ctx.gpr[6] = (0u | 9u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D3B74u) goto L_088D3B74;
+    return;
+L_088D3B74:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D3B84u);
+    ctx.gpr[6] = (0u | 17u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D3B84u) goto L_088D3B84;
+    return;
+L_088D3B84:
+    ctx.gpr[31] = (0x088D3B8Cu);
+    ctx.gpr[4] = (ctx.gpr[29] + static_cast<std::uint32_t>(84));
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 716u, 0x08833630u>(ctx, &aot_mem) && ctx.pc == 0x088D3B8Cu) goto L_088D3B8C;
+    return;
+L_088D3B8C:
+    ctx.gpr[4] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int16_t>(aot_mem.aot_load16(ctx.gpr[29] + static_cast<std::uint32_t>(84))))));
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[5] = (ctx.gpr[29] + static_cast<std::uint32_t>(92));
+      if (branch_taken) {
+          goto L_088D3BD0;
+      }
+      goto L_088D3B98;
+    }
+L_088D3B98:
+    ctx.gpr[4] = (24368u << 16u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(12594));
+    aot_mem.aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(0), ctx.gpr[4]);
+    ctx.gpr[4] = (12592u << 16u);
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(12336));
+    aot_mem.aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(4), ctx.gpr[4]);
+    aot_mem.aot_store8(ctx.gpr[16] + static_cast<std::uint32_t>(8), static_cast<std::uint8_t>(0u));
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(17988)));
+    ctx.gpr[31] = (0x088D3BC4u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D3BC4u) goto L_088D3BC4;
+    return;
+L_088D3BC4:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+      if (branch_taken) {
+          goto L_088D3BF4;
+      }
+      goto L_088D3BCC;
+    }
+L_088D3BCC:
+    ctx.gpr[5] = (ctx.gpr[29] + static_cast<std::uint32_t>(92));
+    goto L_088D3BD0;
+L_088D3BD0:
+    ctx.gpr[31] = (0x088D3BD8u);
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D3BD8u) goto L_088D3BD8;
+    return;
+L_088D3BD8:
+    ctx.gpr[5] = (2220u << 16u);
+    ctx.gpr[6] = (ctx.gpr[29] + static_cast<std::uint32_t>(101));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[7] = (ctx.gpr[20] | 0u);
+    ctx.gpr[31] = (0x088D3BF0u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6688));
+    if (rt.invoke_chained_direct<&recomp_unit_0165_entry, 165u, 569u, 0x08A9B9ECu>(ctx, &aot_mem) && ctx.pc == 0x088D3BF0u) goto L_088D3BF0;
+    return;
+L_088D3BF0:
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    goto L_088D3BF4;
+L_088D3BF4:
+    ctx.gpr[5] = (0u | 8u);
+    ctx.gpr[6] = (ctx.gpr[16] | 0u);
+    ctx.gpr[31] = (0x088D3C04u);
+    ctx.gpr[7] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0005_entry, 5u, 292u, 0x088192E0u>(ctx, &aot_mem) && ctx.pc == 0x088D3C04u) goto L_088D3C04;
+    return;
+L_088D3C04:
+    ctx.gpr[4] = (ctx.gpr[16] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D3C14u);
+    ctx.gpr[6] = (0u | 9u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D3C14u) goto L_088D3C14;
+    return;
+L_088D3C14:
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[5] = (0u | 0u);
+    ctx.gpr[31] = (0x088D3C24u);
+    ctx.gpr[6] = (0u | 17u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 560u, 0x08A9E008u>(ctx, &aot_mem) && ctx.pc == 0x088D3C24u) goto L_088D3C24;
+    return;
+L_088D3C24:
+    ctx.gpr[31] = (0x088D3C2Cu);
+    ctx.gpr[4] = (ctx.gpr[29] + static_cast<std::uint32_t>(120));
+    if (rt.invoke_chained_direct<&recomp_unit_0011_entry, 11u, 710u, 0x088335D4u>(ctx, &aot_mem) && ctx.pc == 0x088D3C2Cu) goto L_088D3C2C;
+    return;
+L_088D3C2C:
+    ctx.gpr[16] = (static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int8_t>(aot_mem.aot_load8(ctx.gpr[29] + static_cast<std::uint32_t>(125))))));
+    { const bool branch_taken = ctx.gpr[16] != 0u;
+    ctx.gpr[5] = (2220u << 16u);
+      if (branch_taken) {
+          goto L_088D3C50;
+      }
+      goto L_088D3C38;
+    }
+L_088D3C38:
+    ctx.gpr[4] = (2221u << 16u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(17988)));
+    ctx.gpr[31] = (0x088D3C48u);
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0166_entry, 166u, 593u, 0x08A9E1BCu>(ctx, &aot_mem) && ctx.pc == 0x088D3C48u) goto L_088D3C48;
+    return;
+L_088D3C48:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17984)));
+      if (branch_taken) {
+          goto L_088D3C68;
+      }
+      goto L_088D3C50;
+    }
+L_088D3C50:
+    ctx.gpr[6] = (ctx.gpr[16] + static_cast<std::uint32_t>(1));
+    ctx.gpr[4] = (ctx.gpr[17] | 0u);
+    ctx.gpr[7] = (ctx.gpr[20] | 0u);
+    ctx.gpr[31] = (0x088D3C64u);
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-6680));
+    if (rt.invoke_chained_direct<&recomp_unit_0165_entry, 165u, 569u, 0x08A9B9ECu>(ctx, &aot_mem) && ctx.pc == 0x088D3C64u) goto L_088D3C64;
+    return;
+L_088D3C64:
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[19] + static_cast<std::uint32_t>(17984)));
+    goto L_088D3C68;
+L_088D3C68:
+    ctx.gpr[4] = (ctx.gpr[18] | 0u);
+    ctx.gpr[5] = (0u | 22u);
+    ctx.gpr[6] = (ctx.gpr[19] | 0u);
+    ctx.gpr[31] = (0x088D3C7Cu);
+    ctx.gpr[7] = (ctx.gpr[17] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0005_entry, 5u, 292u, 0x088192E0u>(ctx, &aot_mem) && ctx.pc == 0x088D3C7Cu) goto L_088D3C7C;
+    return;
+L_088D3C7C:
+    ctx.gpr[16] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(132)));
+    ctx.gpr[17] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(136)));
+    ctx.gpr[18] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(140)));
+    ctx.gpr[19] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(144)));
+    ctx.gpr[20] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(148)));
+    ctx.gpr[31] = (aot_mem.aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(152)));
+    jump_target = ctx.gpr[31];
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(160));
+    local_pc = jump_target;
+    if (++local_transfers < 2048u) { entry_id = 0u; goto LOCAL_DISPATCH; }
+    ctx.pc = jump_target;
+    return;
+L_088D3C9C:
+    ctx.gpr[29] = (ctx.gpr[29] + static_cast<std::uint32_t>(-48));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(16), ctx.gpr[16]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(20), ctx.gpr[17]);
+    ctx.gpr[16] = (ctx.gpr[4] | 0u);
+    ctx.gpr[17] = (2221u << 16u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(0)));
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(28), ctx.gpr[19]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(32), ctx.gpr[20]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(36), ctx.gpr[21]);
+    aot_mem.aot_store32(ctx.gpr[29] + static_cast<std::uint32_t>(40), ctx.gpr[31]);
+    { const bool branch_taken = static_cast<std::int32_t>(ctx.gpr[5]) <= 0;
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-1));
+      if (branch_taken) {
+          goto L_088D3CDC;
+      }
+      goto L_088D3CD4;
+    }
+L_088D3CD4:
+    { const bool branch_taken = 0u == 0u;
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(0), ctx.gpr[5]);
+      if (branch_taken) {
+          (void)rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 11u, 0x088D4088u>(ctx, &aot_mem); return;
+      }
+      goto L_088D3CDC;
+    }
+L_088D3CDC:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(48), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[18] = (0u | 9u);
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(84)));
+    ctx.gpr[7] = (ctx.gpr[7] - ctx.gpr[5]);
+    ctx.gpr[5] = (ctx.gpr[6] + static_cast<std::uint32_t>(-1));
+    ctx.gpr[8] = (ctx.gpr[7] + static_cast<std::uint32_t>(10));
+    ctx.gpr[8] = (static_cast<std::int32_t>(ctx.gpr[5]) < static_cast<std::int32_t>(ctx.gpr[8]) ? 1u : 0u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+    ctx.gpr[19] = (0u | 1u);
+    ctx.gpr[20] = (0u | 4u);
+    { const bool branch_taken = ctx.gpr[8] == 0u;
+    ctx.gpr[21] = (0u | 8u);
+      if (branch_taken) {
+          goto L_088D3D20;
+      }
+      goto L_088D3D18;
+    }
+L_088D3D18:
+    ctx.gpr[18] = (ctx.gpr[6] - ctx.gpr[7]);
+    ctx.gpr[18] = (ctx.gpr[18] + static_cast<std::uint32_t>(-1));
+    goto L_088D3D20;
+L_088D3D20:
+    ctx.gpr[6] = (0u | 128u);
+    if (ctx.gpr[5] != ctx.gpr[6]) {
+    ctx.gpr[4] = (0u | 64u);
+        goto L_088D3D9C;
+    }
+    goto L_088D3D2C;
+L_088D3D2C:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8528)));
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[4] = (0u | 64u);
+      if (branch_taken) {
+          goto L_088D3D9C;
+      }
+      goto L_088D3D38;
+    }
+L_088D3D38:
+    ctx.gpr[31] = (0x088D3D40u);
+    // nop
+    goto L_088D0C6C;
+L_088D3D40:
+    if (ctx.gpr[2] != ctx.gpr[19]) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+        goto L_088D3D74;
+    }
+    goto L_088D3D48;
+L_088D3D48:
+    ctx.gpr[31] = (0x088D3D50u);
+    // nop
+    goto L_088D27C4;
+L_088D3D50:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(44), ctx.gpr[19]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D3D64u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(16), ctx.gpr[20]);
+    if (rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 374u, 0x088D6B08u>(ctx, &aot_mem) && ctx.pc == 0x088D3D64u) goto L_088D3D64;
+    return;
+L_088D3D64:
+    ctx.gpr[31] = (0x088D3D6Cu);
+    ctx.gpr[4] = (0u | 12u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D3D6Cu) goto L_088D3D6C;
+    return;
+L_088D3D6C:
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+      if (branch_taken) {
+          goto L_088D3D98;
+      }
+      goto L_088D3D74;
+    }
+L_088D3D74:
+    ctx.gpr[5] = (0u | 60u);
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(56), ctx.gpr[20]);
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (0u | 6u);
+    aot_mem.aot_store32(ctx.gpr[6] + static_cast<std::uint32_t>(0), ctx.gpr[5]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D3D94u);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(48), ctx.gpr[19]);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D3D94u) goto L_088D3D94;
+    return;
+L_088D3D94:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(68)));
+    goto L_088D3D98;
+L_088D3D98:
+    ctx.gpr[4] = (0u | 64u);
+    goto L_088D3D9C;
+L_088D3D9C:
+    { const bool branch_taken = ctx.gpr[5] != ctx.gpr[4];
+    ctx.gpr[4] = (ctx.gpr[21] | 0u);
+      if (branch_taken) {
+          goto L_088D3DE4;
+      }
+      goto L_088D3DA4;
+    }
+L_088D3DA4:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8528)));
+    { const bool branch_taken = ctx.gpr[4] != 0u;
+    ctx.gpr[4] = (ctx.gpr[21] | 0u);
+      if (branch_taken) {
+          goto L_088D3DE4;
+      }
+      goto L_088D3DB4;
+    }
+L_088D3DB4:
+    ctx.gpr[31] = (0x088D3DBCu);
+    // nop
+    goto L_088D27C4;
+L_088D3DBC:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(12), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(16), 0u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[31] = (0x088D3DD8u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(12)));
+    if (rt.invoke_chained_direct<&recomp_unit_0080_entry, 80u, 178u, 0x08944D00u>(ctx, &aot_mem) && ctx.pc == 0x088D3DD8u) goto L_088D3DD8;
+    return;
+L_088D3DD8:
+    ctx.gpr[31] = (0x088D3DE0u);
+    ctx.gpr[4] = (0u | 6u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D3DE0u) goto L_088D3DE0;
+    return;
+L_088D3DE0:
+    ctx.gpr[4] = (ctx.gpr[21] | 0u);
+    goto L_088D3DE4;
+L_088D3DE4:
+    ctx.gpr[21] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(8)));
+    { const bool branch_taken = ctx.gpr[21] != ctx.gpr[4];
+    ctx.gpr[4] = (0u | 2u);
+      if (branch_taken) {
+          goto L_088D3F0C;
+      }
+      goto L_088D3DF0;
+    }
+L_088D3DF0:
+    ctx.gpr[8] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(8528)));
+    if (ctx.gpr[4] == 0u) {
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(20)));
+        goto L_088D3E18;
+    }
+    goto L_088D3E00;
+L_088D3E00:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(5));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[4]) < static_cast<std::int32_t>(ctx.gpr[18]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] == 0u;
+    ctx.gpr[4] = (0u | 2u);
+      if (branch_taken) {
+          goto L_088D3F0C;
+      }
+      goto L_088D3E14;
+    }
+L_088D3E14:
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(20)));
+    goto L_088D3E18;
+L_088D3E18:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(84)));
+    ctx.gpr[5] = (ctx.gpr[6] + static_cast<std::uint32_t>(5));
+    ctx.gpr[7] = (static_cast<std::int32_t>(ctx.gpr[5]) < static_cast<std::int32_t>(ctx.gpr[4]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[7] == 0u;
+    ctx.gpr[21] = (0u | 8u);
+      if (branch_taken) {
+          goto L_088D3E40;
+      }
+      goto L_088D3E2C;
+    }
+L_088D3E2C:
+    aot_mem.aot_store32(ctx.gpr[8] + static_cast<std::uint32_t>(20), ctx.gpr[5]);
+    ctx.gpr[8] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(24)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[4]) < 5 ? 1u : 0u);
+      if (branch_taken) {
+          goto L_088D3EE4;
+      }
+      goto L_088D3E40;
+    }
+L_088D3E40:
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-1));
+    ctx.gpr[7] = (0u | 5u);
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[4]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[7]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.gpr[4] = (ctx.lo);
+    // nop
+    // nop
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[6]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[7]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.gpr[6] = (ctx.lo);
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[6]) < static_cast<std::int32_t>(ctx.gpr[4]) ? 1u : 0u);
+    if (ctx.gpr[4] == 0u) {
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(24)));
+        goto L_088D3EDC;
+    }
+    goto L_088D3E6C;
+L_088D3E6C:
+    aot_mem.aot_store32(ctx.gpr[8] + static_cast<std::uint32_t>(20), ctx.gpr[5]);
+    ctx.gpr[8] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[18]) < 9 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(24)));
+      if (branch_taken) {
+          goto L_088D3E90;
+      }
+      goto L_088D3E80;
+    }
+L_088D3E80:
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(5));
+    aot_mem.aot_store32(ctx.gpr[8] + static_cast<std::uint32_t>(24), ctx.gpr[4]);
+    ctx.gpr[8] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(24)));
+    goto L_088D3E90;
+L_088D3E90:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[7] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(84)));
+    ctx.gpr[4] = (ctx.gpr[5] - ctx.gpr[4]);
+    ctx.gpr[5] = (ctx.gpr[7] + static_cast<std::uint32_t>(-1));
+    ctx.gpr[9] = (ctx.gpr[4] + static_cast<std::uint32_t>(10));
+    ctx.gpr[9] = (static_cast<std::int32_t>(ctx.gpr[5]) < static_cast<std::int32_t>(ctx.gpr[9]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[9] == 0u;
+    ctx.gpr[6] = (0u | 9u);
+      if (branch_taken) {
+          goto L_088D3EB8;
+      }
+      goto L_088D3EB0;
+    }
+L_088D3EB0:
+    ctx.gpr[6] = (ctx.gpr[7] - ctx.gpr[4]);
+    ctx.gpr[6] = (ctx.gpr[6] + static_cast<std::uint32_t>(-1));
+    goto L_088D3EB8;
+L_088D3EB8:
+    aot_mem.aot_store32(ctx.gpr[8] + static_cast<std::uint32_t>(20), ctx.gpr[5]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (0u | 8u);
+    ctx.gpr[31] = (0x088D3ECCu);
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(24), ctx.gpr[6]);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D3ECCu) goto L_088D3ECC;
+    return;
+L_088D3ECC:
+    ctx.gpr[8] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[8] + static_cast<std::uint32_t>(24)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[4]) < 5 ? 1u : 0u);
+      if (branch_taken) {
+          goto L_088D3EE4;
+      }
+      goto L_088D3EDC;
+    }
+L_088D3EDC:
+    ctx.gpr[21] = (0u | 6u);
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[4]) < 5 ? 1u : 0u);
+    goto L_088D3EE4;
+L_088D3EE4:
+    { const bool branch_taken = ctx.gpr[5] == 0u;
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(5));
+      if (branch_taken) {
+          goto L_088D3EFC;
+      }
+      goto L_088D3EEC;
+    }
+L_088D3EEC:
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[18]) < static_cast<std::int32_t>(ctx.gpr[4]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3EFC;
+      }
+      goto L_088D3EF8;
+    }
+L_088D3EF8:
+    aot_mem.aot_store32(ctx.gpr[8] + static_cast<std::uint32_t>(24), ctx.gpr[4]);
+    goto L_088D3EFC;
+L_088D3EFC:
+    ctx.gpr[31] = (0x088D3F04u);
+    ctx.gpr[4] = (ctx.gpr[21] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D3F04u) goto L_088D3F04;
+    return;
+L_088D3F04:
+    ctx.gpr[21] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(8)));
+    ctx.gpr[4] = (0u | 2u);
+    goto L_088D3F0C;
+L_088D3F0C:
+    { const bool branch_taken = ctx.gpr[21] != ctx.gpr[4];
+    // nop
+      if (branch_taken) {
+          goto L_088D3F98;
+      }
+      goto L_088D3F14;
+    }
+L_088D3F14:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[6] = (0u | 5u);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(20)));
+    { const std::int32_t dividend = static_cast<std::int32_t>(ctx.gpr[4]); const std::int32_t divisor = static_cast<std::int32_t>(ctx.gpr[6]); if (divisor == 0) { ctx.lo = dividend >= 0 ? 0xFFFFFFFFu : 1u; ctx.hi = static_cast<std::uint32_t>(dividend); } else if (dividend == static_cast<std::int32_t>(0x80000000u) && divisor == -1) { ctx.lo = 0x80000000u; ctx.hi = 0u; } else { ctx.lo = static_cast<std::uint32_t>(dividend / divisor); ctx.hi = static_cast<std::uint32_t>(dividend % divisor); } }
+    ctx.gpr[6] = (ctx.hi);
+    ctx.gpr[6] = (static_cast<std::int32_t>(ctx.gpr[6]) < 4 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[6] == 0u;
+    ctx.gpr[21] = (0u | 21u);
+      if (branch_taken) {
+          goto L_088D3F88;
+      }
+      goto L_088D3F34;
+    }
+L_088D3F34:
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(20), ctx.gpr[4]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[6] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(20)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(84)));
+    ctx.gpr[6] = (static_cast<std::int32_t>(ctx.gpr[6]) < static_cast<std::int32_t>(ctx.gpr[4]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[6] != 0u;
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(-1));
+      if (branch_taken) {
+          goto L_088D3F60;
+      }
+      goto L_088D3F54;
+    }
+L_088D3F54:
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(20), ctx.gpr[4]);
+    ctx.gpr[21] = (0u | 6u);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    goto L_088D3F60;
+L_088D3F60:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[4] = (ctx.gpr[4] + static_cast<std::uint32_t>(1));
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(24), ctx.gpr[4]);
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[5] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[4] = (static_cast<std::int32_t>(ctx.gpr[18]) < static_cast<std::int32_t>(ctx.gpr[4]) ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[4] == 0u;
+    // nop
+      if (branch_taken) {
+          goto L_088D3F8C;
+      }
+      goto L_088D3F80;
+    }
+L_088D3F80:
+    { const bool branch_taken = 0u == 0u;
+    aot_mem.aot_store32(ctx.gpr[5] + static_cast<std::uint32_t>(24), ctx.gpr[18]);
+      if (branch_taken) {
+          goto L_088D3F8C;
+      }
+      goto L_088D3F88;
+    }
+L_088D3F88:
+    ctx.gpr[21] = (0u | 6u);
+    goto L_088D3F8C;
+L_088D3F8C:
+    ctx.gpr[31] = (0x088D3F94u);
+    ctx.gpr[4] = (ctx.gpr[21] | 0u);
+    if (rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem) && ctx.pc == 0x088D3F94u) goto L_088D3F94;
+    return;
+L_088D3F94:
+    ctx.gpr[21] = (aot_mem.aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(8)));
+    goto L_088D3F98;
+L_088D3F98:
+    { const bool branch_taken = ctx.gpr[21] != ctx.gpr[20];
+    // nop
+      if (branch_taken) {
+          (void)rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 2u, 0x088D4008u>(ctx, &aot_mem); return;
+      }
+      goto L_088D3FA0;
+    }
+L_088D3FA0:
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(8528)));
+    if (ctx.gpr[5] == 0u) {
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+        goto L_088D3FC4;
+    }
+    goto L_088D3FB0;
+L_088D3FB0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[5] = (static_cast<std::int32_t>(ctx.gpr[5]) < 5 ? 1u : 0u);
+    { const bool branch_taken = ctx.gpr[5] != 0u;
+    // nop
+      if (branch_taken) {
+          (void)rt.invoke_chained_direct<&recomp_unit_0052_entry, 52u, 2u, 0x088D4008u>(ctx, &aot_mem); return;
+      }
+      goto L_088D3FC0;
+    }
+L_088D3FC0:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(20)));
+    goto L_088D3FC4;
+L_088D3FC4:
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-5));
+    { const bool branch_taken = static_cast<std::int32_t>(ctx.gpr[5]) < 0;
+    ctx.gpr[21] = (0u | 8u);
+      if (branch_taken) {
+          goto L_088D3FE4;
+      }
+      goto L_088D3FD0;
+    }
+L_088D3FD0:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(20), ctx.gpr[5]);
+    ctx.gpr[4] = (aot_mem.aot_load32(ctx.gpr[17] + static_cast<std::uint32_t>(18200)));
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(24)));
+    { const bool branch_taken = 0u == 0u;
+    ctx.gpr[6] = (static_cast<std::int32_t>(ctx.gpr[5]) < 5 ? 1u : 0u);
+      if (branch_taken) {
+          goto L_088D3FF0;
+      }
+      goto L_088D3FE4;
+    }
+L_088D3FE4:
+    ctx.gpr[5] = (aot_mem.aot_load32(ctx.gpr[4] + static_cast<std::uint32_t>(24)));
+    ctx.gpr[21] = (0u | 6u);
+    ctx.gpr[6] = (static_cast<std::int32_t>(ctx.gpr[5]) < 5 ? 1u : 0u);
+    goto L_088D3FF0;
+L_088D3FF0:
+    { const bool branch_taken = ctx.gpr[6] != 0u;
+    ctx.gpr[5] = (ctx.gpr[5] + static_cast<std::uint32_t>(-5));
+      if (branch_taken) {
+          goto L_088D3FFC;
+      }
+      goto L_088D3FF8;
+    }
+L_088D3FF8:
+    aot_mem.aot_store32(ctx.gpr[4] + static_cast<std::uint32_t>(24), ctx.gpr[5]);
+    goto L_088D3FFC;
+L_088D3FFC:
+    ctx.gpr[31] = (0x088D4004u);
+    ctx.gpr[4] = (ctx.gpr[21] | 0u);
+    (void)rt.invoke_chained_direct<&recomp_unit_0013_entry, 13u, 356u, 0x0883AC68u>(ctx, &aot_mem);
+    return;
+}
+
+void recomp_unit_0051(Runtime &rt, AllegrexContext &ctx) {
+    auto aot_mem = rt.memory().aot_fast_view();
+    recomp_unit_0051_entry(rt, ctx, 0u, aot_mem);
+}
+
+void register_generated_unit_51(Runtime &runtime) {
+    runtime.register_generated_unit(51u, 0x088D0000u, 16384u, &recomp_unit_0051, &recomp_unit_0051_entry);
+    runtime.register_function(0x088D0000u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0080u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D008Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0094u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D00A8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D00B0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D00C0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D00C8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D00D4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D00D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D00E0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0104u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0128u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0140u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D018Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0198u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D01A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D01A8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D01B0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D01D0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D027Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D028Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D029Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D02A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D02B4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D02C0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D02CCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D02D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D02E4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D036Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0378u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0384u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0390u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D039Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D03D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0434u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0440u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0448u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0460u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D046Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0478u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0484u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D04F8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0500u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0504u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D051Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0528u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0544u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D054Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D055Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0560u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D056Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0584u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0588u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D058Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D05D4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D05E8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D05F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0620u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D062Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0634u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D063Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D067Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0688u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D06C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D06D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D06ECu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D06F4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D06FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0710u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0724u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D073Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0754u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D075Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0764u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D07A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D07B0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D07ECu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D07F4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D080Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0818u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0828u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0838u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0848u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0858u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D086Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0874u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D087Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0884u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D088Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0894u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D089Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D08B4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D08C8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D08D0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D08F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D08FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0908u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0910u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D091Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0930u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0948u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0958u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0970u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0984u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0998u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D09A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D09C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D09D0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D09DCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D09F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D09FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0A1Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0A28u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0A34u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0A48u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0A54u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0A74u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0A80u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0A88u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0AB0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0ABCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0B14u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0B38u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0B5Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0B64u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0B70u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0B78u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0B84u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0BDCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0C00u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0C24u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0C2Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0C38u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0C40u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0C48u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0C4Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0C54u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0C6Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0C84u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0CB8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0CBCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0CC0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0CC8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0CFCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0D04u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0D0Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0D1Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0D20u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0D28u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0D3Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0D70u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0D7Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0DA0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0DB0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0DE4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0DF0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0E00u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0E0Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0E20u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0E28u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0E4Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0E5Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0E64u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0E78u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0E80u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0EA4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0EB4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0EBCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0ECCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0ED4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0EF8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0F08u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0F10u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0F18u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0F2Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0F4Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0F50u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0F5Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0F7Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0F98u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0FA0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0FBCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0FC4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0FE0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0FF0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D0FF8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1010u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1018u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1030u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1040u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1048u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1068u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1078u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1080u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1088u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D109Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D10A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D10CCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D111Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1138u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1144u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1150u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1160u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1180u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D11BCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D11CCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D11D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D123Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1244u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D124Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1250u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D125Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D126Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1280u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1290u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D12A0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D12ACu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D12B8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D12BCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D12C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D12D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D12E8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D12F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D12F8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1300u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1304u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1308u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1310u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1320u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1330u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1338u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1340u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1348u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1350u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1358u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D137Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D138Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1398u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D13A0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D13ACu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D13B4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D13BCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D13C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D13DCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1400u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1430u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1440u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D144Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1458u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1464u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D146Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1474u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D147Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1484u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1494u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D149Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D14ACu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D14B4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D14C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D14D0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D14D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D14ECu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D14F4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D14FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1504u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1514u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1520u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1528u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1530u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1534u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D153Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D154Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1558u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1560u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1568u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1570u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1578u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1580u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1588u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1590u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1598u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D15A0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D15A8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D15BCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D15C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D15CCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D15E8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1604u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D162Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1648u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1668u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1678u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D168Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D16A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D16C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D16D4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D16DCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D16E4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D16ECu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D16F4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D16FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1704u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1710u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1738u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1740u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1748u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1750u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1758u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1760u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D176Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1770u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1784u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D179Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D17B4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D17D0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D17E0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D17F8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1804u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D180Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1814u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D181Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1824u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D182Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1834u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D183Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1848u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1868u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1870u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1884u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1890u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1898u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D18A0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D18A8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D18B0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D18B8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D18C0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D18C8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D18D0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D18D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D18E0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D18F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1918u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1928u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1940u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1954u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1968u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D197Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D198Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D199Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D19ACu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D19BCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D19CCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D19D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D19F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1A00u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1A14u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1A1Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1A34u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1A44u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1A68u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1AA0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1AB8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1AC0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1AD4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1AE0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1AF0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1B18u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1B28u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1B40u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1B58u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1B64u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1B80u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1B90u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1BA8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1BC0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1BD0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1BF4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C10u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C20u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C30u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C38u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C44u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C4Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C5Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C60u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C6Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C78u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C88u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1C98u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1CA4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1CACu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1CB4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1CC0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1CD0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1CD4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1CE0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1CF0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1D00u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1D28u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1D40u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1D54u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1D5Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1D74u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1D84u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1D98u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1DA0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1DB8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1DC8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1DECu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1E5Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1E9Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1EB8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1ED0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1EDCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1EECu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1EF8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1F04u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1F14u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1F1Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1F28u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1F34u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1F38u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1F40u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1F6Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1F98u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1FA0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D1FB0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2010u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2034u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D203Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D204Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D205Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2064u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2074u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2084u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D209Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D20C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D20D4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D20E4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D20F8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2104u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D211Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2124u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2134u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2144u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2150u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2164u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D217Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2184u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2194u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D21A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D21B4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D21C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D21D4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D21E8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D21FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2204u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D221Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D222Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2250u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2278u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2288u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2294u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D22A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D22B8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D22C0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D22C8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D22D4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D22E4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D22F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2308u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2310u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2320u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2330u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2358u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2368u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D237Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2390u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D23A0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D23A8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D23B0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D23BCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D23CCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D23D4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D23E4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D23ECu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D23F4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2404u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2414u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2424u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2434u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2444u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2460u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D24B4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D24D0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D24DCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D24F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2508u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D259Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D25B4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2624u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D263Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D264Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2660u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D26A0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D26C8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D26E0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D26F4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D26FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2714u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2724u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2748u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2750u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D277Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2784u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D278Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D279Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D27ACu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D27C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D27F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2804u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2808u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2810u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D282Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2840u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2848u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2864u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2890u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D28A0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D28A8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D28B0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D28D4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D28DCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D28FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2900u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2904u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2910u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D293Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D29A0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D29B4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D29C0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D29DCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D29E4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D29ECu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D29F4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D29FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2A14u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2A44u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2A54u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2A5Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2A64u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2A70u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2A94u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2A98u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2A9Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2AA4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2AC8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2AD0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2ADCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2AE4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2AF4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2B04u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2B20u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2B38u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2B44u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2B4Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2B54u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2B5Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2B80u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2B8Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2B98u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2BA4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2BB0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2BBCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2BC4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2BD0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2BD8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2BE0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2BE8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C00u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C0Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C14u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C1Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C24u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C2Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C34u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C3Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C44u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C50u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C58u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C60u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C68u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C70u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C74u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2C7Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2CBCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2CD0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2CE0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2CF0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2CF8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2D10u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2D20u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2D30u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2D38u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2D44u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2D50u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2D58u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2D5Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2D74u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2D84u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2D8Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2DA0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2DB0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2DB4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2DD0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E00u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E30u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E38u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E48u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E50u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E5Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E68u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E74u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E7Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E84u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E88u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E90u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2E98u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2EA0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2EB0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2EB8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2EC0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2EDCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2EF0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2EF8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F00u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F08u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F10u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F18u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F30u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F38u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F40u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F4Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F54u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F5Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F64u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F7Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2F98u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2FA0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2FB0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2FB8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2FC0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2FD0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2FD8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2FE0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D2FE8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3000u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3008u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D300Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3018u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3024u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D302Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3034u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D303Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3044u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D304Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3054u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D305Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3064u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D306Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3074u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D307Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3084u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D308Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3094u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D30A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D30BCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D30C8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D30E0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D30E8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D30F8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3100u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3110u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3118u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3120u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3140u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3150u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3154u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D315Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3164u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D316Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3174u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3180u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D319Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3228u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3308u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3314u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D331Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D332Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3338u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3340u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3344u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D334Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3354u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D335Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3368u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3370u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3374u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D337Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3384u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D338Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3398u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D33A0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D33B4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D33B8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D33C0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D33C8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D33D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D33E4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D33ECu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D33FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3404u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D340Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3418u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3424u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D342Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3438u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3444u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D344Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3458u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3464u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D346Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D347Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3488u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3490u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D34A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D34A8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D34B0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D34B8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D34CCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D34D0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D34D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D34E0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D34F4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D34FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3504u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3510u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3518u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D351Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3524u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D352Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3534u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3540u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3548u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D354Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3554u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D355Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3564u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3570u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3578u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D358Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3590u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3598u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D35A0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D35B0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D35BCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D35C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D35D4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D35DCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D35E4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D35F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D35FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3604u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3610u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D361Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3624u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3630u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D363Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3644u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3654u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3660u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3668u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D367Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3680u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3688u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3690u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D36A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D36A8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D36B0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D36B8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D36CCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D36D4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D36DCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D36E8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D36F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D36FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3704u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D370Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3718u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3720u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3724u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D372Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3734u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D373Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3748u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3750u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3764u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3768u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3770u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3778u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3784u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3790u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3798u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D37A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D37B0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D37B8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D37C4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D37D0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D37D8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D37E4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D37F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D37F8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3804u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3810u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3818u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3824u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3830u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3838u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3848u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3854u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D385Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D386Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3874u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D387Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3888u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D38B8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D38E8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D38FCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3904u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D390Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3920u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3938u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3948u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3958u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3960u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D397Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D39A4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D39C8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D39CCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D39DCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D39E4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D39F0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3A08u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3A44u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3A4Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3A68u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3A90u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3AB4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3AB8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3AC8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3AD0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3AFCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B08u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B14u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B24u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B2Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B38u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B50u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B54u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B64u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B74u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B84u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B8Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3B98u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3BC4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3BCCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3BD0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3BD8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3BF0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3BF4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3C04u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3C14u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3C24u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3C2Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3C38u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3C48u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3C50u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3C64u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3C68u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3C7Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3C9Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3CD4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3CDCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D18u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D20u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D2Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D38u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D40u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D48u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D50u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D64u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D6Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D74u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D94u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D98u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3D9Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3DA4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3DB4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3DBCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3DD8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3DE0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3DE4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3DF0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3E00u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3E14u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3E18u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3E2Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3E40u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3E6Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3E80u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3E90u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3EB0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3EB8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3ECCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3EDCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3EE4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3EECu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3EF8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3EFCu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3F04u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3F0Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3F14u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3F34u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3F54u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3F60u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3F80u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3F88u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3F8Cu, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3F94u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3F98u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3FA0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3FB0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3FC0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3FC4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3FD0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3FE4u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3FF0u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3FF8u, &recomp_unit_0051, "recomp_unit_0051");
+    runtime.register_function(0x088D3FFCu, &recomp_unit_0051, "recomp_unit_0051");
+}
+} // namespace psprecomp

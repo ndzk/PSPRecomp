@@ -89,6 +89,80 @@ Requires CMake ≥ 3.20 and a C++20 MSVC toolchain. Developed against Visual
 Studio 2026 (MSVC 19.51, toolset 14.51); the reference `vcs` profile targets
 Visual Studio 2022, and both should work.
 
+## Regenerating the AOT corpus
+
+`generated/` holds the checked-in AOT C++ translated from the supported
+executable. Per [`../../docs/PROFILE_GUIDE.md`](../../docs/PROFILE_GUIDE.md) §6,
+everything needed to reproduce it:
+
+| | |
+|---|---|
+| Executable | `PSP_GAME/SYSDIR/BOOT.BIN`, SHA-256 `27c28efc…b27a`, 3,917,749 bytes |
+| Generator | the framework's `psp_recomp`, **not** a profile fork |
+| Load base | `0x08804000` |
+| Unit span | `16384` (`0x4000`) |
+| Post-generation passes | **none** |
+
+Exact command, from the repository root with the game staged:
+
+```
+out\framework\Release\psp_recomp.exe ^
+  profiles\defjam\game\PSP_GAME\SYSDIR\BOOT.BIN ^
+  --auto profiles\defjam\generated 0x08804000 16384
+```
+
+Set `PSPRECOMP_CODEGEN_PROGRESS=1` for per-unit progress on stderr.
+
+Generation is deterministic: regenerating into a different directory produces
+byte-identical output, and re-running in place reports `rewritten units: 0`.
+There is no post-generation optimization step, so the checked-in files are
+exactly what the command above emits.
+
+Measured corpus:
+
+| | |
+|---|---|
+| translation units | 173 (+ `generated_registry.cpp`) |
+| on disk | 71 MB |
+| emitted code PCs | 557,329 |
+| registered block entries | 127,021 |
+| import wrappers | 247 |
+| generation time | ~5 s |
+
+### Why span 16384
+
+`Runtime`'s compile-time direct-chaining table is capped at
+`kGeneratedUnitFastCapacity = 512` units; beyond that, cross-unit calls fall
+back to exact-PC dispatch. Measured alternatives on this executable:
+
+| span | units | corpus | avg unit | inside the 512 cap |
+|---|---|---|---|---|
+| `0x1000` | 689 | 73 MB | 108 KiB | **no** |
+| `0x2000` | 345 | 72 MB | 213 KiB | yes |
+| **`0x4000`** | **173** | **71 MB** | **420 KiB** | yes |
+| `0x8000` | 87 | 70 MB | 823 KiB | yes |
+| `0x20000` | 22 | 68 MB | 3165 KiB | yes |
+
+### Build cost
+
+Measured on the reference machine below, `/O2 /Ob0 /bigobj`, no LTO:
+
+| | |
+|---|---|
+| clean `DefJamNative` build | 87 s |
+| peak concurrent `cl.exe`/`link.exe` | 17 |
+| peak combined resident set | 3.8 GB |
+| **peak single compiler** | **309 MB** |
+| linked binary | 68.4 MB |
+
+Reference machine: AMD Ryzen 7 5700X3D (8C/16T), 64 GB RAM, Windows 11
+10.0.26100, MSVC 19.51 / toolset 14.51.
+
+The VCS profile caps build parallelism by available memory because its units
+exceed 1 GB each at `/Ox /Ob3`. At `/O2 /Ob0` this corpus peaks at 309 MB per
+compiler, so **no job capping is needed** and the default `/MP` is fine. That
+will need re-measuring if the corpus is ever built at `/Ox /Ob3`.
+
 ## Configuration
 
 `config/defjam_ulus10100.toml` is the profile manifest. Unlike the reference
