@@ -15,6 +15,7 @@ endif()
 
 set(DEFJAM_HOST_SOURCES
     host/defjam_config.cpp
+    host/defjam_ge.cpp
     host/defjam_io.cpp
     host/defjam_profile.cpp
 )

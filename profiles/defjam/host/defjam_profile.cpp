@@ -1,5 +1,6 @@
 #include "defjam_profile.hpp"
 
+#include "defjam_ge.hpp"
 #include "defjam_io.hpp"
 #include "psprecomp/common.hpp"
 
@@ -647,6 +648,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     g_framebuffer_sets = 0;
     g_ge_lists.clear();
     g_next_ge_list_id = 0x10;
+    ge_reset();
     g_modules.clear();
     g_next_module_uid = 0x400;
     g_audio_channels.fill(AudioChannel{});
@@ -1213,17 +1215,19 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     runtime.register_hle("sceGe_user", 0x05DB22CEu, [](Runtime &, AllegrexContext &ctx) {
         set_success(ctx);
     });
-    runtime.register_hle("sceGe_user", 0xAB49E76Au, [](Runtime &, AllegrexContext &ctx) {
-        // Headless: record the submission and report it complete immediately.
-        // A real GE backend replaces this in Phase 6.
+    runtime.register_hle("sceGe_user", 0xAB49E76Au, [](Runtime &rt, AllegrexContext &ctx) {
+        // (list, stall, callbackId, argument). Interpret up to the stall point;
+        // ge_execute_list returns where it stopped so a stall update resumes.
         const std::int32_t id = g_next_ge_list_id++;
-        g_ge_lists[id] = ctx.gpr[5];
+        const std::uint32_t resume = ge_execute_list(rt, ctx.gpr[4], ctx.gpr[5]);
+        g_ge_lists[id] = resume;
         ++g_display_list_submissions;
         set_return(ctx, static_cast<std::uint32_t>(id));
     });
-    runtime.register_hle("sceGe_user", 0xE0D68148u, [](Runtime &, AllegrexContext &ctx) {
+    runtime.register_hle("sceGe_user", 0xE0D68148u, [](Runtime &rt, AllegrexContext &ctx) {
+        // The guest moved the stall forward, so more of the list is now ours.
         const auto it = g_ge_lists.find(static_cast<std::int32_t>(ctx.gpr[4]));
-        if (it != g_ge_lists.end()) it->second = ctx.gpr[5];
+        if (it != g_ge_lists.end()) it->second = ge_execute_list(rt, it->second, ctx.gpr[5]);
         set_success(ctx);
     });
     runtime.register_hle("sceGe_user", 0x03444EB4u, [](Runtime &, AllegrexContext &ctx) {

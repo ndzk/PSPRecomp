@@ -1,4 +1,5 @@
 #include "defjam_config.hpp"
+#include "defjam_ge.hpp"
 #include "defjam_io.hpp"
 #include "defjam_profile.hpp"
 
@@ -248,6 +249,7 @@ int main(int argc, char **argv) {
                   << "  audio buffers:      " << stats.audio_buffers << ", "
                   << stats.audio_samples << " samples\n"
                   << "  guest time:         " << stats.virtual_time_us << " us\n";
+        std::cout << defjam::ge_report();
         const defjam::IoStats io = defjam::io_stats();
         std::cout << "  file opens:         " << io.opens << " (" << io.failed_opens << " failed)\n"
                   << "  reads:              " << io.reads << ", " << io.bytes_read << " bytes\n"
