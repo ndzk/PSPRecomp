@@ -32,10 +32,19 @@ struct GeStats {
     std::uint32_t last_vertex_type{};
 };
 
-// Runs a list from `start` up to `stall` (0 meaning "to the end"). Returns the
-// address execution stopped at, so a later stall update can resume.
-std::uint32_t ge_execute_list(psprecomp::Runtime &runtime, std::uint32_t start,
-                              std::uint32_t stall);
+struct GeExecution {
+    // Where execution stopped, so a later stall update resumes from here.
+    std::uint32_t resume_address{};
+    // The list reached FINISH, which on hardware raises the finish callback.
+    bool finished{};
+    std::uint32_t finish_argument{};
+    // The list raised SIGNAL, carrying the command's 24-bit payload.
+    bool signalled{};
+    std::uint32_t signal_argument{};
+};
+
+// Runs a list from `start` up to `stall` (0 meaning "to the end").
+GeExecution ge_execute_list(psprecomp::Runtime &runtime, std::uint32_t start, std::uint32_t stall);
 
 void ge_reset();
 [[nodiscard]] GeStats ge_stats();

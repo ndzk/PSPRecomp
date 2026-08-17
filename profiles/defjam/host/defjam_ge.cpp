@@ -62,7 +62,12 @@ void ge_reset() {
 const std::array<std::uint32_t, 256> &ge_registers() { return g_registers; }
 GeStats ge_stats() { return g_stats; }
 
-std::uint32_t ge_execute_list(Runtime &runtime, std::uint32_t start, std::uint32_t stall) {
+GeExecution ge_execute_list(Runtime &runtime, std::uint32_t start, std::uint32_t stall) {
+    GeExecution result{};
+    const auto stop_at = [&result](std::uint32_t address) {
+        result.resume_address = address;
+        return result;
+    };
     std::uint32_t pc = start;
     std::array<std::uint32_t, kCallStackDepth> call_stack{};
     std::uint32_t call_depth = 0u;
@@ -72,16 +77,16 @@ std::uint32_t ge_execute_list(Runtime &runtime, std::uint32_t start, std::uint32
     while (true) {
         // The stall address is where the guest has told the GE to pause; it is
         // not an error to reach it, it just means "no more work yet".
-        if (stall != 0u && pc == stall) return pc;
+        if (stall != 0u && pc == stall) return stop_at(pc);
         if (++executed > kMaxCommandsPerList) {
             ++g_stats.truncated_lists;
             runtime_log_line("ge: list truncated after " + std::to_string(executed) +
                              " commands at " + psprecomp::hex32(pc));
-            return pc;
+            return stop_at(pc);
         }
         if (!runtime.memory().contains(pc, 4u)) {
             runtime_log_line("ge: list ran outside guest memory at " + psprecomp::hex32(pc));
-            return pc;
+            return stop_at(pc);
         }
 
         const std::uint32_t word = runtime.memory().load32(pc);
@@ -158,7 +163,7 @@ std::uint32_t ge_execute_list(Runtime &runtime, std::uint32_t start, std::uint32
                 pc = resolve_address(data);
             } else {
                 runtime_log_line("ge: call stack overflow at " + psprecomp::hex32(pc));
-                return pc;
+                return stop_at(pc);
             }
             break;
 
@@ -168,15 +173,22 @@ std::uint32_t ge_execute_list(Runtime &runtime, std::uint32_t start, std::uint32
             break;
 
         case kCmdSignal:
+            // On hardware this raises the registered signal callback with the
+            // command's payload; the caller delivers it once we return.
             ++g_stats.signals;
+            result.signalled = true;
+            result.signal_argument = data;
             break;
 
         case kCmdFinish:
+            // Likewise for the finish callback. Execution continues to END.
             ++g_stats.finishes;
+            result.finished = true;
+            result.finish_argument = data;
             break;
 
         case kCmdEnd:
-            return pc;
+            return stop_at(pc);
 
         default:
             // Ordinary state registers: latched above, nothing more to do.

@@ -8,6 +8,7 @@
 #include <array>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -146,6 +147,14 @@ struct AsyncReturnFrame {
     AllegrexContext resume;
 };
 
+// A guest function the host owes the current thread, delivered by redirecting
+// execution rather than by the guest polling for it.
+struct PendingGuestCall {
+    std::uint32_t function{};
+    std::uint32_t arg0{};
+    std::uint32_t arg1{};
+};
+
 PartitionTable g_partitions;
 ThreadTable g_threads;
 std::map<std::int32_t, SemaphoreRecord> g_semaphores;
@@ -153,6 +162,7 @@ std::map<std::int32_t, EventFlagRecord> g_event_flags;
 std::map<std::int32_t, MbxRecord> g_mailboxes;
 std::map<std::int32_t, CallbackRecord> g_callbacks;
 std::map<std::int32_t, std::vector<AsyncReturnFrame>> g_async_frames;
+std::map<std::int32_t, std::deque<PendingGuestCall>> g_pending_guest_calls;
 std::int32_t g_next_kernel_uid = 0x1000;
 std::uint64_t g_virtual_time_us = 0;
 std::uint32_t g_compiled_sdk_version = 0;
@@ -165,8 +175,28 @@ std::uint64_t g_vblanks = 0;
 std::uint64_t g_display_list_submissions = 0;
 std::uint64_t g_framebuffer_sets = 0;
 std::int32_t g_next_ge_list_id = 0x10;
+
+// sceGeSetCallback registers a PspGeCallbackData: signal handler, signal
+// argument, finish handler, finish argument, in that order.
+struct GeCallbackRecord {
+    std::uint32_t signal_function{};
+    std::uint32_t signal_argument{};
+    std::uint32_t finish_function{};
+    std::uint32_t finish_argument{};
+};
+std::map<std::int32_t, GeCallbackRecord> g_ge_callbacks;
+
+// A queued list keeps the callback set it was enqueued with, because
+// sceGeListUpdateStallAddr names only the list.
+struct GeListRecord {
+    std::uint32_t resume{};
+    std::int32_t callback_id{-1};
+};
+
+std::uint64_t g_ge_signal_callbacks = 0;
+std::uint64_t g_ge_finish_callbacks = 0;
 std::uint32_t g_ge_edram_translation = 0x400;
-std::map<std::int32_t, std::uint32_t> g_ge_lists;  // id -> stall address
+std::map<std::int32_t, GeListRecord> g_ge_lists;
 
 std::uint64_t g_starvation_tick_us = 0;
 
@@ -498,14 +528,73 @@ void thread_return_trampoline(Runtime &rt, AllegrexContext &ctx) {
     }
 }
 
+// Redirects the running thread into a guest function and arranges for it to
+// come back through the interrupt trampoline rather than through $ra. This is
+// how hardware delivers a GE callback: it runs on the interrupted thread, on
+// that thread's stack, and returns via the kernel.
+void enter_guest_call(AllegrexContext &ctx, const PendingGuestCall &call,
+                      const AllegrexContext &resume) {
+    g_async_frames[g_threads.current_uid].push_back(AsyncReturnFrame{resume});
+    ctx.set_gpr(4, call.arg0);
+    ctx.set_gpr(5, call.arg1);
+    ctx.set_gpr(31, kInterruptReturnAddress);
+    ctx.pc = call.function;
+}
+
+// Ends an HLE call that queued guest work. `result` is what the caller sees in
+// v0, once every queued callback has run. Returns true if execution was
+// redirected, in which case the caller must not touch ctx afterwards.
+bool deliver_pending_guest_calls(AllegrexContext &ctx, std::uint32_t result) {
+    auto &queue = g_pending_guest_calls[g_threads.current_uid];
+    if (queue.empty()) {
+        ctx.set_gpr(2, result);
+        return false;
+    }
+    const PendingGuestCall call = queue.front();
+    queue.pop_front();
+    enter_guest_call(ctx, call, make_wait_context(ctx, result));
+    return true;
+}
+
 void interrupt_return_trampoline(Runtime &rt, AllegrexContext &ctx) {
     auto &frames = g_async_frames[g_threads.current_uid];
     if (frames.empty()) {
         rt.stop("returned to the interrupt trampoline with no pending frame");
         return;
     }
-    ctx = frames.back().resume;
+    const AllegrexContext resume = frames.back().resume;
     frames.pop_back();
+    ctx = resume;
+
+    // One list can raise several callbacks, so chain them onto the same resume
+    // point instead of delivering the first and dropping the rest.
+    auto &queue = g_pending_guest_calls[g_threads.current_uid];
+    if (queue.empty()) return;
+    const PendingGuestCall call = queue.front();
+    queue.pop_front();
+    enter_guest_call(ctx, call, resume);
+}
+
+// Turns what the list interpreter saw into guest work. A list with no callback
+// set, or a set whose handler is null, raises nothing, which is the ordinary
+// case for a title that only wants one of the two.
+void queue_ge_callbacks(const GeExecution &execution, std::int32_t callback_id) {
+    if (!execution.signalled && !execution.finished) return;
+    const auto it = g_ge_callbacks.find(callback_id);
+    if (it == g_ge_callbacks.end()) return;
+
+    auto &queue = g_pending_guest_calls[g_threads.current_uid];
+    // Signal precedes finish: the GE raises it earlier in the stream.
+    if (execution.signalled && it->second.signal_function != 0u) {
+        ++g_ge_signal_callbacks;
+        queue.push_back(PendingGuestCall{it->second.signal_function, execution.signal_argument,
+                                         it->second.signal_argument});
+    }
+    if (execution.finished && it->second.finish_function != 0u) {
+        ++g_ge_finish_callbacks;
+        queue.push_back(PendingGuestCall{it->second.finish_function, execution.finish_argument,
+                                         it->second.finish_argument});
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -647,6 +736,10 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     g_display_list_submissions = 0;
     g_framebuffer_sets = 0;
     g_ge_lists.clear();
+    g_ge_callbacks.clear();
+    g_pending_guest_calls.clear();
+    g_ge_signal_callbacks = 0;
+    g_ge_finish_callbacks = 0;
     g_next_ge_list_id = 0x10;
     ge_reset();
     g_modules.clear();
@@ -1209,26 +1302,50 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         g_ge_edram_translation = ctx.gpr[4];
         set_return(ctx, previous);
     });
-    runtime.register_hle("sceGe_user", 0xA4FC06A4u, [](Runtime &, AllegrexContext &ctx) {
-        set_return(ctx, static_cast<std::uint32_t>(allocate_kernel_uid()));
+    runtime.register_hle("sceGe_user", 0xA4FC06A4u, [](Runtime &rt, AllegrexContext &ctx) {
+        // sceGeSetCallback(PspGeCallbackData *). Record the handlers now; the
+        // list interpreter says when they are due.
+        const std::int32_t id = allocate_kernel_uid();
+        GeCallbackRecord record;
+        const std::uint32_t data = ctx.gpr[4];
+        if (data != 0u && rt.memory().contains(data, 16u)) {
+            record.signal_function = rt.memory().load32(data);
+            record.signal_argument = rt.memory().load32(data + 4u);
+            record.finish_function = rt.memory().load32(data + 8u);
+            record.finish_argument = rt.memory().load32(data + 12u);
+        }
+        g_ge_callbacks[id] = record;
+        runtime_log_line("ge: callback " + std::to_string(id) + " signal=" +
+                         psprecomp::hex32(record.signal_function) + " finish=" +
+                         psprecomp::hex32(record.finish_function));
+        set_return(ctx, static_cast<std::uint32_t>(id));
     });
     runtime.register_hle("sceGe_user", 0x05DB22CEu, [](Runtime &, AllegrexContext &ctx) {
+        g_ge_callbacks.erase(static_cast<std::int32_t>(ctx.gpr[4]));
         set_success(ctx);
     });
     runtime.register_hle("sceGe_user", 0xAB49E76Au, [](Runtime &rt, AllegrexContext &ctx) {
         // (list, stall, callbackId, argument). Interpret up to the stall point;
         // ge_execute_list returns where it stopped so a stall update resumes.
         const std::int32_t id = g_next_ge_list_id++;
-        const std::uint32_t resume = ge_execute_list(rt, ctx.gpr[4], ctx.gpr[5]);
-        g_ge_lists[id] = resume;
+        const auto callback_id = static_cast<std::int32_t>(ctx.gpr[6]);
+        const GeExecution execution = ge_execute_list(rt, ctx.gpr[4], ctx.gpr[5]);
+        g_ge_lists[id] = GeListRecord{execution.resume_address, callback_id};
         ++g_display_list_submissions;
-        set_return(ctx, static_cast<std::uint32_t>(id));
+        queue_ge_callbacks(execution, callback_id);
+        (void)deliver_pending_guest_calls(ctx, static_cast<std::uint32_t>(id));
     });
     runtime.register_hle("sceGe_user", 0xE0D68148u, [](Runtime &rt, AllegrexContext &ctx) {
         // The guest moved the stall forward, so more of the list is now ours.
         const auto it = g_ge_lists.find(static_cast<std::int32_t>(ctx.gpr[4]));
-        if (it != g_ge_lists.end()) it->second = ge_execute_list(rt, it->second, ctx.gpr[5]);
-        set_success(ctx);
+        if (it == g_ge_lists.end()) {
+            set_success(ctx);
+            return;
+        }
+        const GeExecution execution = ge_execute_list(rt, it->second.resume, ctx.gpr[5]);
+        it->second.resume = execution.resume_address;
+        queue_ge_callbacks(execution, it->second.callback_id);
+        (void)deliver_pending_guest_calls(ctx, 0u);
     });
     runtime.register_hle("sceGe_user", 0x03444EB4u, [](Runtime &, AllegrexContext &ctx) {
         set_success(ctx);
@@ -1760,6 +1877,8 @@ void report_headless_stats() {
                      " framebuffer_sets=" + std::to_string(stats.frame_buffer_sets) +
                      " thread_switches=" + std::to_string(stats.thread_switches) +
                      " live_threads=" + std::to_string(stats.live_threads) +
+                     " ge_signal_callbacks=" + std::to_string(g_ge_signal_callbacks) +
+                     " ge_finish_callbacks=" + std::to_string(g_ge_finish_callbacks) +
                      " virtual_time_us=" + std::to_string(stats.virtual_time_us));
 }
 
