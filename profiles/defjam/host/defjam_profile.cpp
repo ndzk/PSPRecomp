@@ -549,22 +549,49 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         set_return(ctx, g_threads.next_stack_top - g_partitions.next_address);
     });
     runtime.register_hle("SysMemUserForUser", 0x237DBD4Fu, [](Runtime &rt, AllegrexContext &ctx) {
-        // (partition, name, type, size, addr). Allocation type and the
-        // requested address are ignored: this is a bump allocator.
+        // int sceKernelAllocPartitionMemory(SceUID partition, const char *name,
+        //                                   int type, SceSize size, void *addr)
+        // The fifth argument is spilled to the o32 save area at sp+16.
+        const std::uint32_t partition = ctx.gpr[4];
         const std::string name = read_guest_string(rt, ctx.gpr[5]);
+        const std::uint32_t type = ctx.gpr[6];
         const std::uint32_t size = ctx.gpr[7];
-        const std::uint32_t aligned = (size + 0xFFu) & ~0xFFu;
-        const std::uint32_t address = g_partitions.next_address;
-        if (aligned == 0u || address + aligned > g_threads.next_stack_top) {
+        const std::uint32_t requested_addr = rt.memory().load32(ctx.gpr[29] + 16u);
+
+        // PSP_SMEM_Low=0, High=1, Addr=2, LowAligned=3, HighAligned=4. Only the
+        // low-end forms are modelled; anything else is refused rather than
+        // silently satisfied from the wrong end of memory.
+        if (type != 0u && type != 3u) {
+            runtime_log_line("AllocPartitionMemory UNSUPPORTED type=" + std::to_string(type) +
+                             " name=" + name + " size=" + std::to_string(size) +
+                             " addr=" + psprecomp::hex32(requested_addr));
+            rt.stop("sceKernelAllocPartitionMemory type " + std::to_string(type) +
+                    " is not implemented (name=" + name + ", size=" + std::to_string(size) + ")");
+            return;
+        }
+
+        std::uint32_t alignment = 0x100u;
+        if (type == 3u && requested_addr != 0u) alignment = std::max(0x100u, requested_addr);
+        const std::uint32_t aligned_size = (size + 0xFFu) & ~0xFFu;
+        const std::uint32_t address =
+            (g_partitions.next_address + alignment - 1u) & ~(alignment - 1u);
+        if (aligned_size == 0u || address + aligned_size > g_threads.next_stack_top) {
             runtime_log_line("AllocPartitionMemory FAILED name=" + name +
-                             " size=" + std::to_string(size));
+                             " size=" + std::to_string(size) + " free=" +
+                             std::to_string(g_threads.next_stack_top - g_partitions.next_address));
             set_return(ctx, static_cast<std::uint32_t>(-1));
             return;
         }
-        g_partitions.next_address = address + aligned;
-        rt.memory().zero(address, aligned);
+        g_partitions.next_address = address + aligned_size;
+        rt.memory().zero(address, aligned_size);
         const std::int32_t uid = g_partitions.next_uid++;
-        g_partitions.blocks.emplace(uid, PartitionBlock{name, address, aligned});
+        g_partitions.blocks.emplace(uid, PartitionBlock{name, address, aligned_size});
+        runtime_log_line("AllocPartitionMemory partition=" + std::to_string(partition) +
+                         " name=" + name + " type=" + std::to_string(type) +
+                         " size=" + std::to_string(size) + " -> uid=" + std::to_string(uid) +
+                         " addr=" + psprecomp::hex32(address) + " end=" +
+                         psprecomp::hex32(address + aligned_size) + " free_after=" +
+                         std::to_string(g_threads.next_stack_top - g_partitions.next_address));
         set_return(ctx, static_cast<std::uint32_t>(uid));
     });
     runtime.register_hle("SysMemUserForUser", 0x9D9A5BA1u, [](Runtime &, AllegrexContext &ctx) {
