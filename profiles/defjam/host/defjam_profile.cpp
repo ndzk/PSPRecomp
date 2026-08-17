@@ -198,6 +198,77 @@ std::uint64_t audio_buffer_duration_us(std::uint32_t samples) {
 }
 
 // ---------------------------------------------------------------------------
+// sceSasCore - the PSP voice synthesiser
+// ---------------------------------------------------------------------------
+// Voice lifetimes are modelled properly; the waveform is not. __sceSasCore
+// writes silence rather than decoding VAG/ADPCM, which is Phase 7 work. That is
+// a visible limitation, not a pretend one: the guest gets real end flags and
+// envelope progress so its mixer logic advances, and an obviously empty buffer
+// rather than plausible-looking noise.
+//
+// A voice's length comes from the ADPCM block geometry it was handed: VAG packs
+// 28 samples into every 16-byte block, so a keyed-on voice ends after its own
+// data would have been consumed unless it loops.
+constexpr std::uint32_t kSasVoices = 32u;
+constexpr std::uint32_t kSasSamplesPerBlock = 28u;
+constexpr std::uint32_t kSasBytesPerBlock = 16u;
+constexpr std::uint32_t kSasPitchUnity = 0x1000u;
+
+struct SasVoice {
+    std::uint32_t vag_address{};
+    std::uint32_t vag_size{};
+    std::uint32_t loop_mode{};
+    std::uint32_t pitch{kSasPitchUnity};
+    std::uint32_t left_volume{};
+    std::uint32_t right_volume{};
+    std::uint32_t attack{}, decay{}, sustain{}, release{};
+    std::uint32_t adsr_mode{};
+    std::uint32_t sustain_level{};
+    bool playing{};
+    bool paused{};
+    bool noise{};
+    std::uint64_t samples_played{};
+    std::uint64_t total_samples{};
+};
+
+struct SasCore {
+    bool initialised{};
+    std::uint32_t grain{256u};
+    std::uint32_t max_voices{kSasVoices};
+    std::uint32_t output_mode{};
+    std::uint32_t sample_rate{kAudioSampleRate};
+    std::uint32_t reverb_type{};
+    std::uint32_t reverb_left{}, reverb_right{};
+    std::uint32_t reverb_voices{};
+    std::array<SasVoice, kSasVoices> voices{};
+};
+
+SasCore g_sas;
+std::uint64_t g_sas_core_calls = 0;
+std::uint64_t g_sas_key_ons = 0;
+
+std::uint64_t sas_voice_length_samples(std::uint32_t size_bytes) {
+    return (static_cast<std::uint64_t>(size_bytes) / kSasBytesPerBlock) * kSasSamplesPerBlock;
+}
+
+// Advances every playing voice by one grain and retires those that ran out.
+void sas_advance(std::uint32_t grain) {
+    for (SasVoice &voice : g_sas.voices) {
+        if (!voice.playing || voice.paused) continue;
+        const std::uint64_t step =
+            (static_cast<std::uint64_t>(grain) * std::max(1u, voice.pitch)) / kSasPitchUnity;
+        voice.samples_played += step;
+        if (voice.total_samples == 0u) continue;   // length unknown: let it run
+        if (voice.samples_played < voice.total_samples) continue;
+        if (voice.loop_mode != 0u) {
+            voice.samples_played %= voice.total_samples;
+            continue;
+        }
+        voice.playing = false;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Dispatch trace
 // ---------------------------------------------------------------------------
 struct DispatchTraceEntry {
@@ -239,6 +310,12 @@ std::string read_guest_string(Runtime &rt, std::uint32_t address, std::size_t li
 }
 
 std::int32_t allocate_kernel_uid() { return g_next_kernel_uid++; }
+
+// o32 passes the first four arguments in a0-a3 and spills the rest to the
+// caller's frame, starting at sp+16 above the argument save area.
+std::uint32_t stack_arg(Runtime &rt, const AllegrexContext &ctx, std::uint32_t offset) {
+    return rt.memory().load32(ctx.gpr[29] + offset);
+}
 
 // The context a blocked thread resumes with: the HLE call has "returned"
 // already, so its saved pc is the caller's return address and v0 is the result.
@@ -1244,6 +1321,185 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         [audio_output](Runtime &rt, AllegrexContext &ctx) {
             audio_output(rt, ctx, ctx.gpr[4], true);   // sceAudioOutputPannedBlocking
         });
+
+    // -----------------------------------------------------------------------
+    // sceSasCore
+    // -----------------------------------------------------------------------
+    // Every entry takes the SAS core handle in a0; this profile models a single
+    // core, so the handle is validated for shape but not used as a key.
+    const auto sas_voice = [](AllegrexContext &ctx) -> SasVoice * {
+        const std::uint32_t index = ctx.gpr[5];
+        if (index >= kSasVoices) return nullptr;
+        return &g_sas.voices[index];
+    };
+
+    runtime.register_hle("sceSasCore", 0x42778A9Fu, [](Runtime &rt, AllegrexContext &ctx) {
+        // (core, grain, maxVoices, outputMode, sampleRate)
+        g_sas = SasCore{};
+        g_sas.initialised = true;
+        g_sas.grain = std::max(1u, ctx.gpr[5]);
+        g_sas.max_voices = std::min(kSasVoices, std::max(1u, ctx.gpr[6]));
+        g_sas.output_mode = ctx.gpr[7];
+        // The sample-rate argument is deliberately not read. Reading sp+16
+        // returned an implausible value on this title, so the slot is not
+        // confirmed, and nothing here depends on the rate. Recording a
+        // fabricated one would only make the log look authoritative.
+        (void)rt;
+        runtime_log_line("__sceSasInit grain=" + std::to_string(g_sas.grain) +
+                         " voices=" + std::to_string(g_sas.max_voices) +
+                         " outputMode=" + std::to_string(g_sas.output_mode));
+        set_success(ctx);
+    });
+
+    runtime.register_hle("sceSasCore", 0x99944089u,
+        [sas_voice](Runtime &rt, AllegrexContext &ctx) {
+            // (core, voice, vagAddr, size, loopMode)
+            SasVoice *voice = sas_voice(ctx);
+            if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            voice->vag_address = ctx.gpr[6];
+            voice->vag_size = ctx.gpr[7];
+            voice->loop_mode = stack_arg(rt, ctx, 16u);
+            voice->total_samples = sas_voice_length_samples(voice->vag_size);
+            voice->samples_played = 0u;
+            voice->noise = false;
+            set_success(ctx);
+        });
+    runtime.register_hle("sceSasCore", 0xB7660A23u,
+        [sas_voice](Runtime &, AllegrexContext &ctx) {
+            SasVoice *voice = sas_voice(ctx);
+            if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            voice->noise = true;
+            voice->total_samples = 0u;   // noise runs until keyed off
+            set_success(ctx);
+        });
+    runtime.register_hle("sceSasCore", 0xAD84D37Fu,
+        [sas_voice](Runtime &, AllegrexContext &ctx) {
+            SasVoice *voice = sas_voice(ctx);
+            if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            voice->pitch = ctx.gpr[6];
+            set_success(ctx);
+        });
+    runtime.register_hle("sceSasCore", 0x440CA7D8u,
+        [sas_voice](Runtime &, AllegrexContext &ctx) {
+            SasVoice *voice = sas_voice(ctx);
+            if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            voice->left_volume = ctx.gpr[6];
+            voice->right_volume = ctx.gpr[7];
+            set_success(ctx);
+        });
+    runtime.register_hle("sceSasCore", 0x019B25EBu,
+        [sas_voice](Runtime &rt, AllegrexContext &ctx) {
+            // (core, voice, flags, attack, decay, sustain, release)
+            SasVoice *voice = sas_voice(ctx);
+            if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            voice->attack = ctx.gpr[7];
+            voice->decay = stack_arg(rt, ctx, 16u);
+            voice->sustain = stack_arg(rt, ctx, 20u);
+            voice->release = stack_arg(rt, ctx, 24u);
+            set_success(ctx);
+        });
+    runtime.register_hle("sceSasCore", 0x9EC3676Au,
+        [sas_voice](Runtime &, AllegrexContext &ctx) {
+            SasVoice *voice = sas_voice(ctx);
+            if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            voice->adsr_mode = ctx.gpr[6];
+            set_success(ctx);
+        });
+    runtime.register_hle("sceSasCore", 0xCBCD4F79u,
+        [sas_voice](Runtime &, AllegrexContext &ctx) {
+            SasVoice *voice = sas_voice(ctx);
+            if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            voice->adsr_mode = ctx.gpr[6];
+            set_success(ctx);
+        });
+    runtime.register_hle("sceSasCore", 0x5F9529F6u,
+        [sas_voice](Runtime &, AllegrexContext &ctx) {
+            SasVoice *voice = sas_voice(ctx);
+            if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            voice->sustain_level = ctx.gpr[6];
+            set_success(ctx);
+        });
+    runtime.register_hle("sceSasCore", 0x76F01ACAu,
+        [sas_voice](Runtime &, AllegrexContext &ctx) {
+            SasVoice *voice = sas_voice(ctx);
+            if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            voice->playing = true;
+            voice->paused = false;
+            voice->samples_played = 0u;
+            ++g_sas_key_ons;
+            set_success(ctx);
+        });
+    runtime.register_hle("sceSasCore", 0xA0CF2FA4u,
+        [sas_voice](Runtime &, AllegrexContext &ctx) {
+            SasVoice *voice = sas_voice(ctx);
+            if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            // Release is not modelled, so the voice retires at key-off.
+            voice->playing = false;
+            set_success(ctx);
+        });
+    runtime.register_hle("sceSasCore", 0x787D04D5u, [](Runtime &, AllegrexContext &ctx) {
+        // (core, voiceBitmask, pause)
+        const std::uint32_t mask = ctx.gpr[5];
+        const bool pause = ctx.gpr[6] != 0u;
+        for (std::uint32_t i = 0; i < kSasVoices; ++i)
+            if ((mask >> i) & 1u) g_sas.voices[i].paused = pause;
+        set_success(ctx);
+    });
+    runtime.register_hle("sceSasCore", 0x2C8E6AB3u, [](Runtime &, AllegrexContext &ctx) {
+        std::uint32_t mask = 0u;
+        for (std::uint32_t i = 0; i < kSasVoices; ++i)
+            if (g_sas.voices[i].paused) mask |= 1u << i;
+        set_return(ctx, mask);
+    });
+    runtime.register_hle("sceSasCore", 0x68A46B95u, [](Runtime &, AllegrexContext &ctx) {
+        // A set bit means the voice has ended, so an idle core reports all ones.
+        std::uint32_t mask = 0u;
+        for (std::uint32_t i = 0; i < kSasVoices; ++i)
+            if (!g_sas.voices[i].playing) mask |= 1u << i;
+        set_return(ctx, mask);
+    });
+    runtime.register_hle("sceSasCore", 0x74AE582Au,
+        [sas_voice](Runtime &, AllegrexContext &ctx) {
+            const SasVoice *voice = sas_voice(ctx);
+            if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            // Full scale while sounding; the envelope shape itself is not
+            // modelled, so a playing voice reports maximum rather than a curve
+            // that would look authoritative and be wrong.
+            set_return(ctx, voice->playing ? 0x40000000u : 0u);
+        });
+
+    runtime.register_hle("sceSasCore", 0xA3589D81u, [](Runtime &rt, AllegrexContext &ctx) {
+        // (core, out) - SAS writes the mix, so the buffer is cleared.
+        const std::uint32_t out = ctx.gpr[5];
+        if (out != 0u) rt.memory().zero(out, static_cast<std::size_t>(g_sas.grain) * 4u);
+        sas_advance(g_sas.grain);
+        ++g_sas_core_calls;
+        set_success(ctx);
+    });
+    runtime.register_hle("sceSasCore", 0x50A14DFCu, [](Runtime &, AllegrexContext &ctx) {
+        // (core, out, leftVol, rightVol) - mixes into an existing buffer, so
+        // silence means leaving the caller's contents untouched.
+        sas_advance(g_sas.grain);
+        ++g_sas_core_calls;
+        set_success(ctx);
+    });
+
+    runtime.register_hle("sceSasCore", 0x33D4AB37u, [](Runtime &, AllegrexContext &ctx) {
+        g_sas.reverb_type = ctx.gpr[5];
+        set_success(ctx);
+    });
+    runtime.register_hle("sceSasCore", 0xD5A229C9u, [](Runtime &, AllegrexContext &ctx) {
+        g_sas.reverb_left = ctx.gpr[5];
+        g_sas.reverb_right = ctx.gpr[6];
+        set_success(ctx);
+    });
+    runtime.register_hle("sceSasCore", 0xF983B186u, [](Runtime &, AllegrexContext &ctx) {
+        g_sas.reverb_voices = ctx.gpr[5];
+        set_success(ctx);
+    });
+    runtime.register_hle("sceSasCore", 0x267A6DD2u, [](Runtime &, AllegrexContext &ctx) {
+        set_success(ctx);
+    });
 
     // -----------------------------------------------------------------------
     // UtilsForUser - caches are coherent here; time helpers are real
