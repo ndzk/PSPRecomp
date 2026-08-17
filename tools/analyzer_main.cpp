@@ -72,8 +72,8 @@ void write_function_csv(const std::filesystem::path &path,
 
 int main(int argc, char **argv) {
     try {
-        if (argc < 2 || argc > 4) {
-            std::cerr << "Usage: psp_analyze <decrypted ELF/PRX> [report.json] [load_base_hex]\n";
+        if (argc < 2 || argc > 5) {
+            std::cerr << "Usage: psp_analyze <decrypted ELF/PRX> [report.json] [load_base_hex] [nids.csv]\n";
             return 2;
         }
         const std::filesystem::path input = argv[1];
@@ -85,7 +85,21 @@ int main(int argc, char **argv) {
         psprecomp::GuestMemory memory(32u * 1024u * 1024u);
         const auto relocations = elf.load_and_relocate(memory, load_base);
         const auto module = elf.find_module_info(memory, load_base);
+        // Import names come from the built-in table plus an optional CSV.
+        // Without the CSV the inventory is a list of bare NIDs, which is hard
+        // to read and makes an unimplemented-import diagnostic uninformative.
         psprecomp::NidRegistry nids;
+        const bool nids_csv_explicit = argc >= 5;
+        const std::filesystem::path nids_csv =
+            nids_csv_explicit ? std::filesystem::path(argv[4]) : std::filesystem::path("configs/nids.csv");
+        std::size_t nid_symbol_count = 0;
+        if (std::filesystem::exists(nids_csv)) {
+            nids.load_csv(nids_csv);
+            nid_symbol_count = nids.all().size();
+        } else if (nids_csv_explicit) {
+            throw psprecomp::Error("NID CSV not found: " + nids_csv.string());
+        }
+
         std::vector<psprecomp::PspImport> imports;
         if (module) imports = elf.scan_imports(memory, *module);
         const auto program = psprecomp::analyze_program(elf, memory, load_base);
@@ -100,7 +114,11 @@ int main(int argc, char **argv) {
         write_function_csv(functions_csv, program);
 
         std::map<std::string, std::size_t> import_counts;
-        for (const auto &imp : imports) ++import_counts[imp.library];
+        std::size_t unnamed_imports = 0;
+        for (const auto &imp : imports) {
+            ++import_counts[imp.library];
+            if (!nids.resolve(imp.library, imp.nid)) ++unnamed_imports;
+        }
         std::size_t total_blocks = 0u;
         std::size_t total_indirect_sites = 0u;
         std::size_t total_unsupported = 0u;
@@ -183,7 +201,12 @@ int main(int argc, char **argv) {
                   << "  relocations:         " << relocations.total << " (invalid " << relocations.invalid
                   << ", unsupported " << relocations.unsupported << ")\n"
                   << "  module:              " << (module ? module->name : "<not found>") << "\n"
-                  << "  imports:             " << imports.size() << "\n"
+                  << "  imports:             " << imports.size()
+                  << " (" << (imports.size() - unnamed_imports) << " named, "
+                  << unnamed_imports << " unnamed)\n"
+                  << "  nid symbols loaded:  " << nid_symbol_count
+                  << (nid_symbol_count != 0 ? " from " + nids_csv.string() : std::string(" (built-in table only)"))
+                  << "\n"
                   << "  automatic functions: " << program.functions.size() << "\n"
                   << "  unique code labels:  " << program.covered_labels.size() << "\n"
                   << "  unique block entries:" << program.covered_entry_labels.size() << "\n"
