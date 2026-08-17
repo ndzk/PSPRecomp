@@ -2,6 +2,7 @@
 
 #include "defjam_ge.hpp"
 #include "defjam_io.hpp"
+#include "defjam_mpeg.hpp"
 #include "defjam_utility.hpp"
 #include "psprecomp/common.hpp"
 
@@ -144,8 +145,13 @@ struct CallbackRecord {
 
 // A frame recording where guest execution should resume once it returns to the
 // interrupt trampoline.
+//
+// `complete` exists for the case where the host called into the guest and needs
+// the answer: it receives the guest function's return value and produces what
+// the interrupted caller sees in v0. A plain callback has none.
 struct AsyncReturnFrame {
     AllegrexContext resume;
+    GuestCallCompletion complete;
 };
 
 // A guest function the host owes the current thread, delivered by redirecting
@@ -154,6 +160,7 @@ struct PendingGuestCall {
     std::uint32_t function{};
     std::uint32_t arg0{};
     std::uint32_t arg1{};
+    std::uint32_t arg2{};
 };
 
 PartitionTable g_partitions;
@@ -534,10 +541,12 @@ void thread_return_trampoline(Runtime &rt, AllegrexContext &ctx) {
 // how hardware delivers a GE callback: it runs on the interrupted thread, on
 // that thread's stack, and returns via the kernel.
 void enter_guest_call(AllegrexContext &ctx, const PendingGuestCall &call,
-                      const AllegrexContext &resume) {
-    g_async_frames[g_threads.current_uid].push_back(AsyncReturnFrame{resume});
+                      const AllegrexContext &resume, GuestCallCompletion complete = nullptr) {
+    g_async_frames[g_threads.current_uid].push_back(
+        AsyncReturnFrame{resume, std::move(complete)});
     ctx.set_gpr(4, call.arg0);
     ctx.set_gpr(5, call.arg1);
+    ctx.set_gpr(6, call.arg2);
     ctx.set_gpr(31, kInterruptReturnAddress);
     ctx.pc = call.function;
 }
@@ -564,8 +573,14 @@ void interrupt_return_trampoline(Runtime &rt, AllegrexContext &ctx) {
         return;
     }
     const AllegrexContext resume = frames.back().resume;
+    GuestCallCompletion complete = std::move(frames.back().complete);
     frames.pop_back();
+
+    // The guest's return value is only meaningful to a host caller that asked
+    // for it; read it before the context is overwritten.
+    const std::uint32_t returned = ctx.gpr[2];
     ctx = resume;
+    if (complete) ctx.set_gpr(2, complete(rt, returned));
 
     // One list can raise several callbacks, so chain them onto the same resume
     // point instead of delivering the first and dropping the rest.
@@ -720,6 +735,18 @@ void install_starvation_preemption() {
     // advances relative to executed work.
     g_starvation_tick_us = std::max<std::uint64_t>(1u, interval / 4u);
     psprecomp::set_runtime_starvation_hook(&starvation_tick, interval);
+}
+
+bool call_guest_function(Runtime &runtime, AllegrexContext &ctx, std::uint32_t function,
+                         std::uint32_t arg0, std::uint32_t arg1, std::uint32_t arg2,
+                         GuestCallCompletion complete) {
+    (void)runtime;
+    if (current_thread() == nullptr) return false;
+    // The caller resumes at its own $ra; v0 is replaced by `complete`, so the
+    // placeholder stored here never reaches the guest.
+    enter_guest_call(ctx, PendingGuestCall{function, arg0, arg1, arg2},
+                     make_wait_context(ctx, 0u), std::move(complete));
+    return true;
 }
 
 void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
@@ -1881,6 +1908,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
 
     install_io_hle(runtime, resolve_umd_image(runtime.game_root().string()));
     install_utility_hle(runtime, resolve_savedata_root(runtime.game_root().string()));
+    install_mpeg_hle(runtime);
 
     runtime_log_line("install_profile: HLE registered");
 }

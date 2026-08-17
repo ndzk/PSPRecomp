@@ -3,6 +3,7 @@
 #include "psprecomp/runtime.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <string>
 
 namespace defjam {
@@ -18,6 +19,26 @@ namespace defjam {
 // guest heap grows up from there while thread stacks grow down from the top of
 // user memory.
 void install_profile(psprecomp::Runtime &runtime, std::uint32_t user_arena_start);
+
+// Turns a guest function's return value into what the interrupted host caller
+// reports in v0.
+using GuestCallCompletion =
+    std::function<std::uint32_t(psprecomp::Runtime &, std::uint32_t returned)>;
+
+// Runs a guest function on the running thread and comes back here afterwards.
+//
+// The thread is redirected into `function` with $ra pointing at the interrupt
+// trampoline, exactly as hardware delivers a callback, and the caller's context
+// is stacked so the trampoline can restore it. `complete` receives what the
+// guest returned and produces the value the interrupted caller sees; pass
+// nullptr when nothing is expected back.
+//
+// Returns false if there is no running thread. On success the HLE that called
+// this must return immediately without touching ctx: execution now belongs to
+// the guest function.
+bool call_guest_function(psprecomp::Runtime &runtime, psprecomp::AllegrexContext &ctx,
+                         std::uint32_t function, std::uint32_t arg0, std::uint32_t arg1,
+                         std::uint32_t arg2, GuestCallCompletion complete);
 
 // Execution-driven virtual time and preemption. On hardware the clock advances
 // with executed cycles and the kernel preempts from a timer interrupt; a purely

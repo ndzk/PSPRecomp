@@ -1,5 +1,6 @@
 #include "defjam_config.hpp"
 #include "defjam_io.hpp"
+#include "defjam_mpeg.hpp"
 #include "defjam_utility.hpp"
 
 #include "psprecomp/common.hpp"
@@ -8,6 +9,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -265,6 +267,116 @@ void test_utility_dialog_sequence() {
     require(idle.read() == 1u, "updating an INITIALIZE dialog skipped RUNNING");
 }
 
+// Builds a PSMF header the way the container specifies it: big-endian fields,
+// a stream count and a table of 16-byte entries.
+std::vector<std::uint8_t> make_psmf_header(std::uint32_t stream_offset, std::uint32_t stream_size) {
+    std::vector<std::uint8_t> header(2048u, 0u);
+    const char magic[] = "PSMF0014";
+    for (std::size_t i = 0; i < 8; ++i) header[i] = static_cast<std::uint8_t>(magic[i]);
+    const auto put_be32 = [&header](std::size_t at, std::uint32_t value) {
+        header[at] = static_cast<std::uint8_t>(value >> 24);
+        header[at + 1] = static_cast<std::uint8_t>(value >> 16);
+        header[at + 2] = static_cast<std::uint8_t>(value >> 8);
+        header[at + 3] = static_cast<std::uint8_t>(value);
+    };
+    put_be32(0x08, stream_offset);
+    put_be32(0x0C, stream_size);
+    header[0x80] = 0x00;
+    header[0x81] = 0x02;       // two streams
+    header[0x82] = 0xE0;       // video
+    header[0x82 + 16] = 0xBD;  // audio, on private stream 1
+    return header;
+}
+
+void test_psmf_header() {
+    const auto header = make_psmf_header(0x800u, 0x2C000u);
+    const defjam::PsmfHeader parsed = defjam::parse_psmf_header(header.data(), header.size());
+    require(parsed.valid, "a well-formed PSMF header was rejected");
+    require(parsed.version == 14u, "the ASCII version digits were misread");
+    require(parsed.stream_offset == 0x800u, "stream offset was not read big-endian");
+    require(parsed.stream_size == 0x2C000u, "stream size was not read big-endian");
+    require(parsed.stream_count == 2u, "stream count was misread");
+    require(parsed.has_video && parsed.has_audio, "the stream table was not walked");
+
+    // Anything that is not a PSMF must come back invalid rather than parsed
+    // into nonsense, because the guest hands this whatever buffer it likes.
+    std::vector<std::uint8_t> junk(2048u, 0x5Au);
+    require(!defjam::parse_psmf_header(junk.data(), junk.size()).valid,
+            "a buffer with no PSMF magic was accepted");
+    auto bad_version = header;
+    bad_version[5] = 'x';
+    require(!defjam::parse_psmf_header(bad_version.data(), bad_version.size()).valid,
+            "a non-numeric version was accepted");
+    require(!defjam::parse_psmf_header(header.data(), 16u).valid,
+            "a truncated header was accepted");
+}
+
+// One PES packet, optionally carrying a presentation timestamp.
+void append_pes(std::vector<std::uint8_t> &out, std::uint8_t stream_id,
+                const std::vector<std::uint8_t> &payload, bool with_pts, std::uint64_t pts) {
+    std::vector<std::uint8_t> header;
+    header.push_back(0x80);                                    // flags byte one
+    header.push_back(static_cast<std::uint8_t>(with_pts ? 0x80 : 0x00));
+    header.push_back(static_cast<std::uint8_t>(with_pts ? 5 : 0));
+    if (with_pts) {
+        header.push_back(static_cast<std::uint8_t>(0x21 | ((pts >> 29) & 0x0E)));
+        header.push_back(static_cast<std::uint8_t>(pts >> 22));
+        header.push_back(static_cast<std::uint8_t>(((pts >> 14) & 0xFE) | 1));
+        header.push_back(static_cast<std::uint8_t>(pts >> 7));
+        header.push_back(static_cast<std::uint8_t>(((pts << 1) & 0xFE) | 1));
+    }
+    const std::size_t length = header.size() + payload.size();
+    out.push_back(0x00);
+    out.push_back(0x00);
+    out.push_back(0x01);
+    out.push_back(stream_id);
+    out.push_back(static_cast<std::uint8_t>(length >> 8));
+    out.push_back(static_cast<std::uint8_t>(length));
+    out.insert(out.end(), header.begin(), header.end());
+    out.insert(out.end(), payload.begin(), payload.end());
+}
+
+void test_program_stream_demuxer() {
+    // Two video access units, the second beginning where a new timestamp
+    // appears, plus one audio unit whose first four payload bytes are the
+    // private-stream header the elementary stream does not include.
+    std::vector<std::uint8_t> stream;
+    append_pes(stream, 0xE0, {0x11, 0x22}, true, 90000);
+    append_pes(stream, 0xE0, {0x33}, false, 0);
+    append_pes(stream, 0xBD, {0xAA, 0xAA, 0xAA, 0xAA, 0x0F, 0xD0}, true, 90000);
+    append_pes(stream, 0xE0, {0x44, 0x55}, true, 93000);
+
+    defjam::ProgramStreamDemuxer demuxer;
+    demuxer.append(stream.data(), stream.size());
+
+    require(demuxer.has_video(), "no video access unit was produced");
+    const defjam::AccessUnit first = demuxer.take_video();
+    require(first.data.size() == 3u, "continuation packets were not joined to the unit");
+    require(first.data[0] == 0x11 && first.data[2] == 0x33, "payload bytes were reordered");
+    require(first.has_timestamp && first.pts == 90000u, "the 33-bit timestamp was misdecoded");
+
+    // The last unit is still open until the stream is flushed, which is what
+    // stops trailing data being dropped at end of file.
+    require(!demuxer.has_video(), "an unterminated unit was emitted early");
+    demuxer.flush();
+    require(demuxer.has_video(), "flush did not emit the trailing unit");
+    const defjam::AccessUnit second = demuxer.take_video();
+    require(second.data.size() == 2u && second.pts == 93000u, "the second unit is wrong");
+
+    require(demuxer.has_audio(), "no audio access unit was produced");
+    const defjam::AccessUnit audio = demuxer.take_audio();
+    require(audio.data.size() == 2u, "the private-stream header was not skipped");
+    require(audio.data[0] == 0x0F && audio.data[1] == 0xD0, "audio payload was mistrimmed");
+
+    // Feeding the same stream one byte at a time must produce the same result,
+    // since packets arrive split across ring buffer fills.
+    defjam::ProgramStreamDemuxer piecemeal;
+    for (std::uint8_t byte : stream) piecemeal.append(&byte, 1u);
+    piecemeal.flush();
+    require(piecemeal.video_units() == 2u && piecemeal.audio_units() == 1u,
+            "a stream split across calls demultiplexed differently");
+}
+
 } // namespace
 
 int main() {
@@ -276,6 +388,8 @@ int main() {
         test_syntax_handling();
         test_disc_sector_paths();
         test_utility_dialog_sequence();
+        test_psmf_header();
+        test_program_stream_demuxer();
         std::cout << "All defjam config tests passed.\n";
         return 0;
     } catch (const std::exception &exception) {

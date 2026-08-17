@@ -1,6 +1,7 @@
 #include "defjam_config.hpp"
 #include "defjam_ge.hpp"
 #include "defjam_io.hpp"
+#include "defjam_mpeg.hpp"
 #include "defjam_utility.hpp"
 #include "defjam_profile.hpp"
 
@@ -267,6 +268,14 @@ int main(int argc, char **argv) {
                   << utility.saves_loaded << " loaded, " << utility.loads_with_no_data
                   << " with no data, " << utility.saves_written << " written)\n"
                   << "  message dialogs:    " << utility.message_dialogs << "\n";
+        const defjam::MpegStats mpeg = defjam::mpeg_stats();
+        if (mpeg.streams_opened != 0u) {
+            std::cout << "  mpeg streams:       " << mpeg.streams_opened << ", "
+                      << mpeg.ringbuffer_callbacks << " ringbuffer fills, "
+                      << mpeg.packets_put << " packets\n"
+                      << "  mpeg access units:  " << mpeg.video_units << " video, "
+                      << mpeg.audio_units << " audio\n";
+        }
         runtime.report_hle_histogram();
         if (!guest_fault.empty()) {
             std::cerr << "\nGuest fault: " << guest_fault << "\n";
