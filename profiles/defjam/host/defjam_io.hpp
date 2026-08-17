@@ -11,19 +11,15 @@ namespace defjam {
 // Paths resolve through Runtime::translate_path, which strips the PSP device
 // prefix (disc0:, ms0:, host0:) and rejects ".." traversal, so everything lands
 // inside the configured game root.
-// `umd_image` optionally backs raw device handles such as umd0: with the
-// user's own disc image. Empty leaves device reads reporting end-of-media.
-void install_io_hle(psprecomp::Runtime &runtime, const std::string &umd_image = {});
+//
+// Raw device handles such as umd0:, the disc structure ioctls and raw-sector
+// opens are all served from a disc layout generated over the staged tree; no
+// disc image is involved.
+void install_io_hle(psprecomp::Runtime &runtime);
 
-// The same, with the staged tree named explicitly. When there is no usable
-// image, the disc structure a title reads is synthesised over that tree.
-void install_io_hle(psprecomp::Runtime &runtime, const std::string &umd_image,
-                    const std::string &game_root);
-
-// Resolution order for the disc image: PSPRECOMP_DEFJAM_UMD, then the pointer
-// file prepare_game.ps1 writes into the staged game root, then an image sitting
-// in the game root itself. Returns empty when none is available.
-[[nodiscard]] std::string resolve_umd_image(const std::string &game_root);
+// The same, with the staged tree named explicitly rather than taken from the
+// runtime's game root.
+void install_io_hle(psprecomp::Runtime &runtime, const std::string &game_root);
 
 struct IoStats {
     std::uint64_t opens{};

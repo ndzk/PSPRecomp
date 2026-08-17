@@ -65,9 +65,9 @@ struct FileHandle {
     bool is_device{};
     std::uint64_t device_sector{};
     // A window onto the raw disc, opened through the "sce_lbn" path form.
-    bool from_iso{};
-    std::uint64_t iso_offset{};
-    std::uint64_t iso_position{};
+    bool from_disc{};
+    std::uint64_t disc_offset{};
+    std::uint64_t disc_position{};
     // Host IO completes immediately, so an async request is simply performed
     // and its result parked here until the guest collects it.
     bool async_pending{};
@@ -86,13 +86,8 @@ std::int32_t g_next_fd = 4;  // 0/1/2 are the std streams
 IoStats g_stats;
 std::string g_last_failed_open;
 
-// Where disc sectors come from. Either the user's own image, or a layout
-// synthesised over the staged tree when there is no image; both answer the same
-// question, so everything above them is written once.
-std::string g_umd_path;
-std::ifstream g_umd;
-std::uint64_t g_umd_size = 0;
-SyntheticDisc g_synthetic;
+// Where disc sectors come from: a layout synthesised over the staged tree.
+SyntheticDisc g_disc;
 constexpr std::uint32_t kSectorSize = 2048u;
 
 // ISO 9660 puts the primary volume descriptor at sector 16 (ECMA-119).
@@ -133,7 +128,6 @@ constexpr std::uint32_t kDescriptorRootRecordOffset = 156u;
 // sector 16 is where ISO9660 puts the primary volume descriptor, whose bytes
 // 1..5 are the "CD001" identifier. install_io_hle checks for exactly that and
 // says so in the log, so a wrong unit is visible instead of silent.
-bool g_umd_unit_verified = false;
 
 void set_return(AllegrexContext &ctx, std::uint32_t value) { ctx.set_gpr(2, value); }
 void set_return64(AllegrexContext &ctx, std::uint64_t value) {
@@ -171,30 +165,15 @@ void write_stat(Runtime &rt, std::uint32_t address, const std::filesystem::path 
 
 // Reads whole sectors straight out of the UMD image. Returns the byte count
 // actually read, which is short of the request at end of media.
-std::uint32_t read_umd_sectors(std::uint32_t sector, std::uint32_t count, std::uint8_t *out) {
+std::uint32_t read_disc_sectors(std::uint32_t sector, std::uint32_t count, std::uint8_t *out) {
     if (count == 0u || out == nullptr) return 0u;
-    if (g_umd.is_open()) {
-        const std::uint64_t offset = static_cast<std::uint64_t>(sector) * kSectorSize;
-        if (offset >= g_umd_size) return 0u;
-        const auto want = static_cast<std::streamsize>(
-            std::min<std::uint64_t>(static_cast<std::uint64_t>(count) * kSectorSize,
-                                    g_umd_size - offset));
-        g_umd.clear();
-        g_umd.seekg(static_cast<std::streamoff>(offset));
-        g_umd.read(reinterpret_cast<char *>(out), want);
-        const auto got = static_cast<std::uint32_t>(g_umd.gcount());
-        g_umd.clear();
-        return got;
-    }
-    return g_synthetic.read(sector, count, out);
+    return g_disc.read(sector, count, out);
 }
 
-// True when disc sectors can be answered at all, whichever source provides them.
-bool disc_available() { return g_umd.is_open() || g_synthetic.ready(); }
+bool disc_available() { return g_disc.ready(); }
 
 std::uint64_t disc_size_bytes() {
-    if (g_umd.is_open()) return g_umd_size;
-    return static_cast<std::uint64_t>(g_synthetic.total_sectors()) * kSectorSize;
+    return static_cast<std::uint64_t>(g_disc.total_sectors()) * kSectorSize;
 }
 
 // Reads a byte range from the disc. A disc only addresses whole sectors, so
@@ -210,7 +189,7 @@ std::uint32_t read_disc_bytes(std::uint64_t byte_offset, std::uint32_t length, s
     const std::uint32_t skip = static_cast<std::uint32_t>(byte_offset % kSectorSize);
     const std::uint32_t sectors = (skip + want + kSectorSize - 1u) / kSectorSize;
     std::vector<std::uint8_t> staging(static_cast<std::size_t>(sectors) * kSectorSize);
-    const std::uint32_t produced = read_umd_sectors(first, sectors, staging.data());
+    const std::uint32_t produced = read_disc_sectors(first, sectors, staging.data());
     if (produced <= skip) return 0u;
     const std::uint32_t got = std::min(want, produced - skip);
     std::memcpy(out, staging.data() + skip, got);
@@ -235,7 +214,7 @@ bool iso_name_matches(const std::string &record_name, const std::string &wanted)
 // The root directory record, which every lookup starts from.
 bool iso_root(IsoEntry &out) {
     std::array<std::uint8_t, kSectorSize> descriptor{};
-    if (read_umd_sectors(kVolumeDescriptorSector, 1u, descriptor.data()) != kSectorSize) return false;
+    if (read_disc_sectors(kVolumeDescriptorSector, 1u, descriptor.data()) != kSectorSize) return false;
     const std::uint8_t *record = descriptor.data() + kDescriptorRootRecordOffset;
     out.sector = read_le32(record + kRecordExtentOffset);
     out.size = read_le32(record + kRecordLengthOffset);
@@ -250,7 +229,7 @@ bool iso_walk_directory(const IsoEntry &directory, Visitor visit) {
     if (directory.size == 0u) return false;
     const std::uint32_t sectors = (directory.size + kSectorSize - 1u) / kSectorSize;
     std::vector<std::uint8_t> data(static_cast<std::size_t>(sectors) * kSectorSize);
-    if (read_umd_sectors(directory.sector, sectors, data.data()) < directory.size) return false;
+    if (read_disc_sectors(directory.sector, sectors, data.data()) < directory.size) return false;
 
     std::uint32_t offset = 0u;
     while (offset < directory.size) {
@@ -381,10 +360,10 @@ std::int32_t do_open(Runtime &rt, const std::string &psp_path, std::uint32_t fla
         }
         FileHandle handle;
         handle.psp_path = psp_path;
-        handle.from_iso = true;
-        handle.iso_offset = static_cast<std::uint64_t>(lbn_sector) * kSectorSize;
+        handle.from_disc = true;
+        handle.disc_offset = static_cast<std::uint64_t>(lbn_sector) * kSectorSize;
         handle.size = lbn_size;
-        if (handle.iso_offset >= disc_size_bytes()) {
+        if (handle.disc_offset >= disc_size_bytes()) {
             ++g_stats.failed_opens;
             g_last_failed_open = psp_path;
             runtime_log_line("sceIoOpen " + psp_path + " is past the end of the disc");
@@ -469,15 +448,15 @@ std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::ui
         g_stats.device_bytes_read += got;
         return static_cast<std::int32_t>(got);
     }
-    if (handle->from_iso) {
-        if (handle->iso_position >= handle->size) return 0;
-        const std::uint64_t remaining = handle->size - handle->iso_position;
+    if (handle->from_disc) {
+        if (handle->disc_position >= handle->size) return 0;
+        const std::uint64_t remaining = handle->size - handle->disc_position;
         const auto want = static_cast<std::uint32_t>(std::min<std::uint64_t>(length, remaining));
         std::vector<std::uint8_t> staging(want);
         const auto got = static_cast<std::size_t>(
-            read_disc_bytes(handle->iso_offset + handle->iso_position, want, staging.data()));
+            read_disc_bytes(handle->disc_offset + handle->disc_position, want, staging.data()));
         if (got != 0u) rt.memory().copy_in(buffer, std::span<const std::uint8_t>(staging.data(), got));
-        handle->iso_position += got;
+        handle->disc_position += got;
         ++g_stats.reads;
         g_stats.bytes_read += got;
         return static_cast<std::int32_t>(got);
@@ -503,15 +482,15 @@ std::int64_t do_seek(std::int32_t fd, std::int64_t offset, std::uint32_t whence)
         else handle->device_sector = static_cast<std::uint64_t>(offset);
         return static_cast<std::int64_t>(handle->device_sector);
     }
-    if (handle->from_iso) {
+    if (handle->from_disc) {
         std::int64_t target = offset;
-        if (whence == 1u) target += static_cast<std::int64_t>(handle->iso_position);
+        if (whence == 1u) target += static_cast<std::int64_t>(handle->disc_position);
         else if (whence == 2u) target += static_cast<std::int64_t>(handle->size);
         if (target < 0) target = 0;
-        handle->iso_position =
+        handle->disc_position =
             std::min<std::uint64_t>(static_cast<std::uint64_t>(target), handle->size);
         ++g_stats.seeks;
-        return static_cast<std::int64_t>(handle->iso_position);
+        return static_cast<std::int64_t>(handle->disc_position);
     }
     std::ios::seekdir direction = std::ios::beg;
     if (whence == 1u) direction = std::ios::cur;
@@ -553,33 +532,6 @@ void collect_async(Runtime &rt, AllegrexContext &ctx, bool polling) {
 
 } // namespace
 
-std::string resolve_umd_image(const std::string &game_root) {
-    std::error_code ec;
-    if (const char *env = std::getenv("PSPRECOMP_DEFJAM_UMD"); env != nullptr && *env != '\0') {
-        if (std::filesystem::is_regular_file(env, ec)) return env;
-        runtime_log_line(std::string("PSPRECOMP_DEFJAM_UMD does not name a file: ") + env);
-    }
-    const std::filesystem::path root(game_root);
-    // prepare_game.ps1 records where the disc image lives rather than copying
-    // 1.5 GB that is already staged in extracted form.
-    const std::filesystem::path pointer = root / "umd_image.txt";
-    if (std::filesystem::is_regular_file(pointer, ec)) {
-        std::ifstream in(pointer);
-        std::string recorded;
-        std::getline(in, recorded);
-        while (!recorded.empty() && (recorded.back() == '\r' || recorded.back() == ' '))
-            recorded.pop_back();
-        if (!recorded.empty() && std::filesystem::is_regular_file(recorded, ec)) return recorded;
-        if (!recorded.empty())
-            runtime_log_line("umd_image.txt points at a missing file: " + recorded);
-    }
-    for (const char *name : {"UMD.ISO", "umd.iso"}) {
-        const std::filesystem::path candidate = root / name;
-        if (std::filesystem::is_regular_file(candidate, ec)) return candidate.string();
-    }
-    return {};
-}
-
 IoStats io_stats() {
     IoStats stats = g_stats;
     stats.open_handles = static_cast<std::uint32_t>(g_files.size() + g_dirs.size());
@@ -598,70 +550,31 @@ std::string io_path_for_fd(std::int32_t fd) {
     return handle == nullptr ? std::string{} : handle->psp_path;
 }
 
-void install_io_hle(Runtime &runtime, const std::string &umd_image) {
-    install_io_hle(runtime, umd_image, runtime.game_root().string());
+void install_io_hle(Runtime &runtime) {
+    install_io_hle(runtime, runtime.game_root().string());
 }
 
-void install_io_hle(Runtime &runtime, const std::string &umd_image, const std::string &game_root) {
+void install_io_hle(Runtime &runtime, const std::string &game_root) {
     g_files.clear();
     g_dirs.clear();
     g_next_fd = 4;
     g_stats = IoStats{};
     g_last_failed_open.clear();
-    if (g_umd.is_open()) g_umd.close();
-    g_umd_size = 0;
-    g_umd_unit_verified = false;
-    g_umd_path = umd_image;
 
-    // Both sources have to stay exercisable, so a run can be told to ignore an
-    // image that is present and take the synthesised layout instead.
-    const char *force_synthetic = std::getenv("PSPRECOMP_DEFJAM_SYNTHETIC_DISC");
-    if (force_synthetic != nullptr && force_synthetic[0] != 0) {
-        runtime_log_line("PSPRECOMP_DEFJAM_SYNTHETIC_DISC set; ignoring any disc image");
-        g_umd_path.clear();
-    }
-
-    if (!g_umd_path.empty()) {
-        g_umd.open(g_umd_path, std::ios::binary);
-        if (g_umd.is_open()) {
-            std::error_code ec;
-            g_umd_size = static_cast<std::uint64_t>(std::filesystem::file_size(g_umd_path, ec));
-            // Confirm the sector interpretation instead of trusting it: an
-            // ISO9660 primary volume descriptor sits at sector 16 and carries
-            // "CD001" at bytes 1..5.
-            std::array<char, 8> header{};
-            g_umd.seekg(static_cast<std::streamoff>(16u) * kSectorSize);
-            g_umd.read(header.data(), header.size());
-            g_umd.clear();
-            g_umd_unit_verified = std::memcmp(header.data() + 1, "CD001", 5) == 0;
-            runtime_log_line("umd image " + g_umd_path + " size=" + std::to_string(g_umd_size) +
-                             " sector16=" +
-                             (g_umd_unit_verified ? "CD001 (sector units confirmed)"
-                                                  : "NOT a volume descriptor"));
-            if (!g_umd_unit_verified) {
-                runtime_log_line("WARNING: raw UMD offsets may not be in sectors for this image");
-            }
-        } else {
-            runtime_log_line("could not open umd image " + g_umd_path);
-        }
-    }
-
-    // Without a usable image, the disc structure is synthesised over the staged
-    // tree instead. A title reads the volume descriptor, the path table and the
-    // sector recorded in each directory entry, so loose files on the host are
-    // not enough on their own; this gives them a layout. The sectors are not
-    // the original disc's and do not need to be, since they are only ever read
-    // back through the same layout.
-    if (!g_umd.is_open()) {
-        std::string error;
-        if (g_synthetic.build(game_root, error)) {
-            runtime_log_line("synthetic disc over " + game_root + ": " +
-                             std::to_string(g_synthetic.directory_count()) + " directories, " +
-                             std::to_string(g_synthetic.file_count()) + " files, " +
-                             std::to_string(g_synthetic.total_sectors()) + " sectors");
-        } else {
-            runtime_log_line("could not synthesise a disc layout: " + error);
-        }
+    // A title reads more from the disc than named files: the volume descriptor,
+    // the path table, and the sector recorded in each directory entry, which it
+    // then reopens as a raw disc position. Loose files on the host answer none
+    // of that, so the layout is generated over them. The sectors are not the
+    // original disc's and do not need to be, since a title only ever reads them
+    // back through this same layout.
+    std::string error;
+    if (g_disc.build(game_root, error)) {
+        runtime_log_line("disc layout over " + game_root + ": " +
+                         std::to_string(g_disc.directory_count()) + " directories, " +
+                         std::to_string(g_disc.file_count()) + " files, " +
+                         std::to_string(g_disc.total_sectors()) + " sectors");
+    } else {
+        runtime_log_line("could not build a disc layout: " + error);
     }
 
     runtime.register_hle("IoFileMgrForUser", 0x109F50BCu, [](Runtime &rt, AllegrexContext &ctx) {
@@ -866,7 +779,7 @@ void install_io_hle(Runtime &runtime, const std::string &umd_image, const std::s
             if (outlen < kSectorSize) break;
             if (!rt.memory().contains(outdata, kSectorSize)) break;
             std::array<std::uint8_t, kSectorSize> sector{};
-            if (read_umd_sectors(kVolumeDescriptorSector, 1u, sector.data()) != kSectorSize) break;
+            if (read_disc_sectors(kVolumeDescriptorSector, 1u, sector.data()) != kSectorSize) break;
             for (std::uint32_t i = 0; i < kSectorSize; ++i) rt.memory().store8(outdata + i, sector[i]);
             ++g_stats.umd_ioctls;
             park_async(fd, 0);
@@ -878,7 +791,7 @@ void install_io_hle(Runtime &runtime, const std::string &umd_image, const std::s
             // Field offsets are ECMA-119 (ISO 9660): the little-endian path
             // table size is at 132 and the type-L table's sector at 140.
             std::array<std::uint8_t, kSectorSize> descriptor{};
-            if (read_umd_sectors(kVolumeDescriptorSector, 1u, descriptor.data()) != kSectorSize) break;
+            if (read_disc_sectors(kVolumeDescriptorSector, 1u, descriptor.data()) != kSectorSize) break;
             const std::uint32_t table_bytes = read_le32(descriptor.data() + 132u);
             const std::uint32_t table_sector = read_le32(descriptor.data() + 140u);
             if (table_bytes == 0u || outlen < table_bytes) break;
@@ -886,7 +799,7 @@ void install_io_hle(Runtime &runtime, const std::string &umd_image, const std::s
 
             const std::uint32_t sectors = (table_bytes + kSectorSize - 1u) / kSectorSize;
             std::vector<std::uint8_t> table(static_cast<std::size_t>(sectors) * kSectorSize);
-            if (read_umd_sectors(table_sector, sectors, table.data()) < table_bytes) break;
+            if (read_disc_sectors(table_sector, sectors, table.data()) < table_bytes) break;
             for (std::uint32_t i = 0; i < table_bytes; ++i) rt.memory().store8(outdata + i, table[i]);
             ++g_stats.umd_ioctls;
             park_async(fd, 0);

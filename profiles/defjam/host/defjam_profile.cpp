@@ -1906,7 +1906,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         set_success(ctx);
     });
 
-    install_io_hle(runtime, resolve_umd_image(runtime.game_root().string()));
+    install_io_hle(runtime);
     install_utility_hle(runtime, resolve_savedata_root(runtime.game_root().string()));
     install_mpeg_hle(runtime);
 

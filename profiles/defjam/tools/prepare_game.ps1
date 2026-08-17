@@ -17,7 +17,9 @@ Supply either an ISO (mounted read-only via Mount-DiskImage, then dismounted) or
 an already-extracted UMD directory.
 
 .PARAMETER IsoPath
-Path to your own UMD image. Mounted read-only, then dismounted.
+Path to your own UMD image. Mounted read-only, copied from, then dismounted. The
+image is a source only; nothing keeps a reference to it, and the staged tree is
+self-sufficient afterwards.
 
 .PARAMETER ExtractedUmdRoot
 Path to an already-extracted UMD root, i.e. the directory containing PSP_GAME.
@@ -171,20 +173,6 @@ Use -AllowUnverifiedExecutable only for development.
     $destExecutable = Join-Path $destSysdir "BOOT.BIN"
     Copy-Item -LiteralPath $sourceExecutable -Destination $destExecutable -Force
 
-    # Record where the disc image lives rather than copying another 1.5 GB that
-    # is already staged in extracted form. An image is optional: the title reads
-    # raw sectors and disc structure, and when none is recorded that layout is
-    # synthesised over the staged tree instead. Recording one is still useful,
-    # since it is the disc's own structure rather than a generated stand-in.
-    if (-not [string]::IsNullOrWhiteSpace($IsoPath)) {
-        $pointer = Join-Path $Destination "umd_image.txt"
-        Set-Content -LiteralPath $pointer -Value $IsoPath -Encoding ascii
-        Write-Host "  recorded disc image for raw umd0: access -> $IsoPath"
-    } else {
-        Write-Host ("  no disc image recorded; the disc structure will be synthesised over the " +
-                    "staged tree, which serves raw sectors without one")
-    }
-
     # ---- Verify what actually landed ---------------------------------------
     $landedSha = (Get-FileHash -LiteralPath $destExecutable -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($landedSha -ne $actualSha) {
@@ -200,6 +188,10 @@ Use -AllowUnverifiedExecutable only for development.
     Write-Host "  executable: $destExecutable"
     Write-Host "  sha256:     $landedSha"
     Write-Host "  USRDIR:     $fileCount files"
+    Write-Host ""
+    Write-Host "The staged tree is all the profile needs: it generates the disc structure"
+    Write-Host "a title reads -- volume descriptor, path table and per-file sectors -- over"
+    Write-Host "these files, so no disc image has to be kept around."
     Write-Host ""
     Write-Host "This directory is excluded by the root .gitignore (/profiles/*/game/)."
     Write-Host "No game content belongs in the repository."
