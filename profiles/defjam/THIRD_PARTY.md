@@ -12,17 +12,34 @@ so, and everything else works.
 
 - **Used for:** decoding the H.264 video and ATRAC3+ audio inside the title's
   PSMF movies.
-- **License:** LGPL 2.1 or later. **The build must not be configured with
-  `--enable-gpl`.** A GPL-configured FFmpeg is GPL, which is not compatible with
-  this profile's MIT licensing. Neither decoder needed here requires any GPL
-  component, so an LGPL build is sufficient.
+- **License:** LGPL. **The build must not be configured with `--enable-gpl`.** A
+  GPL-configured FFmpeg is GPL, which is not compatible with this profile's MIT
+  licensing. Neither decoder needed here requires any GPL component, so an LGPL
+  build is sufficient. Check with `ffmpeg -version`: the configuration line must
+  not contain `--enable-gpl`. Note that many prebuilt "lgpl" packages are
+  configured with `--enable-version3`, which makes them LGPL **v3** rather than
+  v2.1; that is still fine here, but the notices you ship must match whichever
+  version your build actually is.
 - **Linkage:** dynamic. The LGPL applies to the library, not to the program that
   loads it, and dynamic linking is what lets a user replace their copy.
 - **Not redistributed here.** No FFmpeg source or binary is in this repository.
   Supply your own and point `PSPRECOMP_DEFJAM_FFMPEG_ROOT` at it.
-- **Notices:** if you distribute a build with FFmpeg enabled, ship FFmpeg's
-  `COPYING.LGPLv2.1` and its license notices alongside it, and make the library
+- **Notices:** if you distribute a build with FFmpeg enabled, ship the matching
+  LGPL license text and FFmpeg's notices alongside it, and keep the library
   replaceable. That obligation is yours as the distributor, not this project's.
+
+### Configuring it
+
+```
+cmake -S . -B build -DPSPRECOMP_PROFILE=defjam \
+      -DPSPRECOMP_DEFJAM_FFMPEG=ON \
+      -DPSPRECOMP_DEFJAM_FFMPEG_ROOT=<path to an LGPL FFmpeg>
+```
+
+The root needs `include/` and `lib/`; the DLLs from its `bin/` are copied beside
+the executable at build time, since dynamic linkage is what keeps the library
+replaceable. Configuring with the option on and no FFmpeg found is a hard error
+rather than a silent fallback to no playback.
 
 ### Why a third-party decoder at all
 

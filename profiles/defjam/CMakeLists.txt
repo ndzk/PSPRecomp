@@ -16,6 +16,7 @@ endif()
 set(DEFJAM_HOST_SOURCES
     host/defjam_config.cpp
     host/defjam_decoder.cpp
+    host/defjam_decoder_ffmpeg.cpp
     host/defjam_disc.cpp
     host/defjam_ge.cpp
     host/defjam_io.cpp
@@ -125,7 +126,9 @@ endif()
 function(defjam_link_decoder target)
     if(PSPRECOMP_DEFJAM_FFMPEG)
         target_compile_definitions(${target} PRIVATE DEFJAM_HAS_FFMPEG=1)
-        target_include_directories(${target} PRIVATE "${DEFJAM_FFMPEG_INCLUDE_DIR}")
+        # SYSTEM: these are third-party headers and must not be held to this
+        # profile's warning level.
+        target_include_directories(${target} SYSTEM PRIVATE "${DEFJAM_FFMPEG_INCLUDE_DIR}")
         target_link_libraries(${target} PRIVATE
             "${DEFJAM_FFMPEG_avcodec}" "${DEFJAM_FFMPEG_avutil}")
     endif()
@@ -194,6 +197,17 @@ add_custom_command(TARGET DefJamNative POST_BUILD
             "${DEFJAM_MANIFEST}"
             "$<TARGET_FILE_DIR:DefJamNative>/defjam_ulus10100.toml"
     COMMENT "Staging defjam manifest beside DefJamNative")
+
+if(PSPRECOMP_DEFJAM_FFMPEG AND PSPRECOMP_DEFJAM_FFMPEG_ROOT)
+    # Dynamic linkage is what keeps the LGPL library replaceable, so the DLLs
+    # have to travel with the executable rather than be linked in.
+    file(GLOB DEFJAM_FFMPEG_RUNTIME "${PSPRECOMP_DEFJAM_FFMPEG_ROOT}/bin/*.dll")
+    foreach(_dll ${DEFJAM_FFMPEG_RUNTIME})
+        add_custom_command(TARGET DefJamNative POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${_dll}" "$<TARGET_FILE_DIR:DefJamNative>")
+    endforeach()
+endif()
 
 if(PSPRECOMP_BUILD_PROFILE_TESTS)
     # A profile must be able to ship tests even when the framework's own tests

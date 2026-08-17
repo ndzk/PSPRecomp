@@ -8,6 +8,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <utility>
 #include <string>
 
 namespace defjam {
@@ -659,9 +660,11 @@ void install_mpeg_hle(Runtime &runtime) {
         const std::uint32_t buffer_pointer = ctx.gpr[7];
         const std::uint32_t status_pointer = ctx.gpr[8];  // fifth argument, in $t0
 
+        // An access unit is consumed once. Feeding the same bytes again on a
+        // second decode call would duplicate them into the decoder's stream.
+        const AccessUnit unit = std::exchange(context->pending_video, AccessUnit{});
         DecodedFrame frame;
         std::string error;
-        const AccessUnit &unit = context->pending_video;
         const bool produced =
             !unit.data.empty() &&
             g_decoder->decode_video(unit.data.data(), unit.data.size(), frame, error);
@@ -718,12 +721,12 @@ void install_mpeg_hle(Runtime &runtime) {
         // holding whatever the previous frame put there.
         rt.memory().zero(buffer, kAtracEsOutputSize);
 
+        // Consumed once, as above. The decoder keeps its own buffer, so a call
+        // with nothing new still drains a frame if one is already assembled.
+        const AccessUnit unit = std::exchange(context->pending_audio, AccessUnit{});
         DecodedAudio audio;
         std::string error;
-        const AccessUnit &unit = context->pending_audio;
-        const bool produced =
-            !unit.data.empty() &&
-            g_decoder->decode_audio(unit.data.data(), unit.data.size(), audio, error);
+        const bool produced = g_decoder->decode_audio(unit.data.data(), unit.data.size(), audio, error);
         if (!error.empty()) {
             rt.stop("sceMpegAtracDecode: " + error);
             return;
