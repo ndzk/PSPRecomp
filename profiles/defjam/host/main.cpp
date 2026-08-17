@@ -256,6 +256,8 @@ int main(int argc, char **argv) {
                   << "  seeks / diropens:   " << io.seeks << " / " << io.dir_opens << "\n"
                   << "  device opens:       " << io.device_opens << ", " << io.device_reads
                   << " reads, " << io.device_bytes_read << " bytes\n"
+                  << "  umd ioctls:         " << io.umd_ioctls << ", " << io.lbn_opens
+                  << " raw-sector opens\n"
                   << "  open handles:       " << io.open_handles << "\n";
         if (!defjam::last_failed_open().empty())
             std::cout << "  last failed open:   " << defjam::last_failed_open() << "\n";

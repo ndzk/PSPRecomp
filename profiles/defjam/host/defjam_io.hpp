@@ -30,6 +30,8 @@ struct IoStats {
     std::uint64_t device_opens{};
     std::uint64_t device_reads{};
     std::uint64_t device_bytes_read{};
+    std::uint64_t umd_ioctls{};      // disc-structure queries answered
+    std::uint64_t lbn_opens{};       // opens addressed by raw disc sector
     std::uint32_t open_handles{};
 };
 [[nodiscard]] IoStats io_stats();
@@ -40,5 +42,11 @@ struct IoStats {
 // Guest path behind an open descriptor, or empty. Module loading by file id
 // needs it to report which module is being loaded.
 [[nodiscard]] std::string io_path_for_fd(std::int32_t fd);
+
+// The PSP addresses raw disc content with the path form
+// "sce_lbn<sector>_size<bytes>", each field hexadecimal with an optional "0x".
+// Exposed so the parser can be tested without a disc image.
+[[nodiscard]] bool parse_disc_sector_path(const std::string &psp_path, std::uint32_t &sector,
+                                          std::uint32_t &size);
 
 } // namespace defjam

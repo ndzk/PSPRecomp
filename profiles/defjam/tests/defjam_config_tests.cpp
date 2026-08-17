@@ -1,4 +1,5 @@
 #include "defjam_config.hpp"
+#include "defjam_io.hpp"
 
 #include "psprecomp/common.hpp"
 
@@ -202,6 +203,33 @@ unsupported_instruction = "stop"
     require(rejects("[game\nexpected_sha256 = \"x\"\n"), "a malformed section header was accepted");
 }
 
+// The raw-sector path form is how the title asks for content by disc position.
+// Misparsing it sends every such read to the wrong place, and a title that gets
+// sector zero looks exactly like one that is simply not loading.
+void test_disc_sector_paths() {
+    std::uint32_t sector = 0xFFFFFFFFu;
+    std::uint32_t size = 0xFFFFFFFFu;
+
+    require(defjam::parse_disc_sector_path("disc0:/sce_lbn0x0000_size0x1f78", sector, size),
+            "the observed sce_lbn form was rejected");
+    require(sector == 0u && size == 0x1f78u, "the observed sce_lbn form parsed to wrong values");
+
+    // The real request this title makes once directory entries carry sectors.
+    require(defjam::parse_disc_sector_path("disc0:/sce_lbn0xA89A0_size0x1F78", sector, size),
+            "an upper-case hex sce_lbn form was rejected");
+    require(sector == 0xA89A0u && size == 0x1F78u, "upper-case hex parsed to wrong values");
+
+    // The prefix is optional on both fields.
+    require(defjam::parse_disc_sector_path("sce_lbn10_size100", sector, size),
+            "an unprefixed sce_lbn form was rejected");
+    require(sector == 0x10u && size == 0x100u, "unprefixed fields are not hexadecimal");
+
+    require(!defjam::parse_disc_sector_path("disc0:/PSP_GAME/USRDIR/main_all.dat", sector, size),
+            "an ordinary path was treated as a sector request");
+    require(!defjam::parse_disc_sector_path("disc0:/sce_lbn0x10", sector, size),
+            "a path with no size field was accepted");
+}
+
 } // namespace
 
 int main() {
@@ -211,6 +239,7 @@ int main() {
         test_policy_is_enforced_not_decorative();
         test_identity_is_mandatory();
         test_syntax_handling();
+        test_disc_sector_paths();
         std::cout << "All defjam config tests passed.\n";
         return 0;
     } catch (const std::exception &exception) {
