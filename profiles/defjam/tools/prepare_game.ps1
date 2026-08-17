@@ -152,6 +152,15 @@ Use -AllowUnverifiedExecutable only for development.
     Write-Host "Copying PSP_GAME to $Destination (this is ~1.3 GB and takes a while)..."
     $copyStart = Get-Date
     Copy-Item -LiteralPath $pspGame -Destination $Destination -Recurse -Force
+
+    # Root-level files matter too. The title opens disc0:/UMD_DATA.BIN during
+    # boot and retries forever if it is absent, so copying only PSP_GAME leaves
+    # a game root that looks complete but hangs.
+    Get-ChildItem -LiteralPath $sourceRoot -File -ErrorAction SilentlyContinue | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination $Destination -Force
+        Write-Host "  root file: $($_.Name)"
+    }
+
     $copyElapsed = (Get-Date) - $copyStart
     Write-Host ("  copied in {0:n1} s" -f $copyElapsed.TotalSeconds)
 

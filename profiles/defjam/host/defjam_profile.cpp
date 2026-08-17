@@ -1,5 +1,6 @@
 #include "defjam_profile.hpp"
 
+#include "defjam_io.hpp"
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
@@ -1212,6 +1213,8 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         if (ctx.gpr[4] != 0u) rt.memory().zero(ctx.gpr[4], 8u);
         set_success(ctx);
     });
+
+    install_io_hle(runtime);
 
     runtime_log_line("install_profile: HLE registered");
 }

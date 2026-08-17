@@ -1,4 +1,5 @@
 #include "defjam_config.hpp"
+#include "defjam_io.hpp"
 #include "defjam_profile.hpp"
 
 #include "psprecomp/common.hpp"
@@ -143,6 +144,14 @@ int main(int argc, char **argv) {
         // registers at the addresses the analyzer reported.
         psprecomp::Elf32Image elf = psprecomp::Elf32Image::from_file(executable);
         psprecomp::Runtime runtime(manifest.game.ram_mb * 1024u * 1024u);
+
+        // Guest paths resolve against the directory holding PSP_GAME, which is
+        // three levels above <root>/PSP_GAME/SYSDIR/BOOT.BIN. Runtime strips the
+        // device prefix and rejects ".." so everything stays inside it.
+        const std::filesystem::path game_root =
+            executable.parent_path().parent_path().parent_path();
+        runtime.set_game_root(game_root);
+
         const auto relocations = elf.load_and_relocate(runtime.memory(), manifest.game.load_base);
         psprecomp::register_generated_functions(runtime);
 
@@ -161,7 +170,8 @@ int main(int argc, char **argv) {
                   << "  relocations:    " << relocations.total << " (invalid " << relocations.invalid
                   << ", unsupported " << relocations.unsupported << ")\n"
                   << "  registered fns: " << runtime.function_count() << "\n"
-                  << "  user arena:     " << psprecomp::hex32(user_arena_start) << "\n";
+                  << "  user arena:     " << psprecomp::hex32(user_arena_start) << "\n"
+                  << "  game root:      " << game_root.string() << "\n";
         if (runtime.function_count() == 0u)
             throw psprecomp::Error("The generated corpus registered no functions");
 
@@ -206,6 +216,13 @@ int main(int argc, char **argv) {
                   << "  thread switches:    " << stats.thread_switches << "\n"
                   << "  live threads:       " << stats.live_threads << "\n"
                   << "  guest time:         " << stats.virtual_time_us << " us\n";
+        const defjam::IoStats io = defjam::io_stats();
+        std::cout << "  file opens:         " << io.opens << " (" << io.failed_opens << " failed)\n"
+                  << "  reads:              " << io.reads << ", " << io.bytes_read << " bytes\n"
+                  << "  seeks / diropens:   " << io.seeks << " / " << io.dir_opens << "\n"
+                  << "  open handles:       " << io.open_handles << "\n";
+        if (!defjam::last_failed_open().empty())
+            std::cout << "  last failed open:   " << defjam::last_failed_open() << "\n";
         runtime.report_hle_histogram();
         if (!guest_fault.empty()) {
             std::cerr << "\nGuest fault: " << guest_fault << "\n";
