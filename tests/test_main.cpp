@@ -840,6 +840,25 @@ int main() {
         const auto addiu = psprecomp::decode_allegrex(0x24820001u);
         require(addiu.kind == psprecomp::OpcodeKind::Addiu && addiu.rs == 4u && addiu.rt == 2u && addiu.immediate == 1,
                 "ADDIU decode failed");
+        // ADDI is a distinct opcode from ADDIU and traps on signed overflow.
+        // Encoding taken from an observed PSP binary: addi r5, r5, 64.
+        const auto addi = psprecomp::decode_allegrex(0x20A50040u);
+        require(addi.kind == psprecomp::OpcodeKind::Addi && addi.rs == 5u && addi.rt == 5u &&
+                    addi.immediate == 64,
+                "ADDI decode failed");
+        require(psprecomp::decode_allegrex(0x0000000Du).kind == psprecomp::OpcodeKind::Break,
+                "BREAK decode failed");
+        {
+            psprecomp::AllegrexContext overflow_ctx;
+            overflow_ctx.set_gpr(5, 0x7FFFFFFFu);
+            require(!overflow_ctx.execute_signed_add_immediate(5u, 5u, 1),
+                    "ADDI did not report signed overflow");
+            require(overflow_ctx.gpr[5] == 0x7FFFFFFFu,
+                    "ADDI overflow must leave the destination register untouched");
+            require(overflow_ctx.execute_signed_add_immediate(6u, 5u, -1),
+                    "ADDI rejected an in-range result");
+            require(overflow_ctx.gpr[6] == 0x7FFFFFFEu, "ADDI produced the wrong result");
+        }
         const auto jr = psprecomp::decode_allegrex(0x03E00008u);
         require(jr.kind == psprecomp::OpcodeKind::Jr && jr.has_delay_slot(), "JR decode failed");
         require(psprecomp::decode_allegrex(0xA6A200B0u).kind == psprecomp::OpcodeKind::Sh, "SH decode failed");

@@ -1425,6 +1425,20 @@ struct alignas(16) AllegrexContext {
         return true;
     }
 
+    // ADDI. Same trapping semantics as execute_signed_add, with a sign-extended
+    // 16-bit immediate as the second operand.
+    [[nodiscard]] bool execute_signed_add_immediate(std::uint32_t destination, std::uint32_t source,
+                                                    std::int32_t immediate) noexcept {
+        const std::int64_t result = static_cast<std::int64_t>(static_cast<std::int32_t>(gpr[source & 31u])) +
+                                    static_cast<std::int64_t>(immediate);
+        if (result < std::numeric_limits<std::int32_t>::min() ||
+            result > std::numeric_limits<std::int32_t>::max()) {
+            return false;
+        }
+        set_gpr(destination, static_cast<std::uint32_t>(static_cast<std::int32_t>(result)));
+        return true;
+    }
+
     [[nodiscard]] bool execute_signed_sub(std::uint32_t destination, std::uint32_t source_a,
                                           std::uint32_t source_b) noexcept {
         const std::int64_t result = static_cast<std::int64_t>(static_cast<std::int32_t>(gpr[source_a & 31u])) -

@@ -67,6 +67,7 @@ DecodedInstruction decode_allegrex(std::uint32_t word) {
         case 0x0A: d.kind = OpcodeKind::Movz; d.mnemonic = "movz"; break;
         case 0x0B: d.kind = OpcodeKind::Movn; d.mnemonic = "movn"; break;
         case 0x0C: d.kind = OpcodeKind::Syscall; d.mnemonic = "syscall"; break;
+        case 0x0D: d.kind = OpcodeKind::Break; d.mnemonic = "break"; break;
         case 0x0F: d.kind = OpcodeKind::Sync; d.mnemonic = "sync"; break;
         case 0x10: d.kind = OpcodeKind::Mfhi; d.mnemonic = "mfhi"; break;
         case 0x11: d.kind = OpcodeKind::Mthi; d.mnemonic = "mthi"; break;
@@ -117,6 +118,9 @@ DecodedInstruction decode_allegrex(std::uint32_t word) {
     case 0x15: d.kind = OpcodeKind::Bnel; d.mnemonic = "bnel"; break;
     case 0x16: d.kind = OpcodeKind::Blezl; d.mnemonic = "blezl"; break;
     case 0x17: d.kind = OpcodeKind::Bgtzl; d.mnemonic = "bgtzl"; break;
+    // ADDI is base MIPS I and differs from ADDIU only in trapping on signed
+    // overflow, exactly as ADD does relative to ADDU.
+    case 0x08: d.kind = OpcodeKind::Addi; d.mnemonic = "addi"; break;
     case 0x09: d.kind = OpcodeKind::Addiu; d.mnemonic = "addiu"; break;
     case 0x0A: d.kind = OpcodeKind::Slti; d.mnemonic = "slti"; break;
     case 0x0B: d.kind = OpcodeKind::Sltiu; d.mnemonic = "sltiu"; break;

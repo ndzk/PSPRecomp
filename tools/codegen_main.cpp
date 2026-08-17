@@ -93,6 +93,13 @@ std::string emit_regular(const psprecomp::DecodedInstruction &d, std::uint32_t p
     case psprecomp::OpcodeKind::Cache:
         out << psprecomp::codegen::memory_ordering_statement(d.kind);
         break;
+    case psprecomp::OpcodeKind::Addi:
+        // ADDI traps on signed overflow; ADDIU does not. Same split as ADD/ADDU.
+        out << "    { const bool signed_ok = ctx.execute_signed_add_immediate(" << d.rt << "u, " << d.rs
+            << "u, " << imm << ");\n"
+            << "      if (!signed_ok) { rt.arithmetic_overflow(" << psprecomp::hex32(pc) << "u, "
+            << psprecomp::hex32(d.word) << "u); return; } }\n";
+        break;
     case psprecomp::OpcodeKind::Addiu: out << "    ctx.set_gpr(" << d.rt << ", " << reg(d.rs) << " + static_cast<std::uint32_t>(" << imm << "));\n"; break;
     case psprecomp::OpcodeKind::Slti: out << "    ctx.set_gpr(" << d.rt << ", static_cast<std::int32_t>(" << reg(d.rs) << ") < " << imm << " ? 1u : 0u);\n"; break;
     case psprecomp::OpcodeKind::Sltiu: out << "    ctx.set_gpr(" << d.rt << ", " << reg(d.rs) << " < static_cast<std::uint32_t>(" << imm << ") ? 1u : 0u);\n"; break;
@@ -100,6 +107,12 @@ std::string emit_regular(const psprecomp::DecodedInstruction &d, std::uint32_t p
     case psprecomp::OpcodeKind::Ori: out << "    ctx.set_gpr(" << d.rt << ", " << reg(d.rs) << " | " << uimm << "u);\n"; break;
     case psprecomp::OpcodeKind::Xori: out << "    ctx.set_gpr(" << d.rt << ", " << reg(d.rs) << " ^ " << uimm << "u);\n"; break;
     case psprecomp::OpcodeKind::Lui: out << "    ctx.set_gpr(" << d.rt << ", " << uimm << "u << 16u);\n"; break;
+    case psprecomp::OpcodeKind::Break:
+        // MIPS BREAK raises a breakpoint exception. A recompiled build has no
+        // guest exception handler to deliver it to, so reaching one is a hard
+        // stop rather than something to translate into host code.
+        out << "    rt.stop(\"guest executed break at " << psprecomp::hex32(pc) << "\"); return;\n";
+        break;
     case psprecomp::OpcodeKind::Add:
         out << "    { const bool signed_ok = ctx.execute_signed_add(" << d.rd << "u, " << d.rs << "u, " << d.rt
             << "u);\n"
