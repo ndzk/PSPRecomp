@@ -89,6 +89,10 @@ struct MpegStats {
     std::uint64_t video_units{};
     std::uint64_t audio_units{};
     std::uint64_t ringbuffer_callbacks{};
+    std::uint64_t video_units_refused{};   // asked for, none demultiplexed yet
+    std::uint64_t audio_units_refused{};
+    std::uint64_t video_units_queued{};    // demultiplexed and waiting to be taken
+    std::uint64_t audio_units_queued{};
     std::uint64_t frames_decoded{};
     std::uint64_t audio_blocks_decoded{};
 };

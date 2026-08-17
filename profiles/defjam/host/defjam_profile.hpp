@@ -74,6 +74,11 @@ void report_headless_stats();
 // Off unless PSPRECOMP_DEFJAM_TRACE is set, since it costs a call per dispatch.
 // The value, if numeric and non-zero, sets the ring size (default 256).
 void install_dispatch_trace();
+
+// Reports when a watched guest word changes, naming the unit and thread that
+// changed it. Set PSPRECOMP_DEFJAM_WATCH to a comma-separated list of
+// addresses. Answers "who writes this?" without disassembling every writer.
+void install_memory_watch();
 void dump_dispatch_trace(std::size_t limit = 64u);
 [[nodiscard]] bool dispatch_trace_enabled();
 

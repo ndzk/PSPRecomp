@@ -214,6 +214,7 @@ int main(int argc, char **argv) {
 
         defjam::install_profile(runtime, user_arena_start);
         defjam::install_starvation_preemption();
+        defjam::install_memory_watch();
         defjam::install_dispatch_trace();
 
         // $gp is genuinely zero for this module: it was built without
@@ -275,6 +276,10 @@ int main(int argc, char **argv) {
                       << mpeg.packets_put << " packets\n"
                       << "  mpeg access units:  " << mpeg.video_units << " video, "
                       << mpeg.audio_units << " audio\n"
+                      << "  mpeg refused:       " << mpeg.video_units_refused << " video, "
+                      << mpeg.audio_units_refused << " audio; still queued "
+                      << mpeg.video_units_queued << " video, " << mpeg.audio_units_queued
+                      << " audio\n"
                       << "  mpeg decoded:       " << mpeg.frames_decoded << " frames, "
                       << mpeg.audio_blocks_decoded << " audio blocks\n";
         }

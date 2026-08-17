@@ -335,7 +335,17 @@ AccessUnit ProgramStreamDemuxer::take_audio() {
     return unit;
 }
 
-MpegStats mpeg_stats() { return g_stats; }
+MpegStats mpeg_stats() {
+    MpegStats stats = g_stats;
+    // How much the demultiplexer is still holding says whether a stall is the
+    // guest not asking or this side having nothing to give.
+    if (!g_contexts.empty()) {
+        const ProgramStreamDemuxer &demuxer = g_contexts.begin()->second.demuxer;
+        stats.video_units_queued = demuxer.video_units() - stats.video_units;
+        stats.audio_units_queued = demuxer.audio_units() - stats.audio_units;
+    }
+    return stats;
+}
 
 // ---------------------------------------------------------------------------
 // sceMpeg
@@ -622,6 +632,8 @@ void install_mpeg_hle(Runtime &runtime) {
             if (!ready) {
                 // Nothing demultiplexed yet: the guest must put more packets in
                 // before asking again. Reported as a shortage, not an error.
+                if (video) ++g_stats.video_units_refused;
+                else ++g_stats.audio_units_refused;
                 set_return(ctx, static_cast<std::uint32_t>(-1));
                 return;
             }

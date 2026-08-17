@@ -347,8 +347,39 @@ std::vector<DispatchTraceEntry> g_trace;
 std::size_t g_trace_head = 0;      // next slot to write
 std::uint64_t g_trace_total = 0;   // dispatches seen, for wraparound reporting
 
-void pre_dispatch_hook(Runtime &, AllegrexContext &, std::uint32_t dispatch_pc,
+// A word the guest writes that we want to see change, and what it last held.
+struct MemoryWatch {
+    std::uint32_t address{};
+    std::uint32_t value{};
+    bool primed{};
+};
+std::vector<MemoryWatch> g_watches;
+std::uint64_t g_watch_hits = 0;
+
+// Checks the watched words. This runs between dispatches rather than inside the
+// store path, so it names the unit that changed a value rather than the exact
+// instruction; with PSPRECOMP_NO_CHAIN=1 that is enough to point at a function,
+// and it costs nothing when no watch is set.
+void check_watches(Runtime &rt, std::uint32_t dispatch_pc, std::int32_t thread_uid) {
+    for (MemoryWatch &watch : g_watches) {
+        if (!rt.memory().contains(watch.address, 4u)) continue;
+        const std::uint32_t now = rt.memory().load32(watch.address);
+        if (watch.primed && now == watch.value) continue;
+        if (watch.primed) {
+            ++g_watch_hits;
+            runtime_log_line("watch " + psprecomp::hex32(watch.address) + " " +
+                             psprecomp::hex32(watch.value) + " -> " + psprecomp::hex32(now) +
+                             " by thread " + std::to_string(thread_uid) + " at " +
+                             psprecomp::hex32(dispatch_pc));
+        }
+        watch.value = now;
+        watch.primed = true;
+    }
+}
+
+void pre_dispatch_hook(Runtime &rt, AllegrexContext &, std::uint32_t dispatch_pc,
                        std::int32_t dispatch_thread_uid) {
+    if (!g_watches.empty()) check_watches(rt, dispatch_pc, dispatch_thread_uid);
     if (g_trace.empty()) return;
     g_trace[g_trace_head] = DispatchTraceEntry{dispatch_pc, dispatch_thread_uid, g_virtual_time_us};
     g_trace_head = (g_trace_head + 1u) % g_trace.size();
@@ -673,6 +704,32 @@ HeadlessStats headless_stats() {
 }
 
 bool dispatch_trace_enabled() { return !g_trace.empty(); }
+
+void install_memory_watch() {
+    const char *text = std::getenv("PSPRECOMP_DEFJAM_WATCH");
+    if (text == nullptr || text[0] == 0) return;
+
+    // A comma-separated list of guest addresses, each watched as a 32-bit word.
+    const std::string list(text);
+    std::size_t cursor = 0u;
+    while (cursor <= list.size()) {
+        const std::size_t comma = list.find(',', cursor);
+        const std::string item =
+            list.substr(cursor, comma == std::string::npos ? std::string::npos : comma - cursor);
+        if (!item.empty()) {
+            const auto address = static_cast<std::uint32_t>(std::strtoul(item.c_str(), nullptr, 0));
+            if (address != 0u) g_watches.push_back(MemoryWatch{address, 0u, false});
+        }
+        if (comma == std::string::npos) break;
+        cursor = comma + 1u;
+    }
+    if (g_watches.empty()) return;
+
+    std::string summary;
+    for (const MemoryWatch &watch : g_watches) summary += " " + psprecomp::hex32(watch.address);
+    runtime_log_line("watching" + summary);
+    psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
+}
 
 void install_dispatch_trace() {
     const char *text = std::getenv("PSPRECOMP_DEFJAM_TRACE");
@@ -1423,7 +1480,19 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             rt.memory().store8(entry + 8u, 128u);     // analog x
             rt.memory().store8(entry + 9u, 128u);     // analog y
         }
-        set_return(ctx, count);
+
+        // This is the blocking read: controller data is sampled once per cycle,
+        // and asking again inside the same cycle waits for the next one. The
+        // non-blocking form is sceCtrlPeekBufferPositive.
+        //
+        // Returning immediately turns a loop that should be paced at the sample
+        // rate into one that spins as fast as the host allows, and because it
+        // then never yields, every lower-priority thread starves. A title whose
+        // movie player runs below the main loop simply never advances.
+        constexpr std::uint64_t kSamplePeriodUs = 16683u;
+        const auto remainder =
+            static_cast<std::uint32_t>(kSamplePeriodUs - (g_virtual_time_us % kSamplePeriodUs));
+        delay_current_thread(rt, ctx, remainder, count);
     });
 
     // -----------------------------------------------------------------------
