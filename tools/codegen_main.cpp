@@ -9,6 +9,9 @@
 #include <bit>
 #include <cctype>
 #include <charconv>
+#include <chrono>
+#include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <cmath>
 #include <limits>
@@ -73,6 +76,17 @@ std::string cpp_escape(const std::string &text) {
         else out += c;
     }
     return out;
+}
+
+// Per-unit progress on stderr. Off by default so tool output stays stable;
+// generating a full corpus takes minutes, where a silent run is
+// indistinguishable from a hang.
+bool codegen_progress_enabled() {
+    static const bool enabled = [] {
+        const char *text = std::getenv("PSPRECOMP_CODEGEN_PROGRESS");
+        return text != nullptr && *text != '\0' && std::strcmp(text, "0") != 0;
+    }();
+    return enabled;
 }
 
 std::string reg(std::uint32_t index) {
@@ -1071,9 +1085,9 @@ std::string emit_function_source(const GeneratedFunctionInput &function,
                                  << "    return;\n";
                             // The emitted code leaves the unit, so this block is
                             // finished. `continue` here would re-enter the walk
-                            // with pc unchanged and emit this JAL forever: every
-                            // delay-slot path leaves the loop through the break
-                            // below, none of them advances pc at the top.
+                            // with pc unchanged and emit this JAL forever: the
+                            // delay-slot paths advance pc only via the break
+                            // below, never at the top of the loop.
                             break;
                         }
                         // Otherwise run the callee inline and resume locally only
@@ -1531,6 +1545,12 @@ int generate_auto(const std::filesystem::path &elf_path,
     std::set<std::filesystem::path> expected_cpp;
     std::size_t rewritten_units = 0u;
     std::size_t registered_entries = 0u;
+    if (codegen_progress_enabled()) {
+        std::cerr << "[codegen] analysis complete: " << units.size() << " units, "
+                  << program.covered_labels.size() << " labels, "
+                  << direct_entry_ids.size() << " entry ids; beginning emission\n"
+                  << std::flush;
+    }
     for (const auto &unit : units) {
         std::ostringstream suffix;
         suffix << std::setfill('0') << std::setw(4) << unit.bucket;
@@ -1549,6 +1569,12 @@ int generate_auto(const std::filesystem::path &elf_path,
             &import_stubs,
         };
 
+        const auto stage_clock = std::chrono::steady_clock::now;
+        const auto unit_start = stage_clock();
+        auto elapsed_ms = [](auto from, auto to) {
+            return std::chrono::duration_cast<std::chrono::milliseconds>(to - from).count();
+        };
+
         std::ostringstream out;
         out << "#include \"psprecomp/runtime.hpp\"\n#include \"generated_units.hpp\"\n#include <bit>\n#include <cmath>\n#include <cstdint>\n#include <limits>\n\nnamespace psprecomp {\n";
         // The register-cache lowering passes (per-basic-block GPR/FPR caches and
@@ -1560,10 +1586,40 @@ int generate_auto(const std::filesystem::path &elf_path,
         // each grew past 2 GB, exhausting system memory during a normal build.
         // This pipeline matches the last configuration observed booting on
         // hardware.
-        out << lower_constant_vfpu_accesses(
-                lower_aot_memory_accesses(
-                    lower_constant_fpr_accesses(
-                        lower_constant_gpr_writes(emit_function_source(generated_unit, memory, generated_unit.name)))));
+        // Emitting this corpus takes long enough that a silent run cannot be
+        // told apart from a hang. Staged so the cost is attributable.
+        if (codegen_progress_enabled()) {
+            std::cerr << "[codegen] unit " << suffix_text << " starting"
+                      << " instructions=" << generated_unit.instructions.size()
+                      << " entries=" << generated_unit.entry_labels.size()
+                      << " span=[" << psprecomp::hex32(generated_unit.address) << ","
+                      << psprecomp::hex32(generated_unit.address + unit_span_bytes) << ")\n"
+                      << std::flush;
+        }
+        std::string unit_text = emit_function_source(generated_unit, memory, generated_unit.name);
+        const auto after_emit = stage_clock();
+        const std::size_t emitted_bytes = unit_text.size();
+        unit_text = lower_constant_gpr_writes(std::move(unit_text));
+        const auto after_gpr = stage_clock();
+        unit_text = lower_constant_fpr_accesses(std::move(unit_text));
+        const auto after_fpr = stage_clock();
+        unit_text = lower_aot_memory_accesses(std::move(unit_text));
+        const auto after_mem = stage_clock();
+        unit_text = lower_constant_vfpu_accesses(std::move(unit_text));
+        const auto after_vfpu = stage_clock();
+        if (codegen_progress_enabled()) {
+            std::cerr << "[codegen] unit " << suffix_text
+                      << " instructions=" << generated_unit.instructions.size()
+                      << " entries=" << generated_unit.entry_labels.size()
+                      << " emitted=" << (emitted_bytes / 1024u) << "KiB"
+                      << " emit=" << elapsed_ms(unit_start, after_emit) << "ms"
+                      << " gpr=" << elapsed_ms(after_emit, after_gpr) << "ms"
+                      << " fpr=" << elapsed_ms(after_gpr, after_fpr) << "ms"
+                      << " mem=" << elapsed_ms(after_fpr, after_mem) << "ms"
+                      << " vfpu=" << elapsed_ms(after_mem, after_vfpu) << "ms\n"
+                      << std::flush;
+        }
+        out << unit_text;
         out << "void register_generated_unit_" << unit.bucket << "(Runtime &runtime) {\n";
         out << "    runtime.register_generated_unit(" << unit.bucket << "u, "
             << psprecomp::hex32(generated_unit.address) << "u, " << unit_span_bytes
