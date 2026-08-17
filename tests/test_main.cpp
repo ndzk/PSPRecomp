@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -701,6 +702,118 @@ static void test_executable_ranges_respect_section_flags() {
             "A materialized pointer into non-executable data was seeded as a function");
     require(program.seeds.find(0x08804010u) != program.seeds.end(),
             "A materialized pointer into executable code stopped being seeded");
+}
+
+static void test_vfpu_integer_pack() {
+    // Set up and inspect through the same vector addressing the instruction
+    // uses. Scalar register numbers are remapped by vfpu_scalar_index and are
+    // not the lane order read_vfpu_vector walks, so mixing the two silently
+    // tests the wrong storage.
+    // A fresh context has zeroed VFPU prefix registers, and prefix 0 is a
+    // swizzle that broadcasts lane 0 rather than the identity. Real execution
+    // always reaches an instruction with identity prefixes, which is what
+    // eat_vfpu_prefixes installs, so each context below establishes that.
+    constexpr std::uint32_t kSource = 0u;        // lanes land in vfpu[0..3]
+    constexpr std::uint32_t kDestination = 4u;   // lanes land in vfpu[16..19]
+    const auto load_vector = [](psprecomp::AllegrexContext &ctx, std::uint32_t reg,
+                                std::initializer_list<std::uint32_t> values) {
+        float lanes[4]{};
+        std::uint32_t index = 0u;
+        for (const std::uint32_t value : values) lanes[index++] = std::bit_cast<float>(value);
+        ctx.write_vfpu_vector(lanes, reg, static_cast<std::uint32_t>(values.size()));
+    };
+    const auto lane_bits = [](const psprecomp::AllegrexContext &ctx, std::uint32_t reg,
+                              std::uint32_t length, std::uint32_t lane) {
+        float lanes[4]{};
+        ctx.read_vfpu_vector(lanes, reg, length);
+        return std::bit_cast<std::uint32_t>(lanes[lane]);
+    };
+
+    // vi2c.q: signed bytes come from the high 8 bits of each lane, packed low
+    // lane first.
+    {
+        psprecomp::AllegrexContext ctx;
+        ctx.eat_vfpu_prefixes();
+        load_vector(ctx, kSource, {0x11000000u, 0x22000000u, 0x33000000u, 0x44000000u});
+        ctx.execute_vfpu_vi2x(kDestination, kSource, 4u, 1u);
+        require(lane_bits(ctx, kDestination, 1u, 0u) == 0x44332211u,
+                "vi2c.q packed the wrong bytes");
+    }
+
+    // vi2uc.q clamps a negative lane to zero; vi2c.q does not.
+    {
+        psprecomp::AllegrexContext ctx;
+        ctx.eat_vfpu_prefixes();
+        load_vector(ctx, kSource, {0x80000000u, 0x7F000000u, 0x00000000u, 0x01000000u});
+        ctx.execute_vfpu_vi2x(kDestination, kSource, 4u, 0u);   // vi2uc
+        require(lane_bits(ctx, kDestination, 1u, 0u) == 0x01007F00u,
+                "vi2uc.q did not clamp a negative lane");
+
+        psprecomp::AllegrexContext signed_ctx;
+        signed_ctx.eat_vfpu_prefixes();
+        load_vector(signed_ctx, kSource, {0x80000000u, 0x7F000000u, 0x00000000u, 0x01000000u});
+        signed_ctx.execute_vfpu_vi2x(kDestination, kSource, 4u, 1u);   // vi2c
+        require(lane_bits(signed_ctx, kDestination, 1u, 0u) == 0x01007F80u,
+                "vi2c.q must not clamp");
+    }
+
+    // vi2s: halves come from the high 16 bits; a quad fills two words.
+    {
+        psprecomp::AllegrexContext ctx;
+        ctx.eat_vfpu_prefixes();
+        load_vector(ctx, kSource, {0x11110000u, 0x22220000u, 0x33330000u, 0x44440000u});
+        ctx.execute_vfpu_vi2x(kDestination, kSource, 4u, 3u);
+        require(lane_bits(ctx, kDestination, 2u, 0u) == 0x22221111u,
+                "vi2s.q first word is wrong");
+        require(lane_bits(ctx, kDestination, 2u, 1u) == 0x44443333u,
+                "vi2s.q second word is wrong");
+    }
+    {
+        psprecomp::AllegrexContext ctx;
+        ctx.eat_vfpu_prefixes();
+        load_vector(ctx, kSource, {0xABCD0000u, 0x00010000u});
+        ctx.execute_vfpu_vi2x(kDestination, kSource, 2u, 3u);   // vi2s.p -> one word
+        require(lane_bits(ctx, kDestination, 1u, 0u) == 0x0001ABCDu,
+                "vi2s.p packed the wrong halves");
+    }
+    {
+        psprecomp::AllegrexContext ctx;
+        ctx.eat_vfpu_prefixes();
+        load_vector(ctx, kSource, {0x80000000u, 0x12340000u});
+        ctx.execute_vfpu_vi2x(kDestination, kSource, 2u, 2u);   // vi2us clamps
+        require(lane_bits(ctx, kDestination, 1u, 0u) == 0x12340000u,
+                "vi2us.p did not clamp a negative lane");
+    }
+
+    // The strongest check: pack must invert the unpack the framework already
+    // implements, for both the byte and half forms.
+    {
+        psprecomp::AllegrexContext ctx;
+        ctx.eat_vfpu_prefixes();
+        load_vector(ctx, kSource, {0x8877AA55u});
+        ctx.execute_vfpu_vx2i(kDestination, kSource, 1u, 1u);   // vc2i: bytes -> four lanes
+        ctx.execute_vfpu_vi2x(8u, kDestination, 4u, 1u);        // vi2c: four lanes -> bytes
+        require(lane_bits(ctx, 8u, 1u, 0u) == 0x8877AA55u,
+                "vc2i followed by vi2c did not round trip");
+    }
+    {
+        psprecomp::AllegrexContext ctx;
+        ctx.eat_vfpu_prefixes();
+        load_vector(ctx, kSource, {0xDEADBEEFu});
+        ctx.execute_vfpu_vx2i(kDestination, kSource, 1u, 3u);   // vs2i: halves -> two lanes
+        ctx.execute_vfpu_vi2x(8u, kDestination, 2u, 3u);        // vi2s: two lanes -> halves
+        require(lane_bits(ctx, 8u, 1u, 0u) == 0xDEADBEEFu,
+                "vs2i followed by vi2s did not round trip");
+    }
+
+    // Decode side: the observed encodings must reach the new opcode kind.
+    {
+        const auto decoded = psprecomp::decode_allegrex(0xD03C8184u);   // observed vi2uc.q
+        require(decoded.kind == psprecomp::OpcodeKind::Vi2x && decoded.mnemonic == "vi2uc",
+                "vi2uc decode failed");
+        require(psprecomp::decode_allegrex(0xD03D839Cu).mnemonic == "vi2c", "vi2c decode failed");
+        require(psprecomp::decode_allegrex(0xD03F808Cu).mnemonic == "vi2s", "vi2s decode failed");
+    }
 }
 
 static void test_scratchpad_memory() {
@@ -1817,6 +1930,7 @@ int main() {
         test_executable_ranges_respect_section_flags();
         test_nid_registry_csv_crlf();
         test_scratchpad_memory();
+        test_vfpu_integer_pack();
 
         auto relocation_elf = psprecomp::Elf32Image::from_bytes(make_relocation_test_prx(), "synthetic_relocation.prx");
         psprecomp::GuestMemory relocation_memory;

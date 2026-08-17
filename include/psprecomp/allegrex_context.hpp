@@ -571,6 +571,67 @@ struct alignas(16) AllegrexContext {
         write_vfpu_vector_with_destination_prefix(result, destination_register, destination_length);
     }
 
+    // Pack integer lanes down into bytes or halves: the inverse of
+    // execute_vfpu_vx2i above, and defined as exactly that. That routine
+    // expands a byte with `int = byte << 24` and a half with `int = short <<
+    // 16`, so narrowing takes the corresponding high bits back out. The
+    // unsigned forms clamp a negative lane to zero, which is the only
+    // difference between vi2uc/vi2c and between vi2us/vi2s.
+    //
+    // operation: 0 = vi2uc, 1 = vi2c, 2 = vi2us, 3 = vi2s, matching the low two
+    // bits of the encoded operation field just as the unpack direction does.
+    void execute_vfpu_vi2x(std::uint32_t destination_register,
+                           std::uint32_t source_register,
+                           std::uint32_t source_length,
+                           std::uint32_t operation) noexcept {
+        if (source_length == 0u || source_length > 4u || operation > 3u) return;
+
+        float source[4]{};
+        read_vfpu_vector(source, source_register, source_length);
+        apply_vfpu_source_prefix(source, source_length, 0u);
+
+        std::uint32_t result_bits[4]{};
+        std::uint32_t destination_length = 1u;
+
+        if (operation <= 1u) {
+            // Four lanes collapse into the four bytes of a single word.
+            const bool clamp_negative = operation == 0u;
+            std::uint32_t packed = 0u;
+            for (std::uint32_t lane = 0u; lane < 4u; ++lane) {
+                const std::uint32_t bits = std::bit_cast<std::uint32_t>(source[lane]);
+                const bool negative = (bits & 0x80000000u) != 0u;
+                const std::uint32_t byte =
+                    (clamp_negative && negative) ? 0u : ((bits >> 24u) & 0xFFu);
+                packed |= byte << (lane * 8u);
+            }
+            result_bits[0] = packed;
+            destination_length = 1u;
+        } else {
+            // Two lanes per output word, so a pair yields one word and a quad
+            // yields two.
+            const bool clamp_negative = operation == 2u;
+            destination_length = source_length <= 2u ? 1u : 2u;
+            for (std::uint32_t word = 0u; word < destination_length; ++word) {
+                std::uint32_t packed = 0u;
+                for (std::uint32_t half = 0u; half < 2u; ++half) {
+                    const std::uint32_t lane = word * 2u + half;
+                    if (lane >= source_length) continue;
+                    const std::uint32_t bits = std::bit_cast<std::uint32_t>(source[lane]);
+                    const bool negative = (bits & 0x80000000u) != 0u;
+                    const std::uint32_t value =
+                        (clamp_negative && negative) ? 0u : ((bits >> 16u) & 0xFFFFu);
+                    packed |= value << (half * 16u);
+                }
+                result_bits[word] = packed;
+            }
+        }
+
+        float result[4]{};
+        for (std::uint32_t lane = 0u; lane < destination_length; ++lane)
+            result[lane] = std::bit_cast<float>(result_bits[lane]);
+        write_vfpu_vector_with_destination_prefix(result, destination_register, destination_length);
+    }
+
     void execute_vfpu_vx2i(std::uint32_t destination_register,
                             std::uint32_t source_register,
                             std::uint32_t source_length,
