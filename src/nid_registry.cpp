@@ -118,6 +118,10 @@ void NidRegistry::load_csv(const std::filesystem::path &path) {
     std::size_t line_number = 0;
     while (std::getline(in, line)) {
         ++line_number;
+        // Tolerate CRLF. std::getline splits on '\n' only, so on a CRLF file
+        // every line keeps its carriage return: blank lines stop comparing
+        // equal to "" and every parsed name gains a trailing '\r'.
+        if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty() || line[0] == '#') continue;
         std::stringstream ss(line);
         std::string library, nid_text, name;

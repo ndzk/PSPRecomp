@@ -703,6 +703,30 @@ static void test_executable_ranges_respect_section_flags() {
             "A materialized pointer into executable code stopped being seeded");
 }
 
+static void test_nid_registry_csv_crlf() {
+    // configs/nids.csv is checked out with CRLF on Windows. std::getline splits
+    // on '\n' only, so without the carriage-return strip a blank line stops
+    // comparing equal to "" and every name gains a trailing '\r'.
+    const auto path = std::filesystem::temp_directory_path() / "psprecomp_nids_crlf_test.csv";
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    {
+        std::ofstream out(path, std::ios::binary);
+        out << "# library,nid,name\r\n"
+            << "\r\n"
+            << "sceDisplay,0x289D82FE,sceDisplaySetFrameBuf\r\n"
+            << "sceGe_user,0x1F6752AD,sceGeEdramGetSize\r\n";
+    }
+    psprecomp::NidRegistry registry;
+    registry.load_csv(path);
+    const auto name = registry.resolve("sceDisplay", 0x289D82FEu);
+    require(name.has_value(), "CRLF NID CSV failed to load");
+    require(*name == "sceDisplaySetFrameBuf", "CRLF NID CSV left a carriage return on the name");
+    require(registry.resolve("sceGe_user", 0x1F6752ADu).value_or("") == "sceGeEdramGetSize",
+            "CRLF NID CSV second entry failed to resolve");
+    std::filesystem::remove(path, ec);
+}
+
 static void test_vfpu_branch_cfg_discovery() {
     const auto bytes = make_vfpu_branch_test_elf();
     auto elf = psprecomp::Elf32Image::from_bytes(bytes, "vfpu_branch_cfg.elf");
@@ -1742,6 +1766,7 @@ int main() {
         test_automatic_cross_unit_tail_chaining();
         test_materialized_function_pointer_discovery();
         test_executable_ranges_respect_section_flags();
+        test_nid_registry_csv_crlf();
 
         auto relocation_elf = psprecomp::Elf32Image::from_bytes(make_relocation_test_prx(), "synthetic_relocation.prx");
         psprecomp::GuestMemory relocation_memory;
