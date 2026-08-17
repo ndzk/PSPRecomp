@@ -14,6 +14,9 @@ namespace psprecomp {
 inline constexpr std::uint16_t kElfTypePspPrx = 0xFFA0u;
 inline constexpr std::uint32_t kDefaultPspUserLoadBase = 0x08804000u;
 inline constexpr std::uint32_t kSectionTypePspRel = 0x700000A0u;
+inline constexpr std::uint32_t kSectionFlagWrite = 0x1u;      // SHF_WRITE
+inline constexpr std::uint32_t kSectionFlagAlloc = 0x2u;      // SHF_ALLOC
+inline constexpr std::uint32_t kSectionFlagExecInstr = 0x4u;  // SHF_EXECINSTR
 
 struct ElfSegment {
     std::uint32_t type{};

@@ -623,6 +623,86 @@ static void test_materialized_function_pointer_discovery() {
     require(it->second == "materialized_code_pointer", "Materialized executable pointer source was not classified");
 }
 
+// A PSP-style layout: .text and .rodata share one R-X PT_LOAD, and .text
+// materializes a pointer into each.  Only the pointer landing in .text is a
+// plausible code seed.
+static std::vector<std::uint8_t> make_section_flagged_test_elf() {
+    std::vector<std::uint8_t> bytes(0x180u, 0u);
+    bytes[0] = 0x7Fu; bytes[1] = 'E'; bytes[2] = 'L'; bytes[3] = 'F';
+    bytes[4] = 1u; bytes[5] = 1u; bytes[6] = 1u;
+    put16(bytes, 16u, 2u);      // e_type = ET_EXEC
+    put16(bytes, 18u, 8u);      // e_machine = EM_MIPS
+    put32(bytes, 20u, 1u);
+    put32(bytes, 24u, 0x08804000u);
+    put32(bytes, 28u, 52u);     // e_phoff
+    put32(bytes, 32u, 96u);     // e_shoff
+    put16(bytes, 40u, 52u);     // e_ehsize
+    put16(bytes, 42u, 32u);     // e_phentsize
+    put16(bytes, 44u, 1u);      // e_phnum
+    put16(bytes, 46u, 40u);     // e_shentsize
+    put16(bytes, 48u, 4u);      // e_shnum
+    put16(bytes, 50u, 1u);      // e_shstrndx
+
+    // One R-X PT_LOAD covering both sections, exactly as a PSP PRX links them.
+    put32(bytes, 52u, 1u);            // p_type = PT_LOAD
+    put32(bytes, 56u, 0x140u);        // p_offset
+    put32(bytes, 60u, 0x08804000u);   // p_vaddr
+    put32(bytes, 64u, 0x08804000u);   // p_paddr
+    put32(bytes, 68u, 0x40u);         // p_filesz
+    put32(bytes, 72u, 0x40u);         // p_memsz
+    put32(bytes, 76u, 5u);            // p_flags = R+X
+    put32(bytes, 80u, 16u);
+
+    const auto section = [&bytes](std::uint32_t index, std::uint32_t name, std::uint32_t type,
+                                  std::uint32_t flags, std::uint32_t addr, std::uint32_t offset,
+                                  std::uint32_t size) {
+        const std::uint32_t base = 96u + index * 40u;
+        put32(bytes, base + 0u, name);
+        put32(bytes, base + 4u, type);
+        put32(bytes, base + 8u, flags);
+        put32(bytes, base + 12u, addr);
+        put32(bytes, base + 16u, offset);
+        put32(bytes, base + 20u, size);
+        put32(bytes, base + 32u, 4u);
+    };
+    section(0u, 0u, 0u, 0u, 0u, 0u, 0u);                                    // SHT_NULL
+    section(1u, 1u, 3u, 0u, 0u, 0x100u, 25u);                               // .shstrtab
+    section(2u, 11u, 1u, 0x2u | 0x4u, 0x08804000u, 0x140u, 0x20u);          // .text ALLOC|EXECINSTR
+    section(3u, 17u, 1u, 0x2u, 0x08804020u, 0x160u, 0x20u);                 // .rodata ALLOC only
+
+    const char names[] = "\0.shstrtab\0.text\0.rodata\0";
+    for (std::size_t i = 0; i < 25u; ++i) bytes[0x100u + i] = static_cast<std::uint8_t>(names[i]);
+
+    const std::uint32_t code[] = {
+        0x3C080880u, // lui   t0, 0x0880
+        0x25054020u, // addiu a1, t0, 0x4020 -> pointer into .rodata (must NOT seed)
+        0x03E00008u, // jr ra
+        0x00000000u, // nop
+        0x3C080880u, // lui   t0, 0x0880
+        0x25064010u, // addiu a2, t0, 0x4010 -> pointer into .text (must seed)
+        0x03E00008u, // jr ra
+        0x00000000u, // nop
+    };
+    for (std::size_t i = 0; i < std::size(code); ++i) put32(bytes, 0x140u + i * 4u, code[i]);
+    return bytes;
+}
+
+static void test_executable_ranges_respect_section_flags() {
+    auto elf = psprecomp::Elf32Image::from_bytes(make_section_flagged_test_elf(), "section_flags.elf");
+    psprecomp::GuestMemory memory;
+    (void)elf.load_and_relocate(memory, psprecomp::kDefaultPspUserLoadBase);
+    const auto program = psprecomp::analyze_program(elf, memory, psprecomp::kDefaultPspUserLoadBase);
+
+    require(!psprecomp::is_executable_address(program.executable_ranges, 0x08804020u),
+            "A SHF_ALLOC-only section inside an R-X PT_LOAD was treated as executable");
+    require(psprecomp::is_executable_address(program.executable_ranges, 0x08804000u),
+            "A SHF_EXECINSTR section was not treated as executable");
+    require(program.seeds.find(0x08804020u) == program.seeds.end(),
+            "A materialized pointer into non-executable data was seeded as a function");
+    require(program.seeds.find(0x08804010u) != program.seeds.end(),
+            "A materialized pointer into executable code stopped being seeded");
+}
+
 static void test_vfpu_branch_cfg_discovery() {
     const auto bytes = make_vfpu_branch_test_elf();
     auto elf = psprecomp::Elf32Image::from_bytes(bytes, "vfpu_branch_cfg.elf");
@@ -1661,6 +1741,7 @@ int main() {
         test_automatic_cfg_and_codegen();
         test_automatic_cross_unit_tail_chaining();
         test_materialized_function_pointer_discovery();
+        test_executable_ranges_respect_section_flags();
 
         auto relocation_elf = psprecomp::Elf32Image::from_bytes(make_relocation_test_prx(), "synthetic_relocation.prx");
         psprecomp::GuestMemory relocation_memory;

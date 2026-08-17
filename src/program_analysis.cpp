@@ -12,6 +12,19 @@
 namespace psprecomp {
 namespace {
 
+void sort_and_merge(std::vector<ExecutableRange> &ranges) {
+    std::sort(ranges.begin(), ranges.end(), [](const auto &a, const auto &b) { return a.start < b.start; });
+    std::vector<ExecutableRange> merged;
+    for (const auto &range : ranges) {
+        if (!merged.empty() && range.start <= merged.back().end) {
+            merged.back().end = std::max(merged.back().end, range.end);
+        } else {
+            merged.push_back(range);
+        }
+    }
+    ranges.swap(merged);
+}
+
 std::vector<ExecutableRange> executable_ranges_for(const Elf32Image &elf, std::uint32_t load_base) {
     std::vector<ExecutableRange> ranges;
     for (std::size_t i = 0; i < elf.segments().size(); ++i) {
@@ -22,8 +35,42 @@ std::vector<ExecutableRange> executable_ranges_for(const Elf32Image &elf, std::u
         if (end64 > std::numeric_limits<std::uint32_t>::max()) continue;
         ranges.push_back({start, static_cast<std::uint32_t>(end64)});
     }
-    std::sort(ranges.begin(), ranges.end(), [](const auto &a, const auto &b) { return a.start < b.start; });
-    return ranges;
+    sort_and_merge(ranges);
+
+    // A PSP PRX links .rodata and .data into the same R-X PT_LOAD as .text, so
+    // the segment view on its own marks read-only data as decodable code. Every
+    // relocated R_MIPS_32 pointer into a vtable, jump table or RTTI block then
+    // seeds a phantom function, and decoding data produces long runs of
+    // unsupported instructions. When the section table survived, narrow the
+    // window to the sections actually flagged executable. Stripped images have
+    // no such sections and keep the segment-only view.
+    std::vector<ExecutableRange> section_ranges;
+    for (const auto &section : elf.sections()) {
+        constexpr std::uint32_t required = kSectionFlagAlloc | kSectionFlagExecInstr;
+        if ((section.flags & required) != required || section.size == 0u) continue;
+        const std::uint32_t start = elf.section_runtime_address(section, load_base);
+        const std::uint64_t end64 = static_cast<std::uint64_t>(start) + section.size;
+        if (end64 > std::numeric_limits<std::uint32_t>::max()) continue;
+        section_ranges.push_back({start, static_cast<std::uint32_t>(end64)});
+    }
+    if (section_ranges.empty()) return ranges;
+    sort_and_merge(section_ranges);
+
+    // Intersect rather than replace: a section must never widen the window past
+    // what is actually loaded.
+    std::vector<ExecutableRange> narrowed;
+    for (const auto &section : section_ranges) {
+        for (const auto &segment : ranges) {
+            const std::uint32_t start = std::max(section.start, segment.start);
+            const std::uint32_t end = std::min(section.end, segment.end);
+            if (start < end) narrowed.push_back({start, end});
+        }
+    }
+    // An executable whose flagged sections fall outside every loaded segment is
+    // malformed enough that the segment view is the safer answer.
+    if (narrowed.empty()) return ranges;
+    sort_and_merge(narrowed);
+    return narrowed;
 }
 
 std::uint32_t direct_jump_target(std::uint32_t pc, const DecodedInstruction &decoded) {
