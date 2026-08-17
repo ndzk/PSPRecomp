@@ -31,6 +31,8 @@ struct HeadlessStats {
     std::uint64_t display_list_submissions{};
     std::uint64_t frame_buffer_sets{};
     std::uint64_t thread_switches{};
+    std::uint64_t audio_buffers{};
+    std::uint64_t audio_samples{};
     std::uint64_t virtual_time_us{};
     std::uint32_t live_threads{};
 };

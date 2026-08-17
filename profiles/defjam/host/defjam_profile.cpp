@@ -4,6 +4,7 @@
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -168,6 +169,35 @@ std::map<std::int32_t, std::uint32_t> g_ge_lists;  // id -> stall address
 std::uint64_t g_starvation_tick_us = 0;
 
 // ---------------------------------------------------------------------------
+// Audio
+// ---------------------------------------------------------------------------
+// No sound is produced yet; a real output path is Phase 7 work. What matters
+// here is timing. The blocking output calls are how a PSP title paces its audio
+// thread, so each channel models the drain time of the buffer it accepted. If
+// these returned immediately the audio thread would spin as fast as the
+// dispatcher allows and starve everything else.
+constexpr std::uint32_t kAudioChannels = 8u;
+constexpr std::uint32_t kAudioSampleRate = 44100u;
+
+struct AudioChannel {
+    bool reserved{};
+    std::uint32_t sample_count{};
+    std::uint32_t format{};
+    std::uint32_t left_volume{};
+    std::uint32_t right_volume{};
+    // Virtual time at which the queued buffer has finished playing.
+    std::uint64_t busy_until_us{};
+};
+
+std::array<AudioChannel, kAudioChannels> g_audio_channels{};
+std::uint64_t g_audio_buffers = 0;
+std::uint64_t g_audio_samples = 0;
+
+std::uint64_t audio_buffer_duration_us(std::uint32_t samples) {
+    return (static_cast<std::uint64_t>(samples) * 1000000ull) / kAudioSampleRate;
+}
+
+// ---------------------------------------------------------------------------
 // Dispatch trace
 // ---------------------------------------------------------------------------
 struct DispatchTraceEntry {
@@ -303,11 +333,15 @@ bool block_current_thread(Runtime &rt, AllegrexContext &ctx, ThreadState state,
     return true;
 }
 
-void delay_current_thread(Runtime &rt, AllegrexContext &ctx, std::uint32_t microseconds) {
+// `result` is what the guest sees in v0 once it resumes, which matters for
+// calls that block and then report how much work they accepted.
+void delay_current_thread(Runtime &rt, AllegrexContext &ctx, std::uint32_t microseconds,
+                          std::uint32_t result = 0u) {
     ThreadRecord *thread = current_thread();
     if (thread == nullptr) return;
     thread->delay_until_us = g_virtual_time_us + microseconds;
-    (void)block_current_thread(rt, ctx, ThreadState::Delayed, make_wait_context(ctx), "delay");
+    (void)block_current_thread(rt, ctx, ThreadState::Delayed, make_wait_context(ctx, result),
+                               "delay");
 }
 
 // Re-schedules if a strictly higher priority thread became runnable.
@@ -416,6 +450,8 @@ HeadlessStats headless_stats() {
     stats.display_list_submissions = g_display_list_submissions;
     stats.frame_buffer_sets = g_framebuffer_sets;
     stats.thread_switches = g_threads.switches;
+    stats.audio_buffers = g_audio_buffers;
+    stats.audio_samples = g_audio_samples;
     stats.virtual_time_us = g_virtual_time_us;
     stats.live_threads = 0u;
     for (const auto &[uid, thread] : g_threads.threads) {
@@ -503,6 +539,9 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     g_framebuffer_sets = 0;
     g_ge_lists.clear();
     g_next_ge_list_id = 0x10;
+    g_audio_channels.fill(AudioChannel{});
+    g_audio_buffers = 0;
+    g_audio_samples = 0;
 
     g_partitions.next_address = (user_arena_start + 0xFFu) & ~0xFFu;
     g_threads.next_stack_top = kUserMemoryEnd;
@@ -1102,6 +1141,109 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         }
         set_return(ctx, count);
     });
+
+    // -----------------------------------------------------------------------
+    // sceAudio
+    // -----------------------------------------------------------------------
+    runtime.register_hle("sceAudio", 0x5EC81C55u, [](Runtime &, AllegrexContext &ctx) {
+        // (channel, samplecount, format); channel -1 asks for any free one.
+        const std::int32_t requested = static_cast<std::int32_t>(ctx.gpr[4]);
+        std::int32_t channel = requested;
+        if (requested < 0) {
+            channel = -1;
+            for (std::uint32_t i = 0; i < kAudioChannels; ++i) {
+                if (!g_audio_channels[i].reserved) { channel = static_cast<std::int32_t>(i); break; }
+            }
+        }
+        if (channel < 0 || static_cast<std::uint32_t>(channel) >= kAudioChannels ||
+            (requested >= 0 && g_audio_channels[channel].reserved)) {
+            set_return(ctx, static_cast<std::uint32_t>(-1));
+            return;
+        }
+        AudioChannel &slot = g_audio_channels[static_cast<std::size_t>(channel)];
+        slot = AudioChannel{};
+        slot.reserved = true;
+        slot.sample_count = ctx.gpr[5];
+        slot.format = ctx.gpr[6];
+        slot.busy_until_us = g_virtual_time_us;
+        runtime_log_line("sceAudioChReserve channel=" + std::to_string(channel) +
+                         " samples=" + std::to_string(slot.sample_count) +
+                         " format=" + std::to_string(slot.format));
+        set_return(ctx, static_cast<std::uint32_t>(channel));
+    });
+    runtime.register_hle("sceAudio", 0x6FC46853u, [](Runtime &, AllegrexContext &ctx) {
+        const std::uint32_t channel = ctx.gpr[4];
+        if (channel >= kAudioChannels) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+        g_audio_channels[channel] = AudioChannel{};
+        set_success(ctx);
+    });
+    runtime.register_hle("sceAudio", 0xCB2E439Eu, [](Runtime &, AllegrexContext &ctx) {
+        const std::uint32_t channel = ctx.gpr[4];
+        if (channel >= kAudioChannels) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+        g_audio_channels[channel].sample_count = ctx.gpr[5];
+        set_success(ctx);
+    });
+    runtime.register_hle("sceAudio", 0x95FD0C2Du, [](Runtime &, AllegrexContext &ctx) {
+        const std::uint32_t channel = ctx.gpr[4];
+        if (channel >= kAudioChannels) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+        g_audio_channels[channel].format = ctx.gpr[5];
+        set_success(ctx);
+    });
+    runtime.register_hle("sceAudio", 0xB7E1D8E7u, [](Runtime &, AllegrexContext &ctx) {
+        const std::uint32_t channel = ctx.gpr[4];
+        if (channel >= kAudioChannels) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+        g_audio_channels[channel].left_volume = ctx.gpr[5];
+        g_audio_channels[channel].right_volume = ctx.gpr[6];
+        set_success(ctx);
+    });
+    runtime.register_hle("sceAudio", 0xB011922Fu, [](Runtime &, AllegrexContext &ctx) {
+        // Samples still queued ahead of the hardware.
+        const std::uint32_t channel = ctx.gpr[4];
+        if (channel >= kAudioChannels) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+        const AudioChannel &slot = g_audio_channels[channel];
+        if (slot.busy_until_us <= g_virtual_time_us) { set_return(ctx, 0u); return; }
+        const std::uint64_t remaining_us = slot.busy_until_us - g_virtual_time_us;
+        set_return(ctx, static_cast<std::uint32_t>((remaining_us * kAudioSampleRate) / 1000000ull));
+    });
+
+    // Queues one buffer. `blocking` waits for room, which is what paces the
+    // guest's audio thread; the non-blocking form reports "would block" instead.
+    const auto audio_output = [](Runtime &rt, AllegrexContext &ctx, std::uint32_t channel,
+                                 bool blocking) {
+        if (channel >= kAudioChannels || !g_audio_channels[channel].reserved) {
+            set_return(ctx, static_cast<std::uint32_t>(-1));
+            return;
+        }
+        AudioChannel &slot = g_audio_channels[channel];
+        const std::uint32_t samples = slot.sample_count;
+        const std::uint64_t duration = audio_buffer_duration_us(samples);
+        ++g_audio_buffers;
+        g_audio_samples += samples;
+
+        // One buffer may be in flight; a second has to wait for the first.
+        if (slot.busy_until_us > g_virtual_time_us) {
+            const std::uint64_t wait = slot.busy_until_us - g_virtual_time_us;
+            if (!blocking) { set_return(ctx, 0u); return; }
+            slot.busy_until_us += duration;
+            delay_current_thread(rt, ctx, static_cast<std::uint32_t>(wait), samples);
+            return;
+        }
+        slot.busy_until_us = g_virtual_time_us + duration;
+        set_return(ctx, samples);
+    };
+
+    runtime.register_hle("sceAudio", 0x136CAF51u,
+        [audio_output](Runtime &rt, AllegrexContext &ctx) {
+            audio_output(rt, ctx, ctx.gpr[4], true);   // sceAudioOutputBlocking
+        });
+    runtime.register_hle("sceAudio", 0xE2D56B2Du,
+        [audio_output](Runtime &rt, AllegrexContext &ctx) {
+            audio_output(rt, ctx, ctx.gpr[4], false);  // sceAudioOutputPanned
+        });
+    runtime.register_hle("sceAudio", 0x13F592BCu,
+        [audio_output](Runtime &rt, AllegrexContext &ctx) {
+            audio_output(rt, ctx, ctx.gpr[4], true);   // sceAudioOutputPannedBlocking
+        });
 
     // -----------------------------------------------------------------------
     // UtilsForUser - caches are coherent here; time helpers are real

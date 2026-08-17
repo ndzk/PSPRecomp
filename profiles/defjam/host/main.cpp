@@ -245,6 +245,8 @@ int main(int argc, char **argv) {
                   << "  framebuffer sets:   " << stats.frame_buffer_sets << "\n"
                   << "  thread switches:    " << stats.thread_switches << "\n"
                   << "  live threads:       " << stats.live_threads << "\n"
+                  << "  audio buffers:      " << stats.audio_buffers << ", "
+                  << stats.audio_samples << " samples\n"
                   << "  guest time:         " << stats.virtual_time_us << " us\n";
         const defjam::IoStats io = defjam::io_stats();
         std::cout << "  file opens:         " << io.opens << " (" << io.failed_opens << " failed)\n"
