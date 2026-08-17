@@ -315,6 +315,11 @@ IoStats io_stats() {
 
 std::string last_failed_open() { return g_last_failed_open; }
 
+std::string io_path_for_fd(std::int32_t fd) {
+    const FileHandle *handle = file_at(fd);
+    return handle == nullptr ? std::string{} : handle->psp_path;
+}
+
 void install_io_hle(Runtime &runtime, const std::string &umd_image) {
     g_files.clear();
     g_dirs.clear();

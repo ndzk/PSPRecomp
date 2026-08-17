@@ -7,6 +7,7 @@
 #include <array>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -167,6 +168,29 @@ std::uint32_t g_ge_edram_translation = 0x400;
 std::map<std::int32_t, std::uint32_t> g_ge_lists;  // id -> stall address
 
 std::uint64_t g_starvation_tick_us = 0;
+
+// ---------------------------------------------------------------------------
+// Module loading
+// ---------------------------------------------------------------------------
+// The title loads Sony system PRXs from USRDIR/assets/module -- audiocodec,
+// mpeg, sc_sascore, libatrac3plus and friends. Their code is deliberately not
+// recompiled or executed: what those modules provide is exactly the sceMpeg,
+// sceSasCore, sceAtrac3plus and sceAudio surfaces this profile already
+// implements, so loading one registers nothing and the guest's imports resolve
+// to the HLE either way.
+//
+// The load is still verified against the staged disc rather than blindly
+// accepted, so a path the title expects and the user has not staged fails
+// loudly instead of producing a module handle that refers to nothing.
+constexpr std::int32_t kMainModuleId = 0x300;
+
+struct LoadedModule {
+    std::string path;
+    bool started{};
+};
+
+std::map<std::int32_t, LoadedModule> g_modules;
+std::int32_t g_next_module_uid = 0x400;
 
 // ---------------------------------------------------------------------------
 // Audio
@@ -562,6 +586,13 @@ void dump_dispatch_trace(std::size_t limit) {
     }
     const std::size_t recorded = static_cast<std::size_t>(
         std::min<std::uint64_t>(g_trace_total, g_trace.size()));
+    // PSPRECOMP_DEFJAM_TRACE_DUMP overrides how much of the ring is printed,
+    // which is what you want when the interesting thread ran early.
+    if (const char *text = std::getenv("PSPRECOMP_DEFJAM_TRACE_DUMP");
+        text != nullptr && *text != '\0') {
+        const unsigned long long parsed = std::strtoull(text, nullptr, 0);
+        if (parsed != 0ull) limit = static_cast<std::size_t>(parsed);
+    }
     const std::size_t show = std::min(limit, recorded);
     std::cerr << "[trace] last " << show << " outer dispatches of " << g_trace_total
               << " total (oldest first):\n";
@@ -616,6 +647,8 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     g_framebuffer_sets = 0;
     g_ge_lists.clear();
     g_next_ge_list_id = 0x10;
+    g_modules.clear();
+    g_next_module_uid = 0x400;
     g_audio_channels.fill(AudioChannel{});
     g_audio_buffers = 0;
     g_audio_samples = 0;
@@ -1207,16 +1240,103 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     runtime.register_hle("sceCtrl", 0x1F4011E6u, [](Runtime &, AllegrexContext &ctx) { set_success(ctx); });
     runtime.register_hle("sceCtrl", 0xA7144800u, [](Runtime &, AllegrexContext &ctx) { set_success(ctx); });
     runtime.register_hle("sceCtrl", 0x1F803938u, [](Runtime &rt, AllegrexContext &ctx) {
+        // Headless has no input device. PSPRECOMP_DEFJAM_HOLD_BUTTONS reports a
+        // fixed button mask instead of nothing, which is how you tell a title
+        // that is genuinely stuck apart from one simply waiting to be pressed.
+        static const std::uint32_t held = [] {
+            const char *text = std::getenv("PSPRECOMP_DEFJAM_HOLD_BUTTONS");
+            if (text == nullptr || *text == '\0') return 0u;
+            return static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
+        }();
         const std::uint32_t buffer = ctx.gpr[4];
         const std::uint32_t count = std::max(1u, ctx.gpr[5]);
         for (std::uint32_t i = 0; i < count; ++i) {
             const std::uint32_t entry = buffer + i * 16u;
             rt.memory().store32(entry, static_cast<std::uint32_t>(g_virtual_time_us));
-            rt.memory().store32(entry + 4u, 0u);      // buttons
+            rt.memory().store32(entry + 4u, held);    // buttons
             rt.memory().store8(entry + 8u, 128u);     // analog x
             rt.memory().store8(entry + 9u, 128u);     // analog y
         }
         set_return(ctx, count);
+    });
+
+    // -----------------------------------------------------------------------
+    // ModuleMgrForUser
+    // -----------------------------------------------------------------------
+    runtime.register_hle("ModuleMgrForUser", 0x977DE386u, [](Runtime &rt, AllegrexContext &ctx) {
+        // (path, flags, option)
+        const std::string path = read_guest_string(rt, ctx.gpr[4], 256u);
+        std::error_code ec;
+        bool present = false;
+        try {
+            present = std::filesystem::is_regular_file(rt.translate_path(path), ec);
+        } catch (const std::exception &) {
+            present = false;
+        }
+        if (!present) {
+            runtime_log_line("sceKernelLoadModule MISSING " + path);
+            set_return(ctx, static_cast<std::uint32_t>(-1));
+            return;
+        }
+        const std::int32_t uid = g_next_module_uid++;
+        g_modules[uid] = LoadedModule{path, false};
+        runtime_log_line("sceKernelLoadModule " + path + " -> uid " + std::to_string(uid) +
+                         " (satisfied by HLE, no code loaded)");
+        set_return(ctx, static_cast<std::uint32_t>(uid));
+    });
+    runtime.register_hle("ModuleMgrForUser", 0xB7F46618u, [](Runtime &, AllegrexContext &ctx) {
+        // (fileid, flags, option) - the title opens the PRX first, so name the
+        // module from the descriptor rather than reporting an anonymous load.
+        const std::string path = io_path_for_fd(static_cast<std::int32_t>(ctx.gpr[4]));
+        const std::int32_t uid = g_next_module_uid++;
+        g_modules[uid] = LoadedModule{path.empty() ? "<by file id>" : path, false};
+        runtime_log_line("sceKernelLoadModuleByID fd=" + std::to_string(ctx.gpr[4]) + " " +
+                         g_modules[uid].path + " -> uid " + std::to_string(uid) +
+                         " (satisfied by HLE, no code loaded)");
+        set_return(ctx, static_cast<std::uint32_t>(uid));
+    });
+    runtime.register_hle("ModuleMgrForUser", 0x50F0C1ECu, [](Runtime &rt, AllegrexContext &ctx) {
+        // (modid, argsize, argp, status, option). Nothing runs, so the module's
+        // start routine "returned" success; the guest reads that through status.
+        const std::int32_t uid = static_cast<std::int32_t>(ctx.gpr[4]);
+        const auto it = g_modules.find(uid);
+        if (it == g_modules.end()) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+        it->second.started = true;
+        if (ctx.gpr[7] != 0u) rt.memory().store32(ctx.gpr[7], 0u);
+        runtime_log_line("sceKernelStartModule uid=" + std::to_string(uid) + " " + it->second.path);
+        set_return(ctx, static_cast<std::uint32_t>(uid));
+    });
+    runtime.register_hle("ModuleMgrForUser", 0xD1FF982Au, [](Runtime &rt, AllegrexContext &ctx) {
+        const std::int32_t uid = static_cast<std::int32_t>(ctx.gpr[4]);
+        const auto it = g_modules.find(uid);
+        if (it == g_modules.end()) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+        it->second.started = false;
+        if (ctx.gpr[7] != 0u) rt.memory().store32(ctx.gpr[7], 0u);
+        set_return(ctx, static_cast<std::uint32_t>(uid));
+    });
+    runtime.register_hle("ModuleMgrForUser", 0x2E0911AAu, [](Runtime &, AllegrexContext &ctx) {
+        const std::int32_t uid = static_cast<std::int32_t>(ctx.gpr[4]);
+        if (g_modules.erase(uid) == 0u) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+        set_return(ctx, static_cast<std::uint32_t>(uid));
+    });
+    runtime.register_hle("ModuleMgrForUser", 0xD675EBB8u, [](Runtime &rt, AllegrexContext &ctx) {
+        // A module stopping and unloading itself; only the main module can do
+        // that here, and that means the title is shutting down.
+        (void)ctx;
+        rt.stop("guest called sceKernelSelfStopUnloadModule");
+    });
+    runtime.register_hle("ModuleMgrForUser", 0xF0A26395u, [](Runtime &, AllegrexContext &ctx) {
+        set_return(ctx, static_cast<std::uint32_t>(kMainModuleId));
+    });
+    runtime.register_hle("ModuleMgrForUser", 0xD8B73127u, [](Runtime &, AllegrexContext &ctx) {
+        // Only the main image is backed by real code here; a loaded system PRX
+        // has no address range to own.
+        const std::uint32_t address = ctx.gpr[4];
+        if (address >= 0x08800000u && address < kUserMemoryEnd) {
+            set_return(ctx, static_cast<std::uint32_t>(kMainModuleId));
+            return;
+        }
+        set_return(ctx, static_cast<std::uint32_t>(-1));
     });
 
     // -----------------------------------------------------------------------
@@ -1591,8 +1711,20 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     // -----------------------------------------------------------------------
     runtime.register_hle("sceUmdUser", 0x46EBB729u, [](Runtime &, AllegrexContext &ctx) { set_return(ctx, 1u); });
     runtime.register_hle("sceUmdUser", 0x6B4A146Cu, [](Runtime &, AllegrexContext &ctx) { set_return(ctx, 0x32u); });
-    runtime.register_hle("sceUmdUser", 0x8EF08FCEu, ok);
-    runtime.register_hle("sceUmdUser", 0x4A9E5E29u, ok);
+    // sceUmdWaitDriveStat(stat) blocks until the drive reaches `stat`. Report
+    // the request the first few times so the state the title actually wants is
+    // measured rather than inferred from the value we happen to hand back.
+    const auto umd_wait_drive_stat = [](Runtime &, AllegrexContext &ctx) {
+        static std::uint32_t reported = 0u;
+        if (reported < 4u) {
+            ++reported;
+            runtime_log_line("sceUmdWaitDriveStat wants=" + psprecomp::hex32(ctx.gpr[4]) +
+                             " reporting=" + psprecomp::hex32(0x32u));
+        }
+        set_success(ctx);
+    };
+    runtime.register_hle("sceUmdUser", 0x8EF08FCEu, umd_wait_drive_stat);
+    runtime.register_hle("sceUmdUser", 0x4A9E5E29u, umd_wait_drive_stat);
     runtime.register_hle("sceUmdUser", 0xC6183D47u, ok);
     runtime.register_hle("sceUmdUser", 0xE83742BAu, ok);
     runtime.register_hle("sceUmdUser", 0xAEE7404Du, ok);

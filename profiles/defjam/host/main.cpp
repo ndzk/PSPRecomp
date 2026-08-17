@@ -262,6 +262,10 @@ int main(int argc, char **argv) {
             std::cerr << "\nGuest fault: " << guest_fault << "\n";
             defjam::runtime_log_line("guest fault: " + guest_fault);
             defjam::dump_dispatch_trace(80u);
+        } else if (defjam::dispatch_trace_enabled()) {
+            // A run that ends without faulting is still worth tracing: the
+            // interesting question is often what the guest settled into.
+            defjam::dump_dispatch_trace(200u);
         }
         defjam::runtime_log_shutdown();
         if (!guest_fault.empty() || !runtime.stop_reason().empty()) return kExitGuestStopped;

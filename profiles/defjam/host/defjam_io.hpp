@@ -37,4 +37,8 @@ struct IoStats {
 // Most recent path the guest failed to open, for diagnostics.
 [[nodiscard]] std::string last_failed_open();
 
+// Guest path behind an open descriptor, or empty. Module loading by file id
+// needs it to report which module is being loaded.
+[[nodiscard]] std::string io_path_for_fd(std::int32_t fd);
+
 } // namespace defjam
