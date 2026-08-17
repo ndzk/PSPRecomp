@@ -15,6 +15,7 @@ endif()
 
 set(DEFJAM_HOST_SOURCES
     host/defjam_config.cpp
+    host/defjam_profile.cpp
 )
 
 # A generated unit is one enormous function. Letting MSVC inline into it is

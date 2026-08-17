@@ -1,4 +1,5 @@
 #include "defjam_config.hpp"
+#include "defjam_profile.hpp"
 
 #include "psprecomp/common.hpp"
 #include "psprecomp/elf32.hpp"
@@ -6,6 +7,7 @@
 #include "psprecomp/sha256.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -45,6 +47,16 @@ constexpr int kExitError = 1;
 constexpr int kExitUsage = 2;
 constexpr int kExitMissingExecutable = 3;
 constexpr int kExitIdentityMismatch = 4;
+constexpr int kExitGuestStopped = 5;
+
+// A long run needs a bound so a hang cannot wedge the session.
+std::uint64_t configured_max_dispatches() {
+    constexpr std::uint64_t kDefault = 200'000'000ull;
+    const char *text = std::getenv("PSPRECOMP_MAX_DISPATCHES");
+    if (text == nullptr || *text == '\0') return kDefault;
+    const unsigned long long parsed = std::strtoull(text, nullptr, 0);
+    return parsed == 0ull ? kDefault : static_cast<std::uint64_t>(parsed);
+}
 
 } // namespace
 
@@ -152,7 +164,54 @@ int main(int argc, char **argv) {
                   << "  user arena:     " << psprecomp::hex32(user_arena_start) << "\n";
         if (runtime.function_count() == 0u)
             throw psprecomp::Error("The generated corpus registered no functions");
-        std::cout << "\nCorpus linked and registered. No HLE or renderer yet, so nothing is executed.\n";
+
+        // install_profile must follow register_generated_functions: registering
+        // a host override poisons the containing generated unit, and the
+        // reverse order would let corpus registration undo the overrides.
+        defjam::runtime_log_initialize((executable_directory / "DefJamNative.log").string());
+        defjam::install_profile(runtime, user_arena_start);
+        defjam::install_starvation_preemption();
+
+        // $gp is genuinely zero for this module: it was built without
+        // small-data addressing, and .text contains no $gp-relative access.
+        if (const auto module = elf.find_module_info(runtime.memory(), manifest.game.load_base)) {
+            runtime.cpu().set_gpr(28, module->gp);
+        } else {
+            throw psprecomp::Error("PSP module info not found after relocation");
+        }
+        runtime.cpu().set_gpr(4, 0u);
+        runtime.cpu().set_gpr(5, 0u);
+
+        const std::uint64_t max_dispatches = configured_max_dispatches();
+        std::cout << "  dispatch cap:   " << max_dispatches << "\n"
+                  << "\nRunning headless...\n" << std::flush;
+
+        // A guest fault throws out of run(). The call history is the most
+        // useful thing to have at that moment, so report it either way.
+        std::string guest_fault;
+        try {
+            runtime.run(elf.runtime_entry(manifest.game.load_base), max_dispatches);
+        } catch (const std::exception &fault) {
+            guest_fault = fault.what();
+        }
+
+        const defjam::HeadlessStats stats = defjam::headless_stats();
+        defjam::report_headless_stats();
+        std::cout << "\nStopped: " << (runtime.stop_reason().empty() ? "dispatch cap reached"
+                                                                    : runtime.stop_reason()) << "\n"
+                  << "  vblanks:            " << stats.vblanks << "\n"
+                  << "  GE submissions:     " << stats.display_list_submissions << "\n"
+                  << "  framebuffer sets:   " << stats.frame_buffer_sets << "\n"
+                  << "  thread switches:    " << stats.thread_switches << "\n"
+                  << "  live threads:       " << stats.live_threads << "\n"
+                  << "  guest time:         " << stats.virtual_time_us << " us\n";
+        runtime.report_hle_histogram();
+        if (!guest_fault.empty()) {
+            std::cerr << "\nGuest fault: " << guest_fault << "\n";
+            defjam::runtime_log_line("guest fault: " + guest_fault);
+        }
+        defjam::runtime_log_shutdown();
+        if (!guest_fault.empty() || !runtime.stop_reason().empty()) return kExitGuestStopped;
 #else
         std::cout << "\nProfile skeleton only: no generated corpus is linked yet, so there is "
                      "nothing to run.\n";
