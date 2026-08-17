@@ -1,4 +1,5 @@
 #include "defjam_config.hpp"
+#include "defjam_disc.hpp"
 #include "defjam_io.hpp"
 #include "defjam_mpeg.hpp"
 #include "defjam_utility.hpp"
@@ -6,6 +7,8 @@
 #include "psprecomp/common.hpp"
 
 #include <filesystem>
+#include <fstream>
+#include <cstring>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -377,6 +380,140 @@ void test_program_stream_demuxer() {
             "a stream split across calls demultiplexed differently");
 }
 
+// A synthetic disc has to be a real ISO 9660 volume, not merely something the
+// profile's own reader happens to accept: the title reads the volume
+// descriptor, walks the path table and reopens content by the sector it found
+// in a directory entry. This builds a small tree, lays it out, and reads the
+// structure back out of the sectors the way a guest would.
+void test_synthetic_disc() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "defjam_synthetic_disc_test";
+    std::error_code ec;
+    std::filesystem::remove_all(root, ec);
+    std::filesystem::create_directories(root / "PSP_GAME" / "USRDIR", ec);
+
+    const std::string payload(5000u, 'Z');  // spans three sectors
+    {
+        std::ofstream out(root / "UMD_DATA.BIN", std::ios::binary);
+        out << "identity";
+    }
+    {
+        std::ofstream out(root / "PSP_GAME" / "USRDIR" / "big.dat", std::ios::binary);
+        out << payload;
+    }
+
+    defjam::SyntheticDisc disc;
+    std::string error;
+    require(disc.build(root, error), ("synthetic disc build failed: " + error).c_str());
+    require(disc.directory_count() == 3u, "root, PSP_GAME and USRDIR were not all laid out");
+    require(disc.file_count() == 2u, "not every staged file was placed");
+
+    const auto read_sector = [&disc](std::uint32_t sector) {
+        std::vector<std::uint8_t> data(2048u);
+        const std::uint32_t got = disc.read(sector, 1u, data.data());
+        require(got == 2048u, "a sector inside the disc did not read a full sector");
+        return data;
+    };
+    const auto le32 = [](const std::uint8_t *at) {
+        return static_cast<std::uint32_t>(at[0]) | (static_cast<std::uint32_t>(at[1]) << 8) |
+               (static_cast<std::uint32_t>(at[2]) << 16) | (static_cast<std::uint32_t>(at[3]) << 24);
+    };
+
+    // Sector 16 must be a primary volume descriptor, which is exactly what the
+    // title's first disc ioctl asks for.
+    const auto pvd = read_sector(16u);
+    require(pvd[0] == 1u, "sector 16 is not a primary volume descriptor");
+    require(std::memcmp(pvd.data() + 1, "CD001", 5) == 0, "the standard identifier is missing");
+    require(static_cast<std::uint32_t>(pvd[128]) + (static_cast<std::uint32_t>(pvd[129]) << 8) == 2048u,
+            "logical block size is not 2048");
+    require(le32(pvd.data() + 80) == disc.total_sectors(), "volume space size disagrees with the disc");
+
+    // The path table it points at must list every directory, root first.
+    const std::uint32_t table_size = le32(pvd.data() + 132);
+    const std::uint32_t table_sector = le32(pvd.data() + 140);
+    require(table_size != 0u && table_sector >= 18u, "the path table was not placed");
+    const auto table = read_sector(table_sector);
+    require(table[0] == 1u && table[8] == 0x00u, "the first path table record is not the root");
+
+    std::size_t cursor = 0u;
+    std::uint32_t directories = 0u;
+    bool saw_usrdir = false;
+    while (cursor + 8u <= table_size) {
+        const std::size_t name_length = table[cursor];
+        if (name_length == 0u) break;
+        const std::string name(reinterpret_cast<const char *>(table.data() + cursor + 8), name_length);
+        if (name == "USRDIR") saw_usrdir = true;
+        ++directories;
+        cursor += 8u + name_length + (name_length & 1u);
+    }
+    require(directories == 3u, "the path table does not list every directory");
+    require(saw_usrdir, "a nested directory is missing from the path table");
+
+    // Follow the root record to its extent and find the staged file, then read
+    // it back from the sector the record gives, which is the whole point.
+    const std::uint32_t root_extent = le32(pvd.data() + 156 + 2);
+    const auto root_dir = read_sector(root_extent);
+    std::uint32_t found_sector = 0u;
+    std::uint32_t found_size = 0u;
+    std::size_t at = 0u;
+    while (at < 2048u && root_dir[at] != 0u) {
+        const std::size_t name_length = root_dir[at + 32];
+        const std::string name(reinterpret_cast<const char *>(root_dir.data() + at + 33), name_length);
+        if (name == "UMD_DATA.BIN") {
+            found_sector = le32(root_dir.data() + at + 2);
+            found_size = le32(root_dir.data() + at + 10);
+        }
+        at += root_dir[at];
+    }
+    require(found_sector != 0u, "the staged file has no directory record");
+    require(found_size == 8u, "the record reports the wrong size");
+    const auto content = read_sector(found_sector);
+    require(std::memcmp(content.data(), "identity", 8) == 0,
+            "reading the file's sector did not return the file");
+
+    // A file longer than one sector must read back whole and contiguous, which
+    // is the case a per-sector reader gets wrong.
+    std::uint32_t big_sector = 0u;
+    std::uint32_t big_size = 0u;
+    {
+        const std::uint32_t usrdir_parent = le32(pvd.data() + 156 + 2);
+        (void)usrdir_parent;
+        // Find USRDIR through the path table rather than by walking two levels.
+        std::size_t scan = 0u;
+        std::uint32_t usrdir_extent = 0u;
+        while (scan + 8u <= table_size) {
+            const std::size_t name_length = table[scan];
+            if (name_length == 0u) break;
+            const std::string name(reinterpret_cast<const char *>(table.data() + scan + 8), name_length);
+            if (name == "USRDIR") usrdir_extent = le32(table.data() + scan + 2);
+            scan += 8u + name_length + (name_length & 1u);
+        }
+        require(usrdir_extent != 0u, "USRDIR has no extent in the path table");
+        const auto usrdir = read_sector(usrdir_extent);
+        std::size_t entry = 0u;
+        while (entry < 2048u && usrdir[entry] != 0u) {
+            const std::size_t name_length = usrdir[entry + 32];
+            const std::string name(reinterpret_cast<const char *>(usrdir.data() + entry + 33), name_length);
+            if (name == "big.dat") {
+                big_sector = le32(usrdir.data() + entry + 2);
+                big_size = le32(usrdir.data() + entry + 10);
+            }
+            entry += usrdir[entry];
+        }
+    }
+    require(big_sector != 0u, "the multi-sector file has no directory record");
+    require(big_size == 5000u, "the multi-sector file reports the wrong size");
+
+    std::vector<std::uint8_t> big(3u * 2048u);
+    require(disc.read(big_sector, 3u, big.data()) == 3u * 2048u,
+            "a three-sector read came back short");
+    require(std::string(reinterpret_cast<const char *>(big.data()), 5000u) == payload,
+            "a file spanning sectors did not read back intact");
+    require(big[5000] == 0u, "the tail of the last sector was not zero padded");
+
+    std::filesystem::remove_all(root, ec);
+}
+
 } // namespace
 
 int main() {
@@ -390,6 +527,7 @@ int main() {
         test_utility_dialog_sequence();
         test_psmf_header();
         test_program_stream_demuxer();
+        test_synthetic_disc();
         std::cout << "All defjam config tests passed.\n";
         return 0;
     } catch (const std::exception &exception) {

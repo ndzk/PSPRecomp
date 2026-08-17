@@ -1,5 +1,6 @@
 #include "defjam_io.hpp"
 
+#include "defjam_disc.hpp"
 #include "defjam_profile.hpp"
 #include "psprecomp/common.hpp"
 
@@ -85,10 +86,13 @@ std::int32_t g_next_fd = 4;  // 0/1/2 are the std streams
 IoStats g_stats;
 std::string g_last_failed_open;
 
-// The user's own disc image, backing raw device handles.
+// Where disc sectors come from. Either the user's own image, or a layout
+// synthesised over the staged tree when there is no image; both answer the same
+// question, so everything above them is written once.
 std::string g_umd_path;
 std::ifstream g_umd;
 std::uint64_t g_umd_size = 0;
+SyntheticDisc g_synthetic;
 constexpr std::uint32_t kSectorSize = 2048u;
 
 // ISO 9660 puts the primary volume descriptor at sector 16 (ECMA-119).
@@ -168,16 +172,48 @@ void write_stat(Runtime &rt, std::uint32_t address, const std::filesystem::path 
 // Reads whole sectors straight out of the UMD image. Returns the byte count
 // actually read, which is short of the request at end of media.
 std::uint32_t read_umd_sectors(std::uint32_t sector, std::uint32_t count, std::uint8_t *out) {
-    if (!g_umd.is_open() || count == 0u) return 0u;
-    const std::uint64_t offset = static_cast<std::uint64_t>(sector) * kSectorSize;
-    if (offset >= g_umd_size) return 0u;
-    const auto want = static_cast<std::streamsize>(
-        std::min<std::uint64_t>(static_cast<std::uint64_t>(count) * kSectorSize, g_umd_size - offset));
-    g_umd.clear();
-    g_umd.seekg(static_cast<std::streamoff>(offset));
-    g_umd.read(reinterpret_cast<char *>(out), want);
-    const auto got = static_cast<std::uint32_t>(g_umd.gcount());
-    g_umd.clear();
+    if (count == 0u || out == nullptr) return 0u;
+    if (g_umd.is_open()) {
+        const std::uint64_t offset = static_cast<std::uint64_t>(sector) * kSectorSize;
+        if (offset >= g_umd_size) return 0u;
+        const auto want = static_cast<std::streamsize>(
+            std::min<std::uint64_t>(static_cast<std::uint64_t>(count) * kSectorSize,
+                                    g_umd_size - offset));
+        g_umd.clear();
+        g_umd.seekg(static_cast<std::streamoff>(offset));
+        g_umd.read(reinterpret_cast<char *>(out), want);
+        const auto got = static_cast<std::uint32_t>(g_umd.gcount());
+        g_umd.clear();
+        return got;
+    }
+    return g_synthetic.read(sector, count, out);
+}
+
+// True when disc sectors can be answered at all, whichever source provides them.
+bool disc_available() { return g_umd.is_open() || g_synthetic.ready(); }
+
+std::uint64_t disc_size_bytes() {
+    if (g_umd.is_open()) return g_umd_size;
+    return static_cast<std::uint64_t>(g_synthetic.total_sectors()) * kSectorSize;
+}
+
+// Reads a byte range from the disc. A disc only addresses whole sectors, so
+// this covers the range with sectors and returns the slice that was asked for.
+std::uint32_t read_disc_bytes(std::uint64_t byte_offset, std::uint32_t length, std::uint8_t *out) {
+    if (length == 0u || out == nullptr) return 0u;
+    const std::uint64_t total = disc_size_bytes();
+    if (byte_offset >= total) return 0u;
+    const auto want = static_cast<std::uint32_t>(
+        std::min<std::uint64_t>(length, total - byte_offset));
+
+    const std::uint32_t first = static_cast<std::uint32_t>(byte_offset / kSectorSize);
+    const std::uint32_t skip = static_cast<std::uint32_t>(byte_offset % kSectorSize);
+    const std::uint32_t sectors = (skip + want + kSectorSize - 1u) / kSectorSize;
+    std::vector<std::uint8_t> staging(static_cast<std::size_t>(sectors) * kSectorSize);
+    const std::uint32_t produced = read_umd_sectors(first, sectors, staging.data());
+    if (produced <= skip) return 0u;
+    const std::uint32_t got = std::min(want, produced - skip);
+    std::memcpy(out, staging.data() + skip, got);
     return got;
 }
 
@@ -243,7 +279,7 @@ bool iso_walk_directory(const IsoEntry &directory, Visitor visit) {
 // Resolves a guest path such as "disc0:/PSP_GAME/USRDIR/eaj/file.csi" against
 // the disc image. Returns nothing when there is no image or no such entry.
 std::optional<IsoEntry> iso_lookup(const std::string &psp_path) {
-    if (!g_umd.is_open()) return std::nullopt;
+    if (!disc_available()) return std::nullopt;
     IsoEntry current;
     if (!iso_root(current)) return std::nullopt;
 
@@ -332,15 +368,15 @@ std::int32_t do_open(Runtime &rt, const std::string &psp_path, std::uint32_t fla
         return fd;
     }
 
-    // Content addressed by disc position rather than by name. The staged copy
-    // on the host has no sectors, so this reads the image directly.
+    // Content addressed by disc position rather than by name. A staged copy on
+    // the host has no sectors of its own, so this goes to the disc layout.
     std::uint32_t lbn_sector = 0u;
     std::uint32_t lbn_size = 0u;
     if (parse_lbn_path(psp_path, lbn_sector, lbn_size)) {
-        if (!g_umd.is_open()) {
+        if (!disc_available()) {
             ++g_stats.failed_opens;
             g_last_failed_open = psp_path;
-            runtime_log_line("sceIoOpen " + psp_path + " needs the disc image, which is not open");
+            runtime_log_line("sceIoOpen " + psp_path + " needs a disc layout, and there is none");
             return kErrorNoFile;
         }
         FileHandle handle;
@@ -348,10 +384,10 @@ std::int32_t do_open(Runtime &rt, const std::string &psp_path, std::uint32_t fla
         handle.from_iso = true;
         handle.iso_offset = static_cast<std::uint64_t>(lbn_sector) * kSectorSize;
         handle.size = lbn_size;
-        if (handle.iso_offset >= g_umd_size) {
+        if (handle.iso_offset >= disc_size_bytes()) {
             ++g_stats.failed_opens;
             g_last_failed_open = psp_path;
-            runtime_log_line("sceIoOpen " + psp_path + " is past the end of the disc image");
+            runtime_log_line("sceIoOpen " + psp_path + " is past the end of the disc");
             return kErrorNoFile;
         }
         const std::int32_t fd = g_next_fd++;
@@ -419,21 +455,14 @@ std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::ui
     FileHandle *handle = file_at(fd);
     if (handle == nullptr) return kErrorNoFile;
     if (handle->is_device) {
-        if (!g_umd.is_open()) {
+        if (!disc_available()) {
             runtime_log_line("sceIoRead on device " + handle->psp_path + " length=" +
-                             std::to_string(length) + " -> no disc image, end of media");
+                             std::to_string(length) + " -> no disc layout, end of media");
             return 0;
         }
         const std::uint64_t byte_offset = handle->device_sector * kSectorSize;
-        if (byte_offset >= g_umd_size) return 0;
-        const std::uint32_t want = static_cast<std::uint32_t>(
-            std::min<std::uint64_t>(length, g_umd_size - byte_offset));
-        std::vector<std::uint8_t> staging(want);
-        g_umd.clear();
-        g_umd.seekg(static_cast<std::streamoff>(byte_offset));
-        g_umd.read(reinterpret_cast<char *>(staging.data()), static_cast<std::streamsize>(want));
-        const auto got = static_cast<std::size_t>(g_umd.gcount());
-        g_umd.clear();
+        std::vector<std::uint8_t> staging(length);
+        const auto got = static_cast<std::size_t>(read_disc_bytes(byte_offset, length, staging.data()));
         if (got != 0u) rt.memory().copy_in(buffer, std::span<const std::uint8_t>(staging.data(), got));
         handle->device_sector += (got + kSectorSize - 1u) / kSectorSize;
         ++g_stats.device_reads;
@@ -443,16 +472,10 @@ std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::ui
     if (handle->from_iso) {
         if (handle->iso_position >= handle->size) return 0;
         const std::uint64_t remaining = handle->size - handle->iso_position;
-        const std::uint64_t absolute = handle->iso_offset + handle->iso_position;
-        if (absolute >= g_umd_size) return 0;
-        const auto want = static_cast<std::uint32_t>(
-            std::min<std::uint64_t>({length, remaining, g_umd_size - absolute}));
+        const auto want = static_cast<std::uint32_t>(std::min<std::uint64_t>(length, remaining));
         std::vector<std::uint8_t> staging(want);
-        g_umd.clear();
-        g_umd.seekg(static_cast<std::streamoff>(absolute));
-        g_umd.read(reinterpret_cast<char *>(staging.data()), static_cast<std::streamsize>(want));
-        const auto got = static_cast<std::size_t>(g_umd.gcount());
-        g_umd.clear();
+        const auto got = static_cast<std::size_t>(
+            read_disc_bytes(handle->iso_offset + handle->iso_position, want, staging.data()));
         if (got != 0u) rt.memory().copy_in(buffer, std::span<const std::uint8_t>(staging.data(), got));
         handle->iso_position += got;
         ++g_stats.reads;
@@ -576,6 +599,10 @@ std::string io_path_for_fd(std::int32_t fd) {
 }
 
 void install_io_hle(Runtime &runtime, const std::string &umd_image) {
+    install_io_hle(runtime, umd_image, runtime.game_root().string());
+}
+
+void install_io_hle(Runtime &runtime, const std::string &umd_image, const std::string &game_root) {
     g_files.clear();
     g_dirs.clear();
     g_next_fd = 4;
@@ -585,6 +612,14 @@ void install_io_hle(Runtime &runtime, const std::string &umd_image) {
     g_umd_size = 0;
     g_umd_unit_verified = false;
     g_umd_path = umd_image;
+
+    // Both sources have to stay exercisable, so a run can be told to ignore an
+    // image that is present and take the synthesised layout instead.
+    const char *force_synthetic = std::getenv("PSPRECOMP_DEFJAM_SYNTHETIC_DISC");
+    if (force_synthetic != nullptr && force_synthetic[0] != 0) {
+        runtime_log_line("PSPRECOMP_DEFJAM_SYNTHETIC_DISC set; ignoring any disc image");
+        g_umd_path.clear();
+    }
 
     if (!g_umd_path.empty()) {
         g_umd.open(g_umd_path, std::ios::binary);
@@ -609,8 +644,24 @@ void install_io_hle(Runtime &runtime, const std::string &umd_image) {
         } else {
             runtime_log_line("could not open umd image " + g_umd_path);
         }
-    } else {
-        runtime_log_line("no umd image configured; raw device reads report end of media");
+    }
+
+    // Without a usable image, the disc structure is synthesised over the staged
+    // tree instead. A title reads the volume descriptor, the path table and the
+    // sector recorded in each directory entry, so loose files on the host are
+    // not enough on their own; this gives them a layout. The sectors are not
+    // the original disc's and do not need to be, since they are only ever read
+    // back through the same layout.
+    if (!g_umd.is_open()) {
+        std::string error;
+        if (g_synthetic.build(game_root, error)) {
+            runtime_log_line("synthetic disc over " + game_root + ": " +
+                             std::to_string(g_synthetic.directory_count()) + " directories, " +
+                             std::to_string(g_synthetic.file_count()) + " files, " +
+                             std::to_string(g_synthetic.total_sectors()) + " sectors");
+        } else {
+            runtime_log_line("could not synthesise a disc layout: " + error);
+        }
     }
 
     runtime.register_hle("IoFileMgrForUser", 0x109F50BCu, [](Runtime &rt, AllegrexContext &ctx) {
