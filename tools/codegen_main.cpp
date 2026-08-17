@@ -1069,7 +1069,12 @@ std::string emit_function_source(const GeneratedFunctionInput &function,
                         if (target_is_import) {
                             body << "    ctx.pc = " << psprecomp::hex32(target) << "u;\n"
                                  << "    return;\n";
-                            continue;
+                            // The emitted code leaves the unit, so this block is
+                            // finished. `continue` here would re-enter the walk
+                            // with pc unchanged and emit this JAL forever: every
+                            // delay-slot path leaves the loop through the break
+                            // below, none of them advances pc at the top.
+                            break;
                         }
                         // Otherwise run the callee inline and resume locally only
                         // if it came back to our return address.
