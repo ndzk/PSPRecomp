@@ -403,12 +403,13 @@ void install_io_hle(Runtime &runtime, const std::string &umd_image) {
         set_return(ctx, length);
     });
 
-    // sceIoLseek takes a 64-bit offset, so o32 puts it in the a2/a3 pair and
-    // pushes `whence` to the stack; sceIoLseek32 is the all-register form.
-    runtime.register_hle("IoFileMgrForUser", 0x27EB27B8u, [](Runtime &rt, AllegrexContext &ctx) {
+    // sceIoLseek takes a 64-bit offset, which consumes the aligned a2/a3 pair,
+    // leaving `whence` as the fifth register argument in $t0. sceIoLseek32 is
+    // the all-register form and needs no such care.
+    runtime.register_hle("IoFileMgrForUser", 0x27EB27B8u, [](Runtime &, AllegrexContext &ctx) {
         const std::int64_t offset = static_cast<std::int64_t>(
             (static_cast<std::uint64_t>(ctx.gpr[7]) << 32u) | ctx.gpr[6]);
-        const std::uint32_t whence = rt.memory().load32(ctx.gpr[29] + 16u);
+        const std::uint32_t whence = ctx.gpr[8];
         set_return64(ctx, static_cast<std::uint64_t>(
                               do_seek(static_cast<std::int32_t>(ctx.gpr[4]), offset, whence)));
     });
@@ -417,10 +418,10 @@ void install_io_hle(Runtime &runtime, const std::string &umd_image) {
                                                            static_cast<std::int32_t>(ctx.gpr[5]),
                                                            ctx.gpr[6])));
     });
-    runtime.register_hle("IoFileMgrForUser", 0x71B19E77u, [](Runtime &rt, AllegrexContext &ctx) {
+    runtime.register_hle("IoFileMgrForUser", 0x71B19E77u, [](Runtime &, AllegrexContext &ctx) {
         const std::int64_t offset = static_cast<std::int64_t>(
             (static_cast<std::uint64_t>(ctx.gpr[7]) << 32u) | ctx.gpr[6]);
-        const std::uint32_t whence = rt.memory().load32(ctx.gpr[29] + 16u);
+        const std::uint32_t whence = ctx.gpr[8];
         const std::int32_t fd = static_cast<std::int32_t>(ctx.gpr[4]);
         park_async(fd, do_seek(fd, offset, whence));
         set_return(ctx, 0u);

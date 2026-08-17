@@ -796,12 +796,15 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     runtime.register_hle("SysMemUserForUser", 0x237DBD4Fu, [](Runtime &rt, AllegrexContext &ctx) {
         // int sceKernelAllocPartitionMemory(SceUID partition, const char *name,
         //                                   int type, SceSize size, void *addr)
-        // The fifth argument is spilled to the o32 save area at sp+16.
+        // The fifth argument arrives in $t0. These imports are kernel
+        // syscalls, whose arguments five through eight are read out of the
+        // caller's registers $t0-$t3 rather than the o32 stack save area;
+        // measured at this call site and two others in this title.
         const std::uint32_t partition = ctx.gpr[4];
         const std::string name = read_guest_string(rt, ctx.gpr[5]);
         const std::uint32_t type = ctx.gpr[6];
         const std::uint32_t size = ctx.gpr[7];
-        const std::uint32_t requested_addr = rt.memory().load32(ctx.gpr[29] + 16u);
+        const std::uint32_t requested_addr = ctx.gpr[8];
 
         // PSP_SMEM_Low=0, High=1, Addr=2, LowAligned=3, HighAligned=4. Only the
         // low-end forms are modelled; anything else is refused rather than
@@ -816,7 +819,17 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         }
 
         std::uint32_t alignment = 0x100u;
-        if (type == 3u && requested_addr != 0u) alignment = std::max(0x100u, requested_addr);
+        if (type == 3u && requested_addr != 0u) {
+            // The mask below only works for a power of two, so an alignment
+            // that is not one is refused instead of quietly mis-rounded.
+            if ((requested_addr & (requested_addr - 1u)) != 0u) {
+                rt.stop("sceKernelAllocPartitionMemory alignment " +
+                        psprecomp::hex32(requested_addr) + " is not a power of two (name=" + name +
+                        ")");
+                return;
+            }
+            alignment = std::max(0x100u, requested_addr);
+        }
         const std::uint32_t aligned_size = (size + 0xFFu) & ~0xFFu;
         const std::uint32_t address =
             (g_partitions.next_address + alignment - 1u) & ~(alignment - 1u);
