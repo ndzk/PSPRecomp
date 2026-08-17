@@ -1,0 +1,42 @@
+# Def Jam: Fight for NY - The Takeover (PSP) profile manifest.
+#
+# Unlike the reference vcs profile's manifest, this file is parsed and
+# enforced at startup by host/defjam_config.cpp. The [policy] block is
+# validated, and [game] expected_sha256 causes a hard startup failure on
+# mismatch rather than being documentation.
+#
+# No game content is distributed with PSPRecomp. Paths under [input] are
+# relative to the profile directory and point at a git-ignored location the
+# user populates from their own disc with tools/prepare_game.ps1.
+
+[game]
+name = "Def Jam: Fight for NY - The Takeover"
+# PARAM.SFO records DISC_ID as "ULUS10100"; the hyphenated form is the
+# conventional spelling.
+disc_id = "ULUS-10100"
+region = "NTSC-U"
+disc_version = "1.01"
+psp_system_ver = "2.60"
+# .rodata.sceModuleInfo module name. RenderWare 3.7 skeleton.
+module = "Rw37Skel"
+ram_mb = 32
+load_base = "0x08804000"
+# SHA-256 of PSP_GAME/SYSDIR/BOOT.BIN, 3917749 bytes. That file is a plain
+# ELF32/ET_SCE_PRX on the retail disc, so no decryption is involved. The
+# encrypted EBOOT.BIN beside it is never read.
+expected_sha256 = "27c28efcc59327c1cd9ccc84a0d7d8e2356002b7026cfa130a43d944efb4b27a"
+
+[input]
+executable = "game/PSP_GAME/SYSDIR/BOOT.BIN"
+game_root = "game"
+nids_csv = "../../configs/nids.csv"
+
+[output]
+report_json = "analysis/report.json"
+generated_dir = "generated"
+
+[policy]
+missing_function = "stop"
+unsupported_instruction = "stop"
+allow_interpreter_fallback = false
+allow_jit_fallback = false
