@@ -1,5 +1,6 @@
 #include "defjam_config.hpp"
 #include "defjam_io.hpp"
+#include "defjam_utility.hpp"
 
 #include "psprecomp/common.hpp"
 
@@ -230,6 +231,40 @@ void test_disc_sector_paths() {
             "a path with no size field was accepted");
 }
 
+// A utility dialog is a state machine the guest drives from its own loop, and
+// the loop only terminates because reading a status advances it. Getting this
+// wrong does not fail loudly: the title spins on GetStatus forever.
+void test_utility_dialog_sequence() {
+    defjam::UtilityDialog dialog;
+
+    // Before anything starts, the answer is "no dialog", and it stays that way
+    // however often it is asked.
+    require(dialog.read() == 0u, "an unopened dialog did not report NONE");
+    require(dialog.read() == 0u, "reading NONE changed the status");
+
+    dialog.begin();
+    require(dialog.read() == 1u, "a started dialog did not report INITIALIZE");
+    require(dialog.read() == 2u, "INITIALIZE did not advance to RUNNING when read");
+    require(dialog.read() == 2u, "RUNNING advanced without an update");
+
+    dialog.update();
+    require(dialog.read() == 3u, "an updated dialog did not report FINISHED");
+    require(dialog.read() == 3u, "FINISHED advanced on its own");
+
+    dialog.shutdown();
+    require(dialog.read() == 4u, "a shut down dialog did not report SHUTDOWN");
+    require(dialog.read() == 0u, "SHUTDOWN did not advance to NONE when read");
+
+    // An update outside RUNNING must not move anything, or a guest that calls
+    // Update defensively would skip states it needs to observe.
+    defjam::UtilityDialog idle;
+    idle.update();
+    require(idle.read() == 0u, "updating an idle dialog started it");
+    idle.begin();
+    idle.update();
+    require(idle.read() == 1u, "updating an INITIALIZE dialog skipped RUNNING");
+}
+
 } // namespace
 
 int main() {
@@ -240,6 +275,7 @@ int main() {
         test_identity_is_mandatory();
         test_syntax_handling();
         test_disc_sector_paths();
+        test_utility_dialog_sequence();
         std::cout << "All defjam config tests passed.\n";
         return 0;
     } catch (const std::exception &exception) {

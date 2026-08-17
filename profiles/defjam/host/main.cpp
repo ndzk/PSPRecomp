@@ -1,6 +1,7 @@
 #include "defjam_config.hpp"
 #include "defjam_ge.hpp"
 #include "defjam_io.hpp"
+#include "defjam_utility.hpp"
 #include "defjam_profile.hpp"
 
 #include "psprecomp/common.hpp"
@@ -261,6 +262,11 @@ int main(int argc, char **argv) {
                   << "  open handles:       " << io.open_handles << "\n";
         if (!defjam::last_failed_open().empty())
             std::cout << "  last failed open:   " << defjam::last_failed_open() << "\n";
+        const defjam::UtilityStats utility = defjam::utility_stats();
+        std::cout << "  savedata dialogs:   " << utility.savedata_dialogs << " ("
+                  << utility.saves_loaded << " loaded, " << utility.loads_with_no_data
+                  << " with no data, " << utility.saves_written << " written)\n"
+                  << "  message dialogs:    " << utility.message_dialogs << "\n";
         runtime.report_hle_histogram();
         if (!guest_fault.empty()) {
             std::cerr << "\nGuest fault: " << guest_fault << "\n";

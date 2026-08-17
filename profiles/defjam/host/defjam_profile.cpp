@@ -2,6 +2,7 @@
 
 #include "defjam_ge.hpp"
 #include "defjam_io.hpp"
+#include "defjam_utility.hpp"
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
@@ -1879,6 +1880,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     });
 
     install_io_hle(runtime, resolve_umd_image(runtime.game_root().string()));
+    install_utility_hle(runtime, resolve_savedata_root(runtime.game_root().string()));
 
     runtime_log_line("install_profile: HLE registered");
 }
