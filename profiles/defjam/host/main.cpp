@@ -274,7 +274,9 @@ int main(int argc, char **argv) {
                       << mpeg.ringbuffer_callbacks << " ringbuffer fills, "
                       << mpeg.packets_put << " packets\n"
                       << "  mpeg access units:  " << mpeg.video_units << " video, "
-                      << mpeg.audio_units << " audio\n";
+                      << mpeg.audio_units << " audio\n"
+                      << "  mpeg decoded:       " << mpeg.frames_decoded << " frames, "
+                      << mpeg.audio_blocks_decoded << " audio blocks\n";
         }
         runtime.report_hle_histogram();
         if (!guest_fault.empty()) {

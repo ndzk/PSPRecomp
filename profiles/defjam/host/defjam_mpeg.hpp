@@ -89,6 +89,8 @@ struct MpegStats {
     std::uint64_t video_units{};
     std::uint64_t audio_units{};
     std::uint64_t ringbuffer_callbacks{};
+    std::uint64_t frames_decoded{};
+    std::uint64_t audio_blocks_decoded{};
 };
 [[nodiscard]] MpegStats mpeg_stats();
 

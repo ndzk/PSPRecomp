@@ -15,6 +15,7 @@ endif()
 
 set(DEFJAM_HOST_SOURCES
     host/defjam_config.cpp
+    host/defjam_decoder.cpp
     host/defjam_disc.cpp
     host/defjam_ge.cpp
     host/defjam_io.cpp
@@ -78,9 +79,62 @@ else()
     message(STATUS "defjam: no generated corpus present; building the manifest-only skeleton")
 endif()
 
+# ---------------------------------------------------------------------------
+# Optional movie decoder
+# ---------------------------------------------------------------------------
+# Off by default. The profile builds, runs and boots the title without it; only
+# movie playback needs one, and it is the one thing here that cannot be written
+# from a published specification, so it is taken as a third-party component
+# rather than grown in-tree.
+#
+# FFmpeg must be an LGPL build. A build configured with --enable-gpl is GPL and
+# would not be compatible with this MIT profile. Neither decoder this needs -
+# H.264 and ATRAC3+ - requires any GPL component, so an LGPL build suffices.
+option(PSPRECOMP_DEFJAM_FFMPEG "Decode movies with FFmpeg (LGPL, dynamically linked)" OFF)
+
+if(PSPRECOMP_DEFJAM_FFMPEG)
+    set(PSPRECOMP_DEFJAM_FFMPEG_ROOT "" CACHE PATH
+        "Root of an LGPL FFmpeg with include/ and lib/ (leave empty to search the system)")
+
+    set(_defjam_ffmpeg_hints "")
+    if(PSPRECOMP_DEFJAM_FFMPEG_ROOT)
+        set(_defjam_ffmpeg_hints
+            "${PSPRECOMP_DEFJAM_FFMPEG_ROOT}/include" "${PSPRECOMP_DEFJAM_FFMPEG_ROOT}/lib")
+    endif()
+
+    find_path(DEFJAM_FFMPEG_INCLUDE_DIR libavcodec/avcodec.h
+        HINTS ${_defjam_ffmpeg_hints})
+    foreach(_lib avcodec avutil)
+        find_library(DEFJAM_FFMPEG_${_lib} NAMES ${_lib} HINTS ${_defjam_ffmpeg_hints})
+        if(NOT DEFJAM_FFMPEG_${_lib})
+            message(FATAL_ERROR
+                "PSPRECOMP_DEFJAM_FFMPEG is ON but lib${_lib} was not found. "
+                "Point PSPRECOMP_DEFJAM_FFMPEG_ROOT at an LGPL FFmpeg development package, "
+                "or configure with -DPSPRECOMP_DEFJAM_FFMPEG=OFF to build without movie playback.")
+        endif()
+    endforeach()
+    if(NOT DEFJAM_FFMPEG_INCLUDE_DIR)
+        message(FATAL_ERROR
+            "PSPRECOMP_DEFJAM_FFMPEG is ON but libavcodec/avcodec.h was not found. "
+            "Point PSPRECOMP_DEFJAM_FFMPEG_ROOT at an LGPL FFmpeg development package.")
+    endif()
+
+    message(STATUS "defjam: movie decoder enabled, FFmpeg headers at ${DEFJAM_FFMPEG_INCLUDE_DIR}")
+endif()
+
+function(defjam_link_decoder target)
+    if(PSPRECOMP_DEFJAM_FFMPEG)
+        target_compile_definitions(${target} PRIVATE DEFJAM_HAS_FFMPEG=1)
+        target_include_directories(${target} PRIVATE "${DEFJAM_FFMPEG_INCLUDE_DIR}")
+        target_link_libraries(${target} PRIVATE
+            "${DEFJAM_FFMPEG_avcodec}" "${DEFJAM_FFMPEG_avutil}")
+    endif()
+endfunction()
+
 function(defjam_target_common target)
     target_include_directories(${target} PRIVATE "${DEFJAM_PROFILE_DIR}/host")
     target_link_libraries(${target} PRIVATE psprecomp_core)
+    defjam_link_decoder(${target})
     # Lets the tests and the development launch path find the in-tree manifest
     # without depending on the working directory.
     target_compile_definitions(${target} PRIVATE

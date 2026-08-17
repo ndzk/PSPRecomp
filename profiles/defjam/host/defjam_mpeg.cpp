@@ -1,11 +1,14 @@
 #include "defjam_mpeg.hpp"
 
+#include "defjam_decoder.hpp"
 #include "defjam_profile.hpp"
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
 #include <cstring>
 #include <map>
+#include <memory>
+#include <string>
 
 namespace defjam {
 namespace {
@@ -91,9 +94,19 @@ struct MpegContext {
     bool audio_registered{};
     // Elementary stream buffers handed to the guest, so a free can be checked.
     std::vector<std::uint32_t> es_buffers;
+    // The access units last handed out. On hardware these sit in the library's
+    // own memory, which the guest never reads directly, so they are kept here
+    // rather than written into a guest buffer that has no address of its own.
+    AccessUnit pending_video;
+    AccessUnit pending_audio;
+    // 32-bit ABGR8888 unless the guest asks for another, which this title does
+    // not: it never imports sceMpegAvcDecodeMode.
+    std::uint32_t pixel_mode{3u};
 };
 
 std::map<std::uint32_t, MpegContext> g_contexts;
+std::unique_ptr<DecoderBackend> g_decoder;
+std::string g_decoder_error;
 MpegStats g_stats;
 bool g_initialised = false;
 std::uint32_t g_next_es_buffer = 0;
@@ -108,10 +121,7 @@ MpegContext *context_for(Runtime &rt, std::uint32_t handle_pointer) {
 }
 
 void write_access_unit(Runtime &rt, std::uint32_t au_pointer, const AccessUnit &unit) {
-    const std::uint32_t buffer = rt.memory().load32(au_pointer + kAuEsBufferOffset);
     const auto size = static_cast<std::uint32_t>(unit.data.size());
-    if (buffer != 0u && size != 0u && rt.memory().contains(buffer, size))
-        rt.memory().copy_in(buffer, std::span<const std::uint8_t>(unit.data.data(), unit.data.size()));
     rt.memory().store32(au_pointer + kAuSizeOffset, size);
     rt.memory().store32(au_pointer + kAuPtsHighOffset,
                         unit.has_timestamp ? unit.pts_high : kNoTimestamp);
@@ -331,6 +341,10 @@ MpegStats mpeg_stats() { return g_stats; }
 // ---------------------------------------------------------------------------
 void install_mpeg_hle(Runtime &runtime) {
     g_contexts.clear();
+    g_decoder = make_decoder_backend(g_decoder_error);
+    runtime_log_line(g_decoder != nullptr
+                         ? std::string("movie decoder: ") + g_decoder->name()
+                         : "movie decoder: none (" + g_decoder_error + ")");
     g_stats = MpegStats{};
     g_initialised = false;
     g_next_es_buffer = 0u;
@@ -608,11 +622,16 @@ void install_mpeg_hle(Runtime &runtime) {
                 set_return(ctx, static_cast<std::uint32_t>(-1));
                 return;
             }
-            const AccessUnit unit =
+            AccessUnit unit =
                 video ? context->demuxer.take_video() : context->demuxer.take_audio();
             write_access_unit(rt, au, unit);
-            if (video) ++g_stats.video_units;
-            else ++g_stats.audio_units;
+            if (video) {
+                context->pending_video = std::move(unit);
+                ++g_stats.video_units;
+            } else {
+                context->pending_audio = std::move(unit);
+                ++g_stats.audio_units;
+            }
             set_return(ctx, 0u);
         };
     };
@@ -622,17 +641,106 @@ void install_mpeg_hle(Runtime &runtime) {
     // -----------------------------------------------------------------------
     // Decoding
     // -----------------------------------------------------------------------
-    // The container work above is complete and measured, but nothing here can
-    // turn an access unit into pixels or samples yet. Reporting success would
-    // hand the guest an untouched frame buffer and a silent audio buffer while
-    // claiming a decode happened, so these stop instead.
     runtime.register_hle("sceMpeg", 0x0E3C2E9Du, [](Runtime &rt, AllegrexContext &ctx) {
-        (void)ctx;
-        rt.stop("sceMpegAvcDecode: no H.264 decoder is present in this profile");
+        // (mpeg, au, frameWidth, bufferPointer, statusPointer). bufferPointer
+        // holds the address of the destination, not the destination itself.
+        MpegContext *context = context_for(rt, ctx.gpr[4]);
+        if (context == nullptr) {
+            set_return(ctx, static_cast<std::uint32_t>(-1));
+            return;
+        }
+        if (g_decoder == nullptr) {
+            rt.stop(std::string("sceMpegAvcDecode: ") + g_decoder_error);
+            return;
+        }
+
+        const std::uint32_t au = ctx.gpr[5];
+        const std::uint32_t stride = ctx.gpr[6] != 0u ? ctx.gpr[6] : context->frame_width;
+        const std::uint32_t buffer_pointer = ctx.gpr[7];
+        const std::uint32_t status_pointer = ctx.gpr[8];  // fifth argument, in $t0
+
+        DecodedFrame frame;
+        std::string error;
+        const AccessUnit &unit = context->pending_video;
+        const bool produced =
+            !unit.data.empty() &&
+            g_decoder->decode_video(unit.data.data(), unit.data.size(), frame, error);
+        if (!error.empty()) {
+            rt.stop("sceMpegAvcDecode: " + error);
+            return;
+        }
+
+        if (produced && buffer_pointer != 0u && rt.memory().contains(buffer_pointer, 4u)) {
+            const std::uint32_t destination = rt.memory().load32(buffer_pointer);
+            std::vector<std::uint32_t> pixels;
+            frame_to_abgr8888(frame, stride, pixels);
+            const auto bytes = static_cast<std::uint32_t>(pixels.size() * sizeof(std::uint32_t));
+            if (destination != 0u && rt.memory().contains(destination, bytes)) {
+                rt.memory().copy_in(
+                    destination, std::span<const std::uint8_t>(
+                                     reinterpret_cast<const std::uint8_t *>(pixels.data()), bytes));
+                ++g_stats.frames_decoded;
+            }
+            if (g_stats.frames_decoded == 1u) {
+                runtime_log_line("first decoded frame " + std::to_string(frame.width) + "x" +
+                                 std::to_string(frame.height) + " into " +
+                                 psprecomp::hex32(destination) + " stride " + std::to_string(stride));
+            }
+        }
+
+        // The status word tells the guest whether a picture came out.
+        if (status_pointer != 0u && rt.memory().contains(status_pointer, 4u))
+            rt.memory().store32(status_pointer, produced ? 1u : 0u);
+        if (produced && au != 0u && rt.memory().contains(au, kAuSizeOffset + 4u))
+            rt.memory().store32(au + kAuPtsOffset, static_cast<std::uint32_t>(frame.timestamp));
+        set_return(ctx, 0u);
     });
+
     runtime.register_hle("sceMpeg", 0x800C44DFu, [](Runtime &rt, AllegrexContext &ctx) {
-        (void)ctx;
-        rt.stop("sceMpegAtracDecode: no ATRAC3+ decoder is present in this profile");
+        // (mpeg, au, buffer, init). Here the buffer is the destination itself.
+        MpegContext *context = context_for(rt, ctx.gpr[4]);
+        if (context == nullptr) {
+            set_return(ctx, static_cast<std::uint32_t>(-1));
+            return;
+        }
+        if (g_decoder == nullptr) {
+            rt.stop(std::string("sceMpegAtracDecode: ") + g_decoder_error);
+            return;
+        }
+
+        const std::uint32_t au = ctx.gpr[5];
+        const std::uint32_t buffer = ctx.gpr[6];
+        if (buffer == 0u || !rt.memory().contains(buffer, kAtracEsOutputSize)) {
+            set_return(ctx, static_cast<std::uint32_t>(-1));
+            return;
+        }
+        // Silence first: a short decode must not leave the tail of the buffer
+        // holding whatever the previous frame put there.
+        rt.memory().zero(buffer, kAtracEsOutputSize);
+
+        DecodedAudio audio;
+        std::string error;
+        const AccessUnit &unit = context->pending_audio;
+        const bool produced =
+            !unit.data.empty() &&
+            g_decoder->decode_audio(unit.data.data(), unit.data.size(), audio, error);
+        if (!error.empty()) {
+            rt.stop("sceMpegAtracDecode: " + error);
+            return;
+        }
+        if (produced && !audio.samples.empty()) {
+            const auto bytes = static_cast<std::uint32_t>(
+                std::min<std::size_t>(audio.samples.size() * sizeof(std::int16_t),
+                                      kAtracEsOutputSize));
+            rt.memory().copy_in(buffer,
+                                std::span<const std::uint8_t>(
+                                    reinterpret_cast<const std::uint8_t *>(audio.samples.data()),
+                                    bytes));
+            ++g_stats.audio_blocks_decoded;
+            if (au != 0u && rt.memory().contains(au, kAuSizeOffset + 4u))
+                rt.memory().store32(au + kAuPtsOffset, static_cast<std::uint32_t>(audio.timestamp));
+        }
+        set_return(ctx, 0u);
     });
 }
 

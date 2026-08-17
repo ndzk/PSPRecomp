@@ -1,4 +1,5 @@
 #include "defjam_config.hpp"
+#include "defjam_decoder.hpp"
 #include "defjam_disc.hpp"
 #include "defjam_io.hpp"
 #include "defjam_mpeg.hpp"
@@ -514,6 +515,51 @@ void test_synthetic_disc() {
     std::filesystem::remove_all(root, ec);
 }
 
+// A decoded picture is planar YUV, and the guest wants 32-bit ABGR8888 in a
+// buffer wider than the picture. Getting the packing or the stride wrong shows
+// up as a picture that is the right shape and the wrong colour, or as one that
+// shears, so both are pinned down here rather than eyeballed later.
+void test_frame_conversion() {
+    defjam::DecodedFrame frame;
+    frame.width = 2u;
+    frame.height = 2u;
+    frame.y_stride = 2u;
+    frame.uv_stride = 1u;
+    // Limited range: 16 is black and 235 is white, with chroma centred on 128.
+    frame.y = {16u, 235u, 16u, 235u};
+    frame.u = {128u};
+    frame.v = {128u};
+
+    std::vector<std::uint32_t> pixels;
+    defjam::frame_to_abgr8888(frame, 4u, pixels);
+    require(pixels.size() == 4u * 2u, "the output was not sized to the stride");
+
+    // ABGR8888 puts red in the low byte and alpha in the high one.
+    require(pixels[0] == 0xFF000000u, "limited-range black did not come out black");
+    require(pixels[1] == 0xFFFFFFFFu, "limited-range white did not come out white");
+    require(pixels[4] == 0xFF000000u && pixels[5] == 0xFFFFFFFFu,
+            "the second row did not start at the stride");
+
+    // The padding between the picture and the stride must be opaque, not left
+    // as transparent or as whatever was in the buffer.
+    require(pixels[2] == 0xFF000000u && pixels[3] == 0xFF000000u,
+            "stride padding is not opaque black");
+
+    // A saturated red must land in the red byte and nowhere else.
+    frame.y = {81u, 81u, 81u, 81u};
+    frame.u = {90u};
+    frame.v = {240u};
+    defjam::frame_to_abgr8888(frame, 2u, pixels);
+    require((pixels[0] & 0x000000FFu) == 0x000000FFu, "red did not land in the low byte");
+    require((pixels[0] & 0x00FFFF00u) == 0u, "red bled into green or blue");
+    require((pixels[0] & 0xFF000000u) == 0xFF000000u, "alpha is not opaque");
+
+    // A stride narrower than the picture is refused rather than overrunning.
+    defjam::frame_to_abgr8888(frame, 1u, pixels);
+    require(pixels.size() == 1u * 2u, "a too-narrow stride still sized the buffer");
+    require(pixels[0] == 0xFF000000u, "a too-narrow stride wrote pixels anyway");
+}
+
 } // namespace
 
 int main() {
@@ -528,6 +574,7 @@ int main() {
         test_psmf_header();
         test_program_stream_demuxer();
         test_synthetic_disc();
+        test_frame_conversion();
         std::cout << "All defjam config tests passed.\n";
         return 0;
     } catch (const std::exception &exception) {
