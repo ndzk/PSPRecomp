@@ -70,7 +70,8 @@ void log_write_watch(std::uint32_t address, std::size_t length, const char *oper
 }
 
 GuestMemory::GuestMemory(std::uint32_t size_bytes)
-    : vram_(kVramSize, 0u), bytes_(size_bytes, 0u), write_watch_enabled_(std::getenv("PSPRECOMP_WATCH_WRITE") != nullptr) {
+    : vram_(kVramSize, 0u), scratchpad_(kScratchpadSize, 0u), bytes_(size_bytes, 0u),
+      write_watch_enabled_(std::getenv("PSPRECOMP_WATCH_WRITE") != nullptr) {
     if (size_bytes != 32u * 1024u * 1024u && size_bytes != 64u * 1024u * 1024u) {
         throw Error("PSP RAM size must be 32 MiB or 64 MiB");
     }
@@ -84,6 +85,9 @@ GuestMemory::GuestMemory(std::uint32_t size_bytes)
 
 std::uint32_t GuestMemory::size() const noexcept { return static_cast<std::uint32_t>(bytes_.size()); }
 std::uint32_t GuestMemory::vram_size() const noexcept { return static_cast<std::uint32_t>(vram_.size()); }
+std::uint32_t GuestMemory::scratchpad_size() const noexcept {
+    return static_cast<std::uint32_t>(scratchpad_.size());
+}
 
 bool GuestMemory::is_vram_window(std::uint32_t canonical_address) const noexcept {
     return canonical_address >= kVramPhysicalBase &&
@@ -94,6 +98,15 @@ std::size_t GuestMemory::vram_offset(std::uint32_t canonical_address) const noex
     return static_cast<std::size_t>((canonical_address - kVramPhysicalBase) & (kVramSize - 1u));
 }
 
+bool GuestMemory::is_scratchpad_window(std::uint32_t canonical_address) const noexcept {
+    return canonical_address >= kScratchpadBase &&
+           canonical_address < kScratchpadBase + kScratchpadSize;
+}
+
+std::size_t GuestMemory::scratchpad_offset(std::uint32_t canonical_address) const noexcept {
+    return static_cast<std::size_t>(canonical_address - kScratchpadBase);
+}
+
 bool GuestMemory::contains(std::uint32_t address, std::size_t length) const noexcept {
     const std::uint32_t c = canonical(address);
     const std::uint64_t end = static_cast<std::uint64_t>(c) + static_cast<std::uint64_t>(length);
@@ -101,24 +114,40 @@ bool GuestMemory::contains(std::uint32_t address, std::size_t length) const noex
         return true;
     if (c >= kPhysicalBase && end <= static_cast<std::uint64_t>(kPhysicalBase) + bytes_.size())
         return true;
+    // Scratchpad does not mirror, so a run may not leave the 16 KiB window.
+    if (is_scratchpad_window(c) &&
+        end <= static_cast<std::uint64_t>(kScratchpadBase) + kScratchpadSize)
+        return true;
     return false;
 }
 
 GuestMemory::ResolvedAddress GuestMemory::resolve(std::uint32_t address, std::size_t length) const {
     if (!contains(address, length)) {
-        throw Error("Guest memory access outside PSP RAM/EDRAM at " + hex32(address));
+        throw Error("Guest memory access outside PSP RAM/EDRAM/scratchpad at " + hex32(address));
     }
     const std::uint32_t c = canonical(address);
     if (is_vram_window(c))
         return {Region::Vram, vram_offset(c)};
+    if (is_scratchpad_window(c))
+        return {Region::Scratchpad, scratchpad_offset(c)};
     return {Region::Ram, static_cast<std::size_t>(c - kPhysicalBase)};
 }
 
 const std::vector<std::uint8_t> &GuestMemory::region_bytes(Region region) const noexcept {
-    return region == Region::Vram ? vram_ : bytes_;
+    switch (region) {
+    case Region::Vram: return vram_;
+    case Region::Scratchpad: return scratchpad_;
+    case Region::Ram: break;
+    }
+    return bytes_;
 }
 std::vector<std::uint8_t> &GuestMemory::region_bytes(Region region) noexcept {
-    return region == Region::Vram ? vram_ : bytes_;
+    switch (region) {
+    case Region::Vram: return vram_;
+    case Region::Scratchpad: return scratchpad_;
+    case Region::Ram: break;
+    }
+    return bytes_;
 }
 
 // The `_slow` bodies below are the original aot_* implementations, reached only
@@ -299,6 +328,11 @@ const std::uint8_t *GuestMemory::raw_pointer(std::uint32_t address, std::size_t 
         if (offset + length <= vram_.size()) return vram_.data() + offset;
         return nullptr;
     }
+    if (is_scratchpad_window(c)) {
+        const std::size_t offset = scratchpad_offset(c);
+        if (offset + length <= scratchpad_.size()) return scratchpad_.data() + offset;
+        return nullptr;
+    }
     if (c < kPhysicalBase) return nullptr;
     const std::size_t offset = static_cast<std::size_t>(c - kPhysicalBase);
     if (offset + length <= bytes_.size()) return bytes_.data() + offset;
@@ -428,5 +462,6 @@ std::string GuestMemory::read_c_string(std::uint32_t address, std::size_t max_le
 }
 const std::vector<std::uint8_t> &GuestMemory::bytes() const noexcept { return bytes_; }
 const std::vector<std::uint8_t> &GuestMemory::vram_bytes() const noexcept { return vram_; }
+const std::vector<std::uint8_t> &GuestMemory::scratchpad_bytes() const noexcept { return scratchpad_; }
 
 } // namespace psprecomp

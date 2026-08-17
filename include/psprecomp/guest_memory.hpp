@@ -27,6 +27,12 @@ public:
     static constexpr std::uint32_t kVramMirrorCount = 4u;
     static constexpr std::uint32_t kVramAddressSpan = kVramSize * kVramMirrorCount;
     static constexpr std::uint32_t kPhysicalBase = 0x08000000u;
+    // PSP scratchpad: 16 KiB of on-chip RAM, far faster than main memory, which
+    // titles use for hot working sets. It is ordinary addressable memory to the
+    // guest, reachable cached at 0x00010000 and uncached at 0x40010000; the
+    // existing canonical() mask folds the mirror onto the same window.
+    static constexpr std::uint32_t kScratchpadBase = 0x00010000u;
+    static constexpr std::uint32_t kScratchpadSize = 16u * 1024u;
 
     explicit GuestMemory(std::uint32_t size_bytes = 32u * 1024u * 1024u);
 
@@ -41,6 +47,7 @@ public:
 
     [[nodiscard]] std::uint32_t size() const noexcept;
     [[nodiscard]] std::uint32_t vram_size() const noexcept;
+    [[nodiscard]] std::uint32_t scratchpad_size() const noexcept;
     // Allegrex uses cached/uncached MIPS aliases; this maps addresses such as
     // 0x44000000 and 0x88000000 to the physical VRAM/RAM windows.
     //
@@ -244,9 +251,10 @@ public:
     [[nodiscard]] std::string read_c_string(std::uint32_t address, std::size_t max_length = 256u) const;
     [[nodiscard]] const std::vector<std::uint8_t> &bytes() const noexcept;
     [[nodiscard]] const std::vector<std::uint8_t> &vram_bytes() const noexcept;
+    [[nodiscard]] const std::vector<std::uint8_t> &scratchpad_bytes() const noexcept;
 
 private:
-    enum class Region { Vram, Ram };
+    enum class Region { Vram, Ram, Scratchpad };
     struct ResolvedAddress {
         Region region;
         std::size_t offset;
@@ -255,6 +263,8 @@ private:
     [[nodiscard]] ResolvedAddress resolve(std::uint32_t address, std::size_t length) const;
     [[nodiscard]] bool is_vram_window(std::uint32_t canonical_address) const noexcept;
     [[nodiscard]] std::size_t vram_offset(std::uint32_t canonical_address) const noexcept;
+    [[nodiscard]] bool is_scratchpad_window(std::uint32_t canonical_address) const noexcept;
+    [[nodiscard]] std::size_t scratchpad_offset(std::uint32_t canonical_address) const noexcept;
     [[nodiscard]] const std::vector<std::uint8_t> &region_bytes(Region region) const noexcept;
     [[nodiscard]] std::vector<std::uint8_t> &region_bytes(Region region) noexcept;
 
@@ -302,6 +312,7 @@ private:
     void aot_store32_slow(std::uint32_t address, std::uint32_t value);
 
     std::vector<std::uint8_t> vram_;
+    std::vector<std::uint8_t> scratchpad_;
     std::vector<std::uint8_t> bytes_;
     // Cached view of bytes_ for the inline fast paths.  Neither region is ever
     // resized after construction, so these stay valid for the object's life.

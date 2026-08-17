@@ -703,6 +703,55 @@ static void test_executable_ranges_respect_section_flags() {
             "A materialized pointer into executable code stopped being seeded");
 }
 
+static void test_scratchpad_memory() {
+    psprecomp::GuestMemory memory;
+    constexpr std::uint32_t base = psprecomp::GuestMemory::kScratchpadBase;
+    constexpr std::uint32_t size = psprecomp::GuestMemory::kScratchpadSize;
+    require(memory.scratchpad_size() == size, "scratchpad was not allocated");
+
+    require(memory.contains(base, 1u), "scratchpad base is not addressable");
+    require(memory.contains(base + size - 4u, 4u), "scratchpad end is not addressable");
+    require(!memory.contains(base + size - 2u, 4u),
+            "a run leaving the scratchpad window was accepted");
+    require(!memory.contains(base - 4u, 4u), "memory below the scratchpad was accepted");
+
+    memory.store32(base, 0xDEADBEEFu);
+    memory.store8(base + 8u, 0x5Au);
+    memory.store16(base + 12u, 0x1234u);
+    require(memory.load32(base) == 0xDEADBEEFu, "scratchpad word round trip failed");
+    require(memory.load8(base + 8u) == 0x5Au, "scratchpad byte round trip failed");
+    require(memory.load16(base + 12u) == 0x1234u, "scratchpad half round trip failed");
+
+    // The uncached mirror at 0x40010000 must alias the same storage.
+    require(memory.load32(0x40010000u) == 0xDEADBEEFu, "uncached scratchpad mirror does not alias");
+    memory.store32(0x40010000u, 0xFEEDFACEu);
+    require(memory.load32(base) == 0xFEEDFACEu, "write through the mirror was not visible");
+
+    // Scratchpad is distinct storage: it must not alias RAM or VRAM.
+    memory.store32(psprecomp::GuestMemory::kPhysicalBase, 0u);
+    require(memory.load32(base) == 0xFEEDFACEu, "scratchpad aliases main RAM");
+
+    // The AOT paths decline scratchpad and fall through to the generic ones.
+    memory.aot_store32(base + 16u, 0xA5A5A5A5u);
+    require(memory.aot_load32(base + 16u) == 0xA5A5A5A5u, "AOT scratchpad round trip failed");
+    require(memory.load32(base + 16u) == 0xA5A5A5A5u, "AOT and generic scratchpad views disagree");
+
+    const std::uint8_t *raw = memory.raw_pointer(base, size);
+    require(raw != nullptr, "raw_pointer refused the whole scratchpad");
+    require(memory.raw_pointer(base + size - 2u, 4u) == nullptr,
+            "raw_pointer accepted a run past the scratchpad end");
+
+    // Bulk helpers must route to the region too.
+    memory.zero(base, 32u);
+    require(memory.load32(base) == 0u && memory.load32(base + 16u) == 0u,
+            "zero() did not clear scratchpad");
+    const std::array<std::uint8_t, 4> pattern{0x11u, 0x22u, 0x33u, 0x44u};
+    memory.copy_in(base + 64u, pattern);
+    std::array<std::uint8_t, 4> read_back{};
+    memory.copy_out(base + 64u, read_back);
+    require(read_back == pattern, "copy_in/copy_out did not round trip through scratchpad");
+}
+
 static void test_nid_registry_csv_crlf() {
     // configs/nids.csv is checked out with CRLF on Windows. std::getline splits
     // on '\n' only, so without the carriage-return strip a blank line stops
@@ -1767,6 +1816,7 @@ int main() {
         test_materialized_function_pointer_discovery();
         test_executable_ranges_respect_section_flags();
         test_nid_registry_csv_crlf();
+        test_scratchpad_memory();
 
         auto relocation_elf = psprecomp::Elf32Image::from_bytes(make_relocation_test_prx(), "synthetic_relocation.prx");
         psprecomp::GuestMemory relocation_memory;
