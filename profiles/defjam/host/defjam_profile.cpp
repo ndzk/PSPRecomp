@@ -1214,7 +1214,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         set_success(ctx);
     });
 
-    install_io_hle(runtime);
+    install_io_hle(runtime, resolve_umd_image(runtime.game_root().string()));
 
     runtime_log_line("install_profile: HLE registered");
 }

@@ -4,6 +4,8 @@
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -57,6 +59,7 @@ struct FileHandle {
     std::uint64_t size{};
     bool writable{};
     bool is_device{};
+    std::uint64_t device_sector{};
     // Host IO completes immediately, so an async request is simply performed
     // and its result parked here until the guest collects it.
     bool async_pending{};
@@ -74,6 +77,18 @@ std::map<std::int32_t, DirHandle> g_dirs;
 std::int32_t g_next_fd = 4;  // 0/1/2 are the std streams
 IoStats g_stats;
 std::string g_last_failed_open;
+
+// The user's own disc image, backing raw device handles.
+std::string g_umd_path;
+std::ifstream g_umd;
+std::uint64_t g_umd_size = 0;
+constexpr std::uint32_t kSectorSize = 2048u;
+// Raw UMD offsets are expressed in sectors, not bytes. Verified rather than
+// assumed: the title's first device access seeks to 16 and reads 32 bytes, and
+// sector 16 is where ISO9660 puts the primary volume descriptor, whose bytes
+// 1..5 are the "CD001" identifier. install_io_hle checks for exactly that and
+// says so in the log, so a wrong unit is visible instead of silent.
+bool g_umd_unit_verified = false;
 
 void set_return(AllegrexContext &ctx, std::uint32_t value) { ctx.set_gpr(2, value); }
 void set_return64(AllegrexContext &ctx, std::uint64_t value) {
@@ -183,9 +198,26 @@ std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::ui
     FileHandle *handle = file_at(fd);
     if (handle == nullptr) return kErrorNoFile;
     if (handle->is_device) {
-        runtime_log_line("sceIoRead on device " + handle->psp_path + " length=" +
-                         std::to_string(length) + " -> end of media");
-        return 0;
+        if (!g_umd.is_open()) {
+            runtime_log_line("sceIoRead on device " + handle->psp_path + " length=" +
+                             std::to_string(length) + " -> no disc image, end of media");
+            return 0;
+        }
+        const std::uint64_t byte_offset = handle->device_sector * kSectorSize;
+        if (byte_offset >= g_umd_size) return 0;
+        const std::uint32_t want = static_cast<std::uint32_t>(
+            std::min<std::uint64_t>(length, g_umd_size - byte_offset));
+        std::vector<std::uint8_t> staging(want);
+        g_umd.clear();
+        g_umd.seekg(static_cast<std::streamoff>(byte_offset));
+        g_umd.read(reinterpret_cast<char *>(staging.data()), static_cast<std::streamsize>(want));
+        const auto got = static_cast<std::size_t>(g_umd.gcount());
+        g_umd.clear();
+        if (got != 0u) rt.memory().copy_in(buffer, std::span<const std::uint8_t>(staging.data(), got));
+        handle->device_sector += (got + kSectorSize - 1u) / kSectorSize;
+        ++g_stats.device_reads;
+        g_stats.device_bytes_read += got;
+        return static_cast<std::int32_t>(got);
     }
     if (length == 0u) return 0;
     std::vector<std::uint8_t> staging(length);
@@ -202,9 +234,11 @@ std::int64_t do_seek(std::int32_t fd, std::int64_t offset, std::uint32_t whence)
     FileHandle *handle = file_at(fd);
     if (handle == nullptr) return kErrorNoFile;
     if (handle->is_device) {
-        runtime_log_line("sceIoLseek on device " + handle->psp_path + " offset=" +
-                         std::to_string(offset) + " whence=" + std::to_string(whence));
-        return 0;
+        // Only absolute positioning is observed; anything else would need the
+        // media size semantics pinned down first.
+        if (whence == 1u) handle->device_sector += static_cast<std::uint64_t>(offset);
+        else handle->device_sector = static_cast<std::uint64_t>(offset);
+        return static_cast<std::int64_t>(handle->device_sector);
     }
     std::ios::seekdir direction = std::ios::beg;
     if (whence == 1u) direction = std::ios::cur;
@@ -246,6 +280,33 @@ void collect_async(Runtime &rt, AllegrexContext &ctx, bool polling) {
 
 } // namespace
 
+std::string resolve_umd_image(const std::string &game_root) {
+    std::error_code ec;
+    if (const char *env = std::getenv("PSPRECOMP_DEFJAM_UMD"); env != nullptr && *env != '\0') {
+        if (std::filesystem::is_regular_file(env, ec)) return env;
+        runtime_log_line(std::string("PSPRECOMP_DEFJAM_UMD does not name a file: ") + env);
+    }
+    const std::filesystem::path root(game_root);
+    // prepare_game.ps1 records where the disc image lives rather than copying
+    // 1.5 GB that is already staged in extracted form.
+    const std::filesystem::path pointer = root / "umd_image.txt";
+    if (std::filesystem::is_regular_file(pointer, ec)) {
+        std::ifstream in(pointer);
+        std::string recorded;
+        std::getline(in, recorded);
+        while (!recorded.empty() && (recorded.back() == '\r' || recorded.back() == ' '))
+            recorded.pop_back();
+        if (!recorded.empty() && std::filesystem::is_regular_file(recorded, ec)) return recorded;
+        if (!recorded.empty())
+            runtime_log_line("umd_image.txt points at a missing file: " + recorded);
+    }
+    for (const char *name : {"UMD.ISO", "umd.iso"}) {
+        const std::filesystem::path candidate = root / name;
+        if (std::filesystem::is_regular_file(candidate, ec)) return candidate.string();
+    }
+    return {};
+}
+
 IoStats io_stats() {
     IoStats stats = g_stats;
     stats.open_handles = static_cast<std::uint32_t>(g_files.size() + g_dirs.size());
@@ -254,12 +315,43 @@ IoStats io_stats() {
 
 std::string last_failed_open() { return g_last_failed_open; }
 
-void install_io_hle(Runtime &runtime) {
+void install_io_hle(Runtime &runtime, const std::string &umd_image) {
     g_files.clear();
     g_dirs.clear();
     g_next_fd = 4;
     g_stats = IoStats{};
     g_last_failed_open.clear();
+    if (g_umd.is_open()) g_umd.close();
+    g_umd_size = 0;
+    g_umd_unit_verified = false;
+    g_umd_path = umd_image;
+
+    if (!g_umd_path.empty()) {
+        g_umd.open(g_umd_path, std::ios::binary);
+        if (g_umd.is_open()) {
+            std::error_code ec;
+            g_umd_size = static_cast<std::uint64_t>(std::filesystem::file_size(g_umd_path, ec));
+            // Confirm the sector interpretation instead of trusting it: an
+            // ISO9660 primary volume descriptor sits at sector 16 and carries
+            // "CD001" at bytes 1..5.
+            std::array<char, 8> header{};
+            g_umd.seekg(static_cast<std::streamoff>(16u) * kSectorSize);
+            g_umd.read(header.data(), header.size());
+            g_umd.clear();
+            g_umd_unit_verified = std::memcmp(header.data() + 1, "CD001", 5) == 0;
+            runtime_log_line("umd image " + g_umd_path + " size=" + std::to_string(g_umd_size) +
+                             " sector16=" +
+                             (g_umd_unit_verified ? "CD001 (sector units confirmed)"
+                                                  : "NOT a volume descriptor"));
+            if (!g_umd_unit_verified) {
+                runtime_log_line("WARNING: raw UMD offsets may not be in sectors for this image");
+            }
+        } else {
+            runtime_log_line("could not open umd image " + g_umd_path);
+        }
+    } else {
+        runtime_log_line("no umd image configured; raw device reads report end of media");
+    }
 
     runtime.register_hle("IoFileMgrForUser", 0x109F50BCu, [](Runtime &rt, AllegrexContext &ctx) {
         const std::string path = read_path(rt, ctx.gpr[4]);

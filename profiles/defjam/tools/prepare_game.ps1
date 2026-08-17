@@ -171,6 +171,19 @@ Use -AllowUnverifiedExecutable only for development.
     $destExecutable = Join-Path $destSysdir "BOOT.BIN"
     Copy-Item -LiteralPath $sourceExecutable -Destination $destExecutable -Force
 
+    # Record where the disc image lives rather than copying another 1.5 GB that
+    # is already staged in extracted form. The title opens umd0: and reads raw
+    # sectors to identify the disc, which extracted files cannot answer.
+    if (-not [string]::IsNullOrWhiteSpace($IsoPath)) {
+        $pointer = Join-Path $Destination "umd_image.txt"
+        Set-Content -LiteralPath $pointer -Value $IsoPath -Encoding ascii
+        Write-Host "  recorded disc image for raw umd0: access -> $IsoPath"
+    } else {
+        Write-Warning ("No disc image recorded. The title reads raw UMD sectors to identify the " +
+                       "disc; without one, umd0: reports end of media. Re-run with -IsoPath, or " +
+                       "set PSPRECOMP_DEFJAM_UMD to your image.")
+    }
+
     # ---- Verify what actually landed ---------------------------------------
     $landedSha = (Get-FileHash -LiteralPath $destExecutable -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($landedSha -ne $actualSha) {

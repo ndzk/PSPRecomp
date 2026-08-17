@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -179,6 +180,35 @@ int main(int argc, char **argv) {
         // a host override poisons the containing generated unit, and the
         // reverse order would let corpus registration undo the overrides.
         defjam::runtime_log_initialize((executable_directory / "DefJamNative.log").string());
+
+        // Load the NID name table so an unimplemented import names the function
+        // rather than a bare hex NID. Purely diagnostic, so a missing table is
+        // reported and not fatal.
+        if (!manifest.input.nids_csv.empty()) {
+            const std::filesystem::path manifest_dir = manifest.source_path.parent_path();
+            std::vector<std::filesystem::path> candidates;
+            if (manifest_dir.filename() == "config")
+                candidates.push_back(manifest_dir.parent_path() / manifest.input.nids_csv);
+#ifdef DEFJAM_MANIFEST_PATH
+            const std::filesystem::path in_tree =
+                std::filesystem::path(DEFJAM_MANIFEST_PATH).parent_path().parent_path();
+            candidates.push_back(in_tree / manifest.input.nids_csv);
+#endif
+            candidates.push_back(executable_directory / manifest.input.nids_csv);
+            bool loaded = false;
+            for (const auto &candidate : candidates) {
+                std::error_code ec;
+                if (!std::filesystem::is_regular_file(candidate, ec)) continue;
+                runtime.nids().load_csv(candidate);
+                std::cout << "  nid table:      " << std::filesystem::weakly_canonical(candidate, ec).string()
+                          << "\n";
+                loaded = true;
+                break;
+            }
+            if (!loaded)
+                std::cerr << "warning: NID table not found; missing imports will show raw NIDs\n";
+        }
+
         defjam::install_profile(runtime, user_arena_start);
         defjam::install_starvation_preemption();
         defjam::install_dispatch_trace();
@@ -220,6 +250,8 @@ int main(int argc, char **argv) {
         std::cout << "  file opens:         " << io.opens << " (" << io.failed_opens << " failed)\n"
                   << "  reads:              " << io.reads << ", " << io.bytes_read << " bytes\n"
                   << "  seeks / diropens:   " << io.seeks << " / " << io.dir_opens << "\n"
+                  << "  device opens:       " << io.device_opens << ", " << io.device_reads
+                  << " reads, " << io.device_bytes_read << " bytes\n"
                   << "  open handles:       " << io.open_handles << "\n";
         if (!defjam::last_failed_open().empty())
             std::cout << "  last failed open:   " << defjam::last_failed_open() << "\n";
