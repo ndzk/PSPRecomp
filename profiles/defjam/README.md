@@ -14,10 +14,10 @@ is git-ignored.
 and the executable's identity, then runs the checked-in AOT corpus against an
 HLE layer: threads and synchronisation, memory partitions and the scratchpad,
 `IoFileMgrForUser` over a generated UMD layout, `sceAudio` and `sceSasCore`,
-`ModuleMgrForUser`, the utility dialogs, and `sceMpeg` with a PSMF
-demultiplexer feeding an optional FFmpeg decoder. 203 imports across 22
-modules are implemented of the 247 this executable needs; the remainder are
-deliberately absent (see below).
+`ModuleMgrForUser`, the utility dialogs, `sceMpeg` with a PSMF demultiplexer
+feeding an optional FFmpeg decoder, and `sceAtrac3plus` for streamed audio. 211 imports across 23 modules are implemented of the 247 this
+executable needs; the remaining 39 are the networking libraries, deliberately
+absent (see below).
 
 There is no rasteriser. `host/defjam_ge.cpp` is the front half of one: it walks
 the guest's display lists, maintains the 256-entry GE register file and
@@ -215,6 +215,21 @@ mismatch.
 - **Movie playback is the newest and least exercised path.** The container,
   ring buffer and decoder sides are wired end to end, but playback has not yet
   been watched through to the end of a movie.
+- **Ad-hoc multiplayer is out of scope** for the first release. The title
+  imports 41 NIDs across `sceNet`, `sceNetAdhoc`, `sceNetAdhocctl`,
+  `sceNetAdhocMatching` and `sceWlanDrv`, and ships four `pspnet` PRXs. The plan
+  is to report no wireless adapter and leave the rest unimplemented, so an
+  accidental call aborts loudly rather than silently returning success.
+- **13 Sony system PRXs are loaded at runtime** from `USRDIR/assets/module/`.
+  These must be intercepted and satisfied by HLE rather than recompiled. The
+  interception is in place: a load is verified against the staged disc, returns
+  a handle and runs no code, leaving the guest's imports to resolve to this
+  profile's own HLE.
+- **`sceAtrac3plus` decoding is unproven.** The library surface is
+  implemented - container parsing, stream ids, frame handing and the
+  end-of-stream report are covered by tests - but no ATRAC frame has been
+  decoded from a real `.at3` file yet, only from synthetic containers. A build
+  without FFmpeg hands out ids and plays silence rather than stopping.
 - **Ad-hoc multiplayer is out of scope** for the first release. The title
   imports 41 NIDs across `sceNet`, `sceNetAdhoc`, `sceNetAdhocctl`,
   `sceNetAdhocMatching` and `sceWlanDrv`, and ships four `pspnet` PRXs. The plan
