@@ -386,6 +386,46 @@ void test_program_stream_demuxer() {
 // descriptor, walks the path table and reopens content by the sector it found
 // in a directory entry. This builds a small tree, lays it out, and reads the
 // structure back out of the sectors the way a guest would.
+// A program may carry more than one stream of a kind, and a private stream
+// payload may be too short to hold the sub-header it is supposed to start
+// with. Both used to end up concatenated into whatever access unit was open.
+void test_demuxer_stream_selection() {
+    std::vector<std::uint8_t> stream;
+    append_pes(stream, 0xE0, {0x11, 0x22}, true, 90000);
+    append_pes(stream, 0xE1, {0x99}, false, 0);        // a different video stream
+    append_pes(stream, 0xE0, {0x33}, false, 0);
+    append_pes(stream, 0xE0, {0x44}, true, 91000);
+
+    defjam::ProgramStreamDemuxer selective;
+    selective.select_streams(0xE0u, 0xBDu);
+    selective.append(stream.data(), stream.size());
+    require(selective.has_video(), "no access unit was produced");
+    const defjam::AccessUnit unit = selective.take_video();
+    require(unit.data.size() == 3u, "the declared stream's unit is the wrong length");
+    for (std::uint8_t byte : unit.data)
+        require(byte != 0x99, "a foreign video stream was appended to the declared one");
+
+    // Before a PSMF header has been read there is nothing to select on, and a
+    // single-stream movie must still demultiplex.
+    defjam::ProgramStreamDemuxer unselected;
+    unselected.append(stream.data(), stream.size());
+    require(unselected.video_units() == 1u, "an unselected demuxer produced nothing");
+
+    // A private stream 1 payload of two bytes is all sub-header and no data.
+    // Contributing those two bytes would corrupt the elementary stream.
+    std::vector<std::uint8_t> audio_stream;
+    append_pes(audio_stream, 0xBD, {0x77, 0x77}, true, 90000);
+    append_pes(audio_stream, 0xBD, {0xAA, 0xAA, 0xAA, 0xAA, 0x01, 0x02}, true, 91000);
+    append_pes(audio_stream, 0xBD, {0xAA, 0xAA, 0xAA, 0xAA, 0x03, 0x04}, true, 92000);
+
+    defjam::ProgramStreamDemuxer audio;
+    audio.append(audio_stream.data(), audio_stream.size());
+    require(audio.has_audio(), "no audio access unit was produced");
+    const defjam::AccessUnit block = audio.take_audio();
+    require(block.data.size() == 2u, "the short packet contributed to the stream");
+    require(block.data[0] == 0x01 && block.data[1] == 0x02, "audio payload was mistrimmed");
+}
+
 void test_synthetic_disc() {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "defjam_synthetic_disc_test";
@@ -531,7 +571,7 @@ void test_frame_conversion() {
     frame.v = {128u};
 
     std::vector<std::uint32_t> pixels;
-    defjam::frame_to_abgr8888(frame, 4u, pixels);
+    require(defjam::frame_to_abgr8888(frame, 4u, pixels), "a well-formed frame was refused");
     require(pixels.size() == 4u * 2u, "the output was not sized to the stride");
 
     // ABGR8888 puts red in the low byte and alpha in the high one.
@@ -549,15 +589,38 @@ void test_frame_conversion() {
     frame.y = {81u, 81u, 81u, 81u};
     frame.u = {90u};
     frame.v = {240u};
-    defjam::frame_to_abgr8888(frame, 2u, pixels);
+    require(defjam::frame_to_abgr8888(frame, 2u, pixels), "a well-formed frame was refused");
     require((pixels[0] & 0x000000FFu) == 0x000000FFu, "red did not land in the low byte");
     require((pixels[0] & 0x00FFFF00u) == 0u, "red bled into green or blue");
     require((pixels[0] & 0xFF000000u) == 0xFF000000u, "alpha is not opaque");
 
-    // A stride narrower than the picture is refused rather than overrunning.
-    defjam::frame_to_abgr8888(frame, 1u, pixels);
+    // A stride narrower than the picture is refused rather than overrunning,
+    // and says so: an all-black field is otherwise indistinguishable from a
+    // frame that is genuinely black, which hides the fault at the call site.
+    require(!defjam::frame_to_abgr8888(frame, 1u, pixels),
+            "a too-narrow stride was not reported");
     require(pixels.size() == 1u * 2u, "a too-narrow stride still sized the buffer");
     require(pixels[0] == 0xFF000000u, "a too-narrow stride wrote pixels anyway");
+
+    // Everything here indexes off the strides, so a frame whose planes do not
+    // hold the rows they describe must be refused rather than read past. A
+    // decoder that changes resolution mid-stream produces exactly this.
+    defjam::DecodedFrame ragged;
+    ragged.width = 4u;
+    ragged.height = 4u;
+    ragged.y_stride = 4u;
+    ragged.uv_stride = 2u;
+    ragged.y.assign(4u * 4u, 128u);
+    ragged.u.assign(2u * 2u, 128u);
+    ragged.v.assign(2u * 2u, 128u);
+    require(defjam::frame_to_abgr8888(ragged, 4u, pixels), "a complete frame was refused");
+    ragged.y.pop_back();
+    require(!defjam::frame_to_abgr8888(ragged, 4u, pixels),
+            "a luma plane shorter than its stride describes was accepted");
+    ragged.y.assign(4u * 4u, 128u);
+    ragged.v.clear();
+    require(!defjam::frame_to_abgr8888(ragged, 4u, pixels),
+            "a frame missing a chroma plane was accepted");
 }
 
 } // namespace
@@ -573,6 +636,7 @@ int main() {
         test_utility_dialog_sequence();
         test_psmf_header();
         test_program_stream_demuxer();
+        test_demuxer_stream_selection();
         test_synthetic_disc();
         test_frame_conversion();
         std::cout << "All defjam config tests passed.\n";
