@@ -114,6 +114,28 @@ void ge_reset() {
 
 const std::array<std::uint32_t, 256> &ge_registers() { return g_registers; }
 const GeMatrices &ge_matrices() { return g_matrices; }
+
+Viewport current_viewport() {
+    // Register numbers: scales at 0x42 to 0x44, centres at 0x45 to 0x47, and
+    // the screen offsets at 0x4C and 0x4D.
+    const auto as_float = [](std::uint32_t data) {
+        const std::uint32_t bits = data << 8u;
+        float value{};
+        std::memcpy(&value, &bits, sizeof(value));
+        return value;
+    };
+    Viewport viewport;
+    viewport.x_scale = as_float(g_registers[0x42]);
+    viewport.y_scale = as_float(g_registers[0x43]);
+    viewport.z_scale = as_float(g_registers[0x44]);
+    viewport.x_center = as_float(g_registers[0x45]);
+    viewport.y_center = as_float(g_registers[0x46]);
+    viewport.z_center = as_float(g_registers[0x47]);
+    viewport.x_offset = static_cast<float>(g_registers[0x4C] & 0xFFFFu) / 16.0f;
+    viewport.y_offset = static_cast<float>(g_registers[0x4D] & 0xFFFFu) / 16.0f;
+    return viewport;
+}
+
 GeStats ge_stats() { return g_stats; }
 
 GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t stall) {

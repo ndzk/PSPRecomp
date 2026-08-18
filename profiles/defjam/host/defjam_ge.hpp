@@ -86,6 +86,20 @@ struct GeMatrices {
 };
 [[nodiscard]] const GeMatrices &ge_matrices();
 
+// Where the clip cube lands on the frame buffer.
+//
+// Scales and centres are floats carried in the top 24 bits of their operands,
+// the same encoding the matrices use. The offsets are in sixteenths of a pixel,
+// which is what makes this title's values come out round: centre 2048 less an
+// offset of 1808 is exactly 240, half of the 480-pixel display.
+struct Viewport {
+    float x_scale{240.0f}, y_scale{-136.0f}, z_scale{-32768.0f};
+    float x_center{2048.0f}, y_center{2048.0f}, z_center{32767.0f};
+    float x_offset{1808.0f}, y_offset{1912.0f};
+};
+
+[[nodiscard]] Viewport current_viewport();
+
 // The latched GE register file, for a backend to read draw state from.
 [[nodiscard]] const std::array<std::uint32_t, 256> &ge_registers();
 

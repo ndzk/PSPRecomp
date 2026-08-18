@@ -352,15 +352,25 @@ bool to_screen(const GeMatrices &matrices, float x, float y, float z, std::uint3
 
     const float ndc_x = cx / cw;
     const float ndc_y = cy / cw;
-    sz = cz / cw;
-    // The viewport registers are not read yet, so this maps the whole clip cube
-    // onto the display. That is right for a title drawing full-screen and wrong
-    // for one that sets a smaller viewport.
-    sx = (ndc_x * 0.5f + 0.5f) * static_cast<float>(width);
-    sy = (1.0f - (ndc_y * 0.5f + 0.5f)) * static_cast<float>(height);
-    // Depth leaves here in the same range the buffer uses, so the rasteriser
-    // treats a transformed and a through-mode draw identically.
-    sz = (sz * 0.5f + 0.5f) * 65535.0f;
+    const float ndc_z = cz / cw;
+
+    // The viewport says where the clip cube lands. Its scales and centres are
+    // floats in the top 24 bits of their operands, like the matrices, and the
+    // offsets are in sixteenths of a pixel.
+    //
+    // This title states 240 and -136 for the scales against centres of 2048,
+    // with offsets of 1808 and 1912 - which comes to x = ndc.x * 240 + 240 and
+    // y = ndc.y * -136 + 136, mapping the cube onto 480 by 272 with the
+    // vertical flip built into the negative scale rather than applied by hand.
+    const Viewport viewport = current_viewport();
+    (void)width;
+    (void)height;
+    sx = ndc_x * viewport.x_scale + viewport.x_center - viewport.x_offset;
+    sy = ndc_y * viewport.y_scale + viewport.y_center - viewport.y_offset;
+    // Depth comes out in the buffer range directly. The z scale is negative
+    // here, so the near plane is the high end - the opposite of the mapping
+    // this used before reading the registers.
+    sz = ndc_z * viewport.z_scale + viewport.z_center;
     return true;
 }
 
