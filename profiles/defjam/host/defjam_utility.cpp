@@ -40,9 +40,13 @@ constexpr std::uint32_t kModeAutoSave = 1u;
 constexpr std::uint32_t kModeLoad = 2u;
 constexpr std::uint32_t kModeSave = 3u;
 
-// Result codes, from the published kernel error list.
-constexpr std::uint32_t kErrorLoadNoData = 0x80110307u;
-constexpr std::uint32_t kErrorSaveAccess = 0x80110385u;
+// Result codes. Only the last is confirmed: pspsdk defines
+// PSP_SYSTEMPARAM_RETVAL_FAIL in psputility_sysparam.h, and searching that SDK
+// finds neither of the savedata values. This title materialises no constant in
+// the 0x8011 block at all, so it does not read them and their exactness is
+// moot here; a profile whose title does check them should confirm them first.
+constexpr std::uint32_t kErrorLoadNoData = 0x80110307u;      // unverified
+constexpr std::uint32_t kErrorSaveAccess = 0x80110385u;      // unverified
 constexpr std::uint32_t kSystemParamRetvalFail = 0x80110103u;
 
 // System parameter ids.

@@ -82,10 +82,17 @@ constexpr std::uint32_t kAuSizeOffset = 20u;
 // which is a valid time.
 constexpr std::uint32_t kNoTimestamp = 0xFFFFFFFFu;
 
-// "Nothing to hand out yet, put more packets in and ask again." A title tells
-// this apart from a hard failure by the value, so answering a shortage with a
-// generic -1 reports it as the failure and stops playback on the first frame
-// the demultiplexer is not ready for.
+// "Nothing to hand out yet, put more packets in and ask again."
+//
+// This title does not read the value: nothing in its corpus materialises a
+// constant in the 0x8061 block, so it can only be testing the sign, and the
+// generic -1 this replaced was equally negative. The change is correctness
+// for its own sake rather than a fix for anything observed here - a title
+// that does compare would need this, and reporting a shortage as a hard
+// failure is wrong regardless of who is looking.
+//
+// Not in pspsdk, so unlike the kernel codes this one is not checked against a
+// source this tree may take values from. Treat it as unverified.
 constexpr std::uint32_t kErrorMpegNoData = 0x80618001u;
 
 void set_return(AllegrexContext &ctx, std::uint32_t value) { ctx.set_gpr(2, value); }

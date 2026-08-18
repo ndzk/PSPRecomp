@@ -54,6 +54,11 @@ constexpr std::uint32_t kModeRegular = 0x2000u;
 constexpr std::uint32_t kAttrDirectory = 0x0010u;
 constexpr std::uint32_t kAttrRegular = 0x0020u;
 
+// 0x8001xxxx carries a POSIX errno in its low half, which this title's own
+// code corroborates: it materialises 0x80010009, 0x8001000C, 0x80010013 and
+// 0x80010016, exactly EBADF, ENOMEM, ENODEV and EINVAL. 2 is ENOENT. pspsdk
+// does not spell the composed value out, so the block is inferred rather than
+// quoted; the title never tests this particular one.
 constexpr std::int32_t kErrorNoFile = static_cast<std::int32_t>(0x80010002);
 
 struct FileHandle {
