@@ -488,8 +488,10 @@ std::string vertex_report() {
         out << label << " x " << extent.min_x << ".." << extent.max_x << "  y " << extent.min_y
             << ".." << extent.max_y << "  z " << extent.min_z << ".." << extent.max_z << "\n";
     };
-    extent_line("  screen extent:     ", stats.screen);
-    extent_line("  model extent:      ", stats.model);
+    // Both are screen coordinates: the extent is taken after the transform has
+    // run, so the only difference is which path the draw took to get there.
+    extent_line("  through extent:    ", stats.screen);
+    extent_line("  transformed extent:", stats.model);
     out << "  vertex types:      ";
     for (std::size_t i = 0; i < stats.vertex_types.size() && i < 6u; ++i) {
         const VertexFormat format = parse_vertex_type(stats.vertex_types[i].first);
