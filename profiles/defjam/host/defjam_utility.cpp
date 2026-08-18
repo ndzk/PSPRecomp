@@ -24,6 +24,20 @@ constexpr std::uint32_t kCommonSize = 48u;
 // saveName[20], saveNameList, fileName[13] + 3 pad, dataBuf, dataBufSize,
 // dataSize.
 constexpr std::uint32_t kSavedataModeOffset = kCommonSize;          // 48
+
+// Message dialog parameters, taken from a dialog this title raised: the
+// structure declares 580 bytes, and the text is 512 of them starting at 60,
+// which leaves the option flags and the answer as the last two words.
+constexpr std::uint32_t kMessageTextOffset = 60u;
+constexpr std::uint32_t kMessageOptionsOffset = 572u;
+constexpr std::uint32_t kMessageButtonOffset = 576u;
+constexpr std::uint32_t kMessageParamsSize = 580u;
+// The option word this title sets on its question is 0x111. The low bit
+// separates a text dialog from an error one and 0x100 asks for No to be
+// the default, which leaves 0x10 as the flag that says there are two
+// buttons to choose between at all.
+constexpr std::uint32_t kMessageOptionYesNo = 0x10u;
+constexpr std::uint32_t kButtonYes = 1u;
 constexpr std::uint32_t kSavedataGameNameOffset = 60u;
 constexpr std::uint32_t kSavedataGameNameSize = 13u;
 constexpr std::uint32_t kSavedataSaveNameOffset = 76u;
@@ -273,9 +287,31 @@ void install_utility_hle(Runtime &runtime, const std::string &savedata_root) {
         const std::uint32_t param = ctx.gpr[4];
         ++g_stats.message_dialogs;
         if (param != 0u && rt.memory().contains(param, kCommonSize + 8u)) {
-            // The message follows the common header and a mode word.
-            runtime_log_line("message dialog: " +
-                             read_fixed_string(rt, param + kCommonSize + 4u, 512u));
+            // The layout was measured rather than assumed, on a dialog this
+            // title raised: the structure declares 580 bytes, the longest run
+            // of printable bytes starts at 60, and 60 + 512 leaves exactly the
+            // two trailing words. Reading the message from 52 - which is the
+            // mode word - is what logged every message as empty while the
+            // title was repeating the same complaint.
+            if (rt.memory().contains(param, kMessageParamsSize)) {
+                const std::uint32_t options = rt.memory().load32(param + kMessageOptionsOffset);
+                // A dialog that asks a question and never gets an answer is
+                // asked again. This title asked "Do you wish to continue
+                // without loading?" 14,674 times running, because nothing here
+                // ever wrote the answer back.
+                //
+                // Headless there is no one to press the button, so the profile
+                // answers as the only player who could get anywhere would: it
+                // confirms. That is a decision made on the guest's behalf, so
+                // it is logged with the question rather than applied quietly.
+                if ((options & kMessageOptionYesNo) != 0u) {
+                    rt.memory().store32(param + kMessageButtonOffset, kButtonYes);
+                }
+                runtime_log_line("message dialog: " +
+                                 read_fixed_string(rt, param + kMessageTextOffset, 512u) +
+                                 " [options " + psprecomp::hex32(options) + "]" +
+                                 ((options & kMessageOptionYesNo) != 0u ? " answered yes" : ""));
+            }
             set_result(rt, param, 0u);
         }
         g_message.begin();
