@@ -24,6 +24,7 @@ set(DEFJAM_HOST_SOURCES
     host/defjam_mpeg.cpp
     host/defjam_profile.cpp
     host/defjam_utility.cpp
+    host/defjam_vertex.cpp
 )
 
 # A generated unit is one enormous function. Letting MSVC inline into it is

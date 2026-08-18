@@ -4,6 +4,7 @@
 #include "defjam_io.hpp"
 #include "defjam_mpeg.hpp"
 #include "defjam_utility.hpp"
+#include "defjam_vertex.hpp"
 #include "defjam_profile.hpp"
 
 #include "psprecomp/common.hpp"
@@ -254,6 +255,7 @@ int main(int argc, char **argv) {
                   << stats.audio_samples << " samples\n"
                   << "  guest time:         " << stats.virtual_time_us << " us\n";
         std::cout << defjam::ge_report();
+        std::cout << defjam::vertex_report();
         const defjam::IoStats io = defjam::io_stats();
         std::cout << "  file opens:         " << io.opens << " (" << io.failed_opens << " failed)\n"
                   << "  reads:              " << io.reads << ", " << io.bytes_read << " bytes\n"

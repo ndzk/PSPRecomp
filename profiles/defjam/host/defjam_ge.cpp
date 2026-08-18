@@ -1,6 +1,7 @@
 #include "defjam_ge.hpp"
 
 #include "defjam_profile.hpp"
+#include "defjam_vertex.hpp"
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
@@ -44,15 +45,30 @@ std::array<std::uint32_t, 256> g_registers{};
 GeStats g_stats{};
 std::map<std::uint8_t, std::uint64_t> g_command_histogram;
 
-// BASE supplies the high bits of an address that a 24-bit operand cannot hold.
+// The offset register, which is a whole address rather than a few high bits.
+std::uint32_t g_offset_address = 0u;
+// VADDR and IADDR resolved at the moment they were issued. They must not be
+// resolved at draw time: BASE is a latched register the guest moves around
+// between setting an address and drawing with it, so resolving late reads a
+// different BASE than the one that was current, and the address comes out in a
+// region that does not exist.
+std::uint32_t g_vertex_address = 0u;
+std::uint32_t g_index_address = 0u;
+
+// BASE supplies four high bits a 24-bit operand cannot hold, the offset
+// register is added whole, and the result is a 28-bit address.
 std::uint32_t resolve_address(std::uint32_t data24) {
     const std::uint32_t base = (g_registers[kCmdBase] & 0x000F0000u) << 8u;
-    return base | (data24 & 0x00FFFFFFu);
+    return (g_offset_address + (base | (data24 & 0x00FFFFFFu))) & 0x0FFFFFFFu;
 }
 
 } // namespace
 
 void ge_reset() {
+    vertex_reset();
+    g_offset_address = 0u;
+    g_vertex_address = 0u;
+    g_index_address = 0u;
     g_registers.fill(0u);
     g_stats = GeStats{};
     g_command_histogram.clear();
@@ -104,11 +120,24 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
 
         switch (command) {
         case kCmdNop:
-        case kCmdVaddr:
-        case kCmdIaddr:
         case kCmdBase:
+            break;
+
+        case kCmdVaddr:
+            g_vertex_address = resolve_address(data);
+            break;
+
+        case kCmdIaddr:
+            g_index_address = resolve_address(data);
+            break;
+
         case kCmdOffsetAddr:
+            g_offset_address = data << 8u;
+            break;
+
         case kCmdOrigin:
+            // ORIGIN sets the offset to where this command itself sits.
+            g_offset_address = pc - 4u;
             break;
 
         case kCmdVertexType:
@@ -131,6 +160,10 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
             ++g_stats.draws;
             g_stats.vertices += count;
             ++g_stats.primitives[primitive];
+            // VADDR and IADDR are 24-bit and carry the same BASE high bits as
+            // any other list address.
+            note_draw(runtime, g_registers[kCmdVertexType], g_vertex_address, g_index_address,
+                      count);
             break;
         }
 

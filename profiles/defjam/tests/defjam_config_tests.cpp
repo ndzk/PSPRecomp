@@ -2,6 +2,7 @@
 #include "defjam_decoder.hpp"
 #include "defjam_atrac.hpp"
 #include "defjam_disc.hpp"
+#include "defjam_vertex.hpp"
 #include "defjam_ge.hpp"
 #include "defjam_profile.hpp"
 #include "defjam_io.hpp"
@@ -1976,6 +1977,98 @@ void test_frame_conversion() {
             "a frame missing a chroma plane was accepted");
 }
 
+// Vertex formats, using the three VTYPE words this title actually issues. The
+// strides are what the field sizes and alignments come to, and getting one
+// wrong walks the buffer at the wrong pitch - which reads plausible numbers
+// from the wrong place rather than failing.
+void test_vertex_formats() {
+    // Through-mode sprites: 8888 colour then a 16-bit position, padded to four.
+    const defjam::VertexFormat sprite = defjam::parse_vertex_type(0x0080011Cu);
+    require(sprite.valid(), "the sprite format was rejected");
+    require(sprite.through, "the transform bit was not read");
+    require(sprite.color == 7u && sprite.position == 2u, "sprite fields decoded wrongly");
+    require(sprite.texture == 0u && sprite.normal == 0u, "the sprite has no texture or normal");
+    require(sprite.color_offset == 0u && sprite.position_offset == 4u,
+            "sprite fields are not laid out in order");
+    require(sprite.texture_offset == defjam::kAbsent, "an absent field was given an offset");
+    require(sprite.stride == 12u, "the sprite stride is not the padded field total");
+
+    // Textured through-mode: 16-bit texture, 8888 colour, 16-bit position.
+    const defjam::VertexFormat textured = defjam::parse_vertex_type(0x0080111Eu);
+    require(textured.texture == 2u && textured.stride == 16u, "the textured stride is wrong");
+
+    // The indexed 3D format: float texture, 8888 colour, float normal and
+    // position, indices 16-bit.
+    const defjam::VertexFormat mesh = defjam::parse_vertex_type(0x000011FFu);
+    require(!mesh.through, "the 3D format was read as through-mode");
+    require(mesh.index == 2u, "the index format was not read");
+    require(mesh.normal == 3u && mesh.position == 3u, "float fields decoded wrongly");
+    require(mesh.stride == 36u, "the mesh stride is not the padded field total");
+
+    // A format with no position cannot be drawn from, and says so rather than
+    // reporting a stride that would be walked anyway.
+    require(!defjam::parse_vertex_type(0u).valid(), "a format with no position was accepted");
+}
+
+void test_vertex_decoding() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    constexpr std::uint32_t kBase = 0x08800000u;
+
+    // Two through-mode sprite vertices in the 0x0080011C layout: colour at 0,
+    // three signed shorts at 4, stride 12.
+    const auto put = [&runtime](std::uint32_t at, std::uint32_t color, std::int16_t x,
+                                std::int16_t y, std::int16_t z) {
+        runtime.memory().store32(at, color);
+        runtime.memory().store16(at + 4u, static_cast<std::uint16_t>(x));
+        runtime.memory().store16(at + 6u, static_cast<std::uint16_t>(y));
+        runtime.memory().store16(at + 8u, static_cast<std::uint16_t>(z));
+    };
+    put(kBase, 0xFF204060u, 0, 0, 0);
+    put(kBase + 12u, 0xFFFFFFFFu, 480, 272, 0);
+
+    const defjam::VertexFormat format = defjam::parse_vertex_type(0x0080011Cu);
+    std::vector<defjam::Vertex> vertices;
+    require(defjam::decode_vertices(runtime, format, kBase, 2u, vertices),
+            "a well-formed vertex buffer was rejected");
+    require(vertices.size() == 2u, "the wrong number of vertices came back");
+
+    // Through-mode positions are screen coordinates, not normalised.
+    require(vertices[0].x == 0.0f && vertices[0].y == 0.0f, "the first position is wrong");
+    require(vertices[1].x == 480.0f && vertices[1].y == 272.0f,
+            "through-mode positions were scaled as if they were normalised");
+    require(vertices[0].color == 0xFF204060u, "an 8888 colour was not passed through");
+    require(vertices[0].has_color && !vertices[0].has_uv,
+            "the vertex reports fields the format does not carry");
+
+    // A buffer that runs past the end of memory is refused outright: a partial
+    // decode reported as success is worse than none.
+    require(!defjam::decode_vertices(runtime, format, kBase, 0x01000000u, vertices),
+            "a buffer larger than memory was accepted");
+    require(!defjam::decode_vertices(runtime, format, 0u, 2u, vertices),
+            "a null vertex address was accepted");
+}
+
+void test_vertex_colours() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    constexpr std::uint32_t kBase = 0x08800000u;
+
+    // 5650 has no alpha, and a saturated field must come back saturated rather
+    // than short of it, which is what a plain shift would give.
+    const defjam::VertexFormat format = defjam::parse_vertex_type(0x00800110u);
+    require(format.color == 4u && format.stride == 8u, "the 5650 layout is wrong");
+    runtime.memory().store16(kBase, 0xFFFFu);          // all fields at maximum
+    runtime.memory().store16(kBase + 2u, 0u);
+    runtime.memory().store16(kBase + 4u, 0u);
+    runtime.memory().store16(kBase + 6u, 0u);
+    std::vector<defjam::Vertex> vertices;
+    require(defjam::decode_vertices(runtime, format, kBase, 1u, vertices), "5650 decode failed");
+    require(vertices[0].color == 0xFFFFFFFFu, "a saturated 5650 colour did not expand to white");
+
+    runtime.memory().store16(kBase, 0u);
+    require(defjam::decode_vertices(runtime, format, kBase, 1u, vertices), "5650 decode failed");
+    require(vertices[0].color == 0xFF000000u, "5650 black lost its opaque alpha");
+}
+
 } // namespace
 
 int main() {
@@ -2018,6 +2111,9 @@ int main() {
         test_audio_counts_only_accepted_buffers();
         test_synthetic_disc();
         test_frame_conversion();
+        test_vertex_formats();
+        test_vertex_decoding();
+        test_vertex_colours();
         std::cout << "All defjam config tests passed.\n";
         return 0;
     } catch (const std::exception &exception) {
