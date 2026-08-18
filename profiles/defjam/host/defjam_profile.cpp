@@ -71,6 +71,10 @@ enum class ThreadState { Created, Ready, Running, Sleeping, Waiting, Delayed, Co
 
 struct ThreadRecord {
     std::string name;
+    // Set between sceKernelCpuSuspendIntr and sceKernelCpuResumeIntr. Nothing
+    // used to depend on it, because nothing was ever delivered; now the vblank
+    // is, and a handler must not land inside a critical section.
+    bool interrupts_masked{};
     // Why this thread last stopped running. A stall is far easier to read as
     // "everyone is waiting on a semaphore" than as a set of program counters.
     std::string blocked_on;
@@ -780,6 +784,10 @@ void enter_guest_call(AllegrexContext &ctx, const PendingGuestCall &call,
 // see it.
 void deliver_vblank_interrupt(AllegrexContext &ctx) {
     if (!g_vblank_pending || g_vblank_in_flight) return;
+    // A thread that masked interrupts keeps them masked. The vblank stays
+    // pending and lands on a later switch rather than being dropped.
+    const ThreadRecord *resuming = current_thread();
+    if (resuming != nullptr && resuming->interrupts_masked) return;
     const auto it = g_sub_interrupts.find(sub_interrupt_key(kVblankInterrupt, 0u));
     if (it == g_sub_interrupts.end() || !it->second.enabled || it->second.function == 0u) return;
 
@@ -2202,9 +2210,18 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     runtime.register_hle("scePower", 0x04B7766Eu, ok);
     runtime.register_hle("scePower", 0xDFA8BAF8u, ok);
     runtime.register_hle("Kernel_Library", 0x092968F4u, [](Runtime &, AllegrexContext &ctx) {
-        set_return(ctx, 1u);  // previous interrupt state
+        // Returns the state the caller is expected to hand back to
+        // sceKernelCpuResumeIntr, so nesting restores rather than unmasks.
+        ThreadRecord *thread = current_thread();
+        const std::uint32_t previous = (thread == nullptr || !thread->interrupts_masked) ? 1u : 0u;
+        if (thread != nullptr) thread->interrupts_masked = true;
+        set_return(ctx, previous);
     });
-    runtime.register_hle("Kernel_Library", 0x5F10D406u, ok);
+    runtime.register_hle("Kernel_Library", 0x5F10D406u, [](Runtime &, AllegrexContext &ctx) {
+        ThreadRecord *thread = current_thread();
+        if (thread != nullptr) thread->interrupts_masked = ctx.gpr[4] == 0u;
+        set_success(ctx);
+    });
     runtime.register_hle("StdioForUser", 0x172D316Eu, [](Runtime &, AllegrexContext &ctx) { set_return(ctx, 0u); });
     runtime.register_hle("StdioForUser", 0xA6BAB2E9u, [](Runtime &, AllegrexContext &ctx) { set_return(ctx, 1u); });
     runtime.register_hle("StdioForUser", 0xF78BA90Au, [](Runtime &, AllegrexContext &ctx) { set_return(ctx, 2u); });

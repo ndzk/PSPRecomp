@@ -1120,6 +1120,56 @@ void test_vblank_advances_without_being_asked() {
             "enabling a sub interrupt nobody registered reported success");
 }
 
+// A thread that masked interrupts must not have one delivered into its
+// critical section. Nothing depended on this while no interrupt was ever
+// delivered; the vblank now is.
+void test_masked_interrupts_hold_the_vblank_off() {
+    constexpr std::uint32_t kDelayThread = 0xCEADEB47u;
+    constexpr std::uint32_t kRegisterSubIntr = 0xCA04A2B9u;
+    constexpr std::uint32_t kEnableSubIntr = 0xFB8E22ECu;
+    constexpr std::uint32_t kSuspendIntr = 0x092968F4u;
+    constexpr std::uint32_t kResumeIntr = 0x5F10D406u;
+    constexpr std::uint32_t kHandler = 0x08810000u;
+    constexpr std::uint32_t kVblankPeriodUs = 16683u;
+
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+    psprecomp::AllegrexContext ctx{};
+
+    ctx.set_gpr(4, 30u);
+    ctx.set_gpr(5, 0u);
+    ctx.set_gpr(6, kHandler);
+    ctx.set_gpr(7, 0x99u);
+    call_hle(runtime, "InterruptManager", kRegisterSubIntr, ctx);
+    ctx.set_gpr(4, 30u);
+    ctx.set_gpr(5, 0u);
+    call_hle(runtime, "InterruptManager", kEnableSubIntr, ctx);
+
+    // Suspending reports the state to hand back, so nesting restores rather
+    // than unmasking half way out.
+    call_hle(runtime, "Kernel_Library", kSuspendIntr, ctx);
+    require(ctx.gpr[2] == 1u, "the first suspend did not report interrupts as enabled");
+    const std::uint32_t saved = ctx.gpr[2];
+    call_hle(runtime, "Kernel_Library", kSuspendIntr, ctx);
+    require(ctx.gpr[2] == 0u, "a nested suspend did not report interrupts as already masked");
+
+    // Sleeping past a vblank while masked must not run the handler.
+    ctx.pc = 0u;
+    ctx.set_gpr(4, 2u * kVblankPeriodUs);
+    call_hle(runtime, "ThreadManForUser", kDelayThread, ctx);
+    require(ctx.pc != kHandler, "the vblank handler ran inside a critical section");
+
+    // Unmasked, the vblank that was held back lands on the next switch.
+    ctx.set_gpr(4, saved);
+    call_hle(runtime, "Kernel_Library", kResumeIntr, ctx);
+    ctx.pc = 0u;
+    ctx.set_gpr(4, 2u * kVblankPeriodUs);
+    call_hle(runtime, "ThreadManForUser", kDelayThread, ctx);
+    require(ctx.pc == kHandler, "the vblank handler never ran once interrupts came back");
+    require(ctx.gpr[4] == 0u && ctx.gpr[5] == 0x99u,
+            "the handler was not given its sub code and registered argument");
+}
+
 void test_deleting_a_semaphore_releases_its_waiters() {
     psprecomp::Runtime runtime(32u * 1024u * 1024u);
     defjam::install_profile(runtime, 0x08900000u);
@@ -1953,6 +2003,7 @@ int main() {
         test_kernel_wait_satisfied();
         test_event_flag_poll_code();
         test_vblank_advances_without_being_asked();
+        test_masked_interrupts_hold_the_vblank_off();
         test_deleting_a_semaphore_releases_its_waiters();
         test_terminating_a_thread_wakes_its_joiners();
         test_wakeup_does_not_break_a_semaphore_wait();
