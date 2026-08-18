@@ -472,6 +472,61 @@ void test_demuxer_splits_on_access_unit_delimiters() {
             "a stream without delimiters stopped being split at all");
 }
 
+// The title asks for one ATRAC3+ frame per call to sceMpegGetAtracAu, and this
+// container puts about three and a half frames in every packet, straddling the
+// boundaries. Handing out whole packets loses every frame after the first: the
+// opening movie's 88 frames arrived as 25 units and 21 of them survived as
+// sound, while the title hammered the getter 28887 times for the rest.
+void test_demuxer_splits_audio_into_frames() {
+    constexpr std::size_t kFrame = 32u;
+    constexpr std::size_t kFrames = 5u;
+
+    std::vector<std::uint8_t> elementary;
+    for (std::size_t f = 0; f < kFrames; ++f) {
+        std::vector<std::uint8_t> frame(kFrame, static_cast<std::uint8_t>(0xA0u + f));
+        frame[0] = 0x0Fu;
+        frame[1] = 0xD0u;
+        // A sync word inside frame data. The real movie carries exactly one of
+        // these, in frame 50; cutting at every match slices that frame in half,
+        // which is why the frame size is learned and then trusted.
+        if (f == 3u) { frame[10] = 0x0Fu; frame[11] = 0xD0u; }
+        elementary.insert(elementary.end(), frame.begin(), frame.end());
+    }
+
+    // Packets that deliberately do not line up with frame boundaries.
+    std::vector<std::uint8_t> stream;
+    for (std::size_t at = 0; at < elementary.size(); at += 47u) {
+        std::vector<std::uint8_t> payload{0x00, 0x00, 0x00, 0x00};   // sub-stream header
+        payload.insert(payload.end(), elementary.begin() + static_cast<std::ptrdiff_t>(at),
+                       elementary.begin() +
+                           static_cast<std::ptrdiff_t>(std::min(elementary.size(), at + 47u)));
+        append_pes(stream, 0xBD, payload, true, 90000 + at);
+    }
+
+    defjam::ProgramStreamDemuxer demuxer;
+    demuxer.append(stream.data(), stream.size());
+    require(demuxer.audio_units() == kFrames, "the packets were not cut into frames");
+
+    for (std::size_t f = 0; f < kFrames; ++f) {
+        const defjam::AccessUnit unit = demuxer.take_audio();
+        require(unit.data.size() == kFrame, "an audio unit is not one frame long");
+        require(unit.data[0] == 0x0Fu && unit.data[1] == 0xD0u,
+                "an audio unit does not begin at a frame boundary");
+        require(unit.data[kFrame - 1u] == static_cast<std::uint8_t>(0xA0u + f),
+                "the frames came out in the wrong order");
+    }
+
+    // Audio that carries no sync word at all still has to come apart, so there
+    // the timestamp goes on doing the work.
+    std::vector<std::uint8_t> plain;
+    append_pes(plain, 0xBD, {0x00, 0x00, 0x00, 0x00, 0x11, 0x22}, true, 90000);
+    append_pes(plain, 0xBD, {0x00, 0x00, 0x00, 0x00, 0x33, 0x44}, true, 93000);
+    defjam::ProgramStreamDemuxer unframed;
+    unframed.append(plain.data(), plain.size());
+    unframed.flush();
+    require(unframed.audio_units() == 2u, "audio without a sync word stopped being split");
+}
+
 // A synthetic disc has to be a real ISO 9660 volume, not merely something the
 // profile's own reader happens to accept: the title reads the volume
 // descriptor, walks the path table and reopens content by the sector it found
@@ -1887,6 +1942,7 @@ int main() {
         test_program_stream_demuxer();
         test_demuxer_stream_selection();
         test_demuxer_splits_on_access_unit_delimiters();
+        test_demuxer_splits_audio_into_frames();
         test_ge_walks_a_list();
         test_ge_control_flow();
         test_ge_call_stack_survives_a_stall();

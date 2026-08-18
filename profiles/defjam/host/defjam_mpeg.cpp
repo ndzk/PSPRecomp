@@ -326,6 +326,96 @@ void ProgramStreamDemuxer::append_video_payload(const std::uint8_t *data, std::s
     video_scan_ = current_video_.data.size() >= 3u ? current_video_.data.size() - 3u : 0u;
 }
 
+// ATRAC3+ frames open with this sync word, and every frame in a stream is the
+// same size, so the elementary stream is a plain array of frames once the
+// first one has been found.
+constexpr std::uint8_t kAtracSyncHigh = 0x0Fu;
+constexpr std::uint8_t kAtracSyncLow = 0xD0u;
+// A frame size outside this range is not one this container carries; treating
+// a stray match as a size would slice the stream into nonsense.
+constexpr std::size_t kMinAtracFrame = 8u;
+constexpr std::size_t kMaxAtracFrame = 8192u;
+
+static std::size_t find_atrac_sync(const std::vector<std::uint8_t> &buffer, std::size_t from) {
+    for (std::size_t i = from; i + 2u <= buffer.size(); ++i) {
+        if (buffer[i] == kAtracSyncHigh && buffer[i + 1u] == kAtracSyncLow) return i;
+    }
+    return kNoDelimiter;
+}
+
+void ProgramStreamDemuxer::open_audio_unit() {
+    audio_open_ = true;
+    if (!pending_audio_ts_.valid) return;
+    current_audio_.has_timestamp = true;
+    current_audio_.pts_high = pending_audio_ts_.pts_high;
+    current_audio_.pts = pending_audio_ts_.pts;
+    current_audio_.dts_high = pending_audio_ts_.dts_high;
+    current_audio_.dts = pending_audio_ts_.dts;
+    pending_audio_ts_ = StreamTimestamp{};
+}
+
+// The title asks for one ATRAC3+ frame per call, and this container puts about
+// three and a half of them in every packet, straddling the boundaries. Handing
+// out whole packets loses every frame after the first: 88 frames arrive as 25
+// units and 21 of them survive as sound.
+void ProgramStreamDemuxer::append_audio_payload(const std::uint8_t *data, std::size_t size) {
+    if (audio_split_ == AudioSplit::Unknown) {
+        audio_split_ = (size >= 2u && data[0] == kAtracSyncHigh && data[1] == kAtracSyncLow)
+                           ? AudioSplit::Framed
+                           : AudioSplit::Timestamped;
+    }
+    if (!audio_open_) {
+        current_audio_ = AccessUnit{};
+        open_audio_unit();
+    }
+    current_audio_.data.insert(current_audio_.data.end(), data, data + size);
+    if (audio_split_ != AudioSplit::Framed) return;
+
+    if (audio_frame_size_ == 0u) {
+        // Learn the frame size. A sync word also turns up inside frame data now
+        // and then - this title's opening movie carries exactly one, in frame
+        // 50 - so a candidate is only believed once a third frame begins at
+        // exactly twice the stride. A stray match fails that and the next
+        // candidate is tried, rather than the stream being sliced on it.
+        for (std::size_t candidate = find_atrac_sync(current_audio_.data, 1u);
+             candidate != kNoDelimiter;
+             candidate = find_atrac_sync(current_audio_.data, candidate + 1u)) {
+            if (candidate < kMinAtracFrame || candidate > kMaxAtracFrame) continue;
+            const std::size_t third = find_atrac_sync(current_audio_.data, candidate + 1u);
+            if (third == kNoDelimiter) return;   // not enough data to judge yet
+            if (third == candidate * 2u) {
+                audio_frame_size_ = candidate;
+                break;
+            }
+        }
+        if (audio_frame_size_ == 0u) return;
+    }
+
+    while (current_audio_.data.size() >= audio_frame_size_) {
+        AccessUnit finished;
+        finished.has_timestamp = current_audio_.has_timestamp;
+        finished.pts_high = current_audio_.pts_high;
+        finished.pts = current_audio_.pts;
+        finished.dts_high = current_audio_.dts_high;
+        finished.dts = current_audio_.dts;
+        finished.data.assign(
+            current_audio_.data.begin(),
+            current_audio_.data.begin() + static_cast<std::ptrdiff_t>(audio_frame_size_));
+        audio_.push_back(std::move(finished));
+        ++audio_units_;
+
+        current_audio_.data.erase(
+            current_audio_.data.begin(),
+            current_audio_.data.begin() + static_cast<std::ptrdiff_t>(audio_frame_size_));
+        current_audio_.has_timestamp = false;
+        current_audio_.pts_high = 0u;
+        current_audio_.pts = 0u;
+        current_audio_.dts_high = 0u;
+        current_audio_.dts = 0u;
+        open_audio_unit();
+    }
+}
+
 void ProgramStreamDemuxer::emit_video() {
     if (!video_open_) return;
     if (!current_video_.data.empty()) {
@@ -463,24 +553,16 @@ void ProgramStreamDemuxer::append(const std::uint8_t *data, std::size_t size) {
                 if (payload_size > skip)
                     append_video_payload(payload + skip, payload_size - skip);
             } else {
-                // Audio keeps the timestamp split. Its frames are fixed-size
-                // blocks the decoder resynchronises on by itself, and nothing
-                // seen so far shows the coarser boundary hurting it.
-                if (stamp.valid) emit_audio();
-                if (!audio_open_) {
-                    current_audio_ = AccessUnit{};
-                    audio_open_ = true;
-                }
                 if (stamp.valid) {
-                    current_audio_.has_timestamp = true;
-                    current_audio_.pts_high = stamp.pts_high;
-                    current_audio_.pts = stamp.pts;
-                    current_audio_.dts_high = stamp.dts_high;
-                    current_audio_.dts = stamp.dts;
+                    // A stream that is not a run of frames has nothing else
+                    // to come apart on, so there the timestamp still ends the
+                    // unit. A framed one must not be cut here: the packets do
+                    // not line up with the frames.
+                    if (audio_split_ == AudioSplit::Timestamped) emit_audio();
+                    pending_audio_ts_ = stamp;
                 }
                 if (payload_size > skip)
-                    current_audio_.data.insert(current_audio_.data.end(), payload + skip,
-                                               payload + payload_size);
+                    append_audio_payload(payload + skip, payload_size - skip);
             }
         }
 

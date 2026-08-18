@@ -95,6 +95,10 @@ private:
     // it wherever a delimiter starts the next one.
     void append_video_payload(const std::uint8_t *data, std::size_t size);
     void open_video_unit();
+    // Appends elementary stream bytes to the open audio access unit, closing
+    // one every frame once the frame size is known.
+    void append_audio_payload(const std::uint8_t *data, std::size_t size);
+    void open_audio_unit();
 
     std::vector<std::uint8_t> pending_;      // bytes not yet forming a whole packet
     std::vector<AccessUnit> video_;
@@ -110,6 +114,15 @@ private:
     std::size_t video_scan_{};
     // The timestamp waiting for the video unit it belongs to.
     StreamTimestamp pending_video_ts_{};
+    // How the audio stream comes apart, decided from its first payload: an
+    // ATRAC3+ elementary stream begins on a frame boundary, so a sync word
+    // there means a run of fixed-size frames. Anything else keeps splitting
+    // where a timestamp says to.
+    enum class AudioSplit { Unknown, Framed, Timestamped };
+    AudioSplit audio_split_{AudioSplit::Unknown};
+    // The frame size, learned from the stream. 0 until then.
+    std::size_t audio_frame_size_{};
+    StreamTimestamp pending_audio_ts_{};
     std::uint8_t video_id_{};   // 0 = accept any video stream id
     std::uint8_t audio_id_{};
     std::uint64_t video_units_{};
