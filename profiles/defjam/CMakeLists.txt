@@ -15,6 +15,7 @@ endif()
 
 set(DEFJAM_HOST_SOURCES
     host/defjam_atrac.cpp
+    host/defjam_banks.cpp
     host/defjam_config.cpp
     host/defjam_decoder.cpp
     host/defjam_decoder_ffmpeg.cpp

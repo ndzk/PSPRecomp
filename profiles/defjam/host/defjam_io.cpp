@@ -1,5 +1,7 @@
 #include "defjam_io.hpp"
 
+#include "defjam_banks.hpp"
+
 #include "defjam_disc.hpp"
 #include "defjam_profile.hpp"
 #include "psprecomp/common.hpp"
@@ -503,6 +505,10 @@ std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::ui
         return text != nullptr && *text != 0 && *text != 48;
     }();
     const std::int32_t got = do_read_inner(rt, fd, buffer, length);
+    // An audio bank arrives as an ordinary read, by raw sector and with no name
+    // attached, so this is the only place its routine can be recognised and
+    // registered before the sound engine calls it.
+    if (got > 0) note_possible_bank(rt, buffer, static_cast<std::uint32_t>(got));
     if (log_reads && got > 0) {
         const FileHandle *handle = file_at(fd);
         runtime_log_line("sceIoRead fd=" + std::to_string(fd) + " " +
