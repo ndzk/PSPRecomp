@@ -85,6 +85,21 @@ public:
     [[nodiscard]] bool has_function(std::uint32_t address) const;
     [[nodiscard]] std::size_t function_count() const noexcept;
 
+    // Looks up a registered HLE handler, or nullptr when that library or NID
+    // has none.
+    //
+    // Recompiled code reaches these through a generated import wrapper calling
+    // invoke_import. Anything that is not recompiled code - a test, a tool
+    // characterising a profile's surface - has no wrappers, and so no way to
+    // reach a handler at all: they are registered into a private table that
+    // nothing else can see. This returns the handler rather than calling it, so
+    // that the dispatch bookkeeping invoke_import does (the histogram, the
+    // post-import hook, stopping on a missing import) stays with the guest,
+    // where it means something.
+    //
+    // The pointer stays valid until that library and NID are registered again.
+    [[nodiscard]] const HleFunction *find_hle(std::string_view library, std::uint32_t nid) const;
+
     void set_game_root(std::filesystem::path root);
     [[nodiscard]] const std::filesystem::path &game_root() const noexcept;
     [[nodiscard]] std::filesystem::path translate_path(const std::string &psp_path) const;

@@ -489,6 +489,13 @@ void Runtime::register_hle(std::string library, std::uint32_t nid, HleFunction f
     hle_[std::move(library)][nid] = std::move(function);
 }
 
+const Runtime::HleFunction *Runtime::find_hle(std::string_view library, std::uint32_t nid) const {
+    const auto library_it = hle_.find(library);
+    if (library_it == hle_.end()) return nullptr;
+    const auto function_it = library_it->second.find(nid);
+    return function_it == library_it->second.end() ? nullptr : &function_it->second;
+}
+
 bool Runtime::has_function(std::uint32_t address) const { return lookup_function(address) != nullptr; }
 std::size_t Runtime::function_count() const noexcept { return functions_.size(); }
 
