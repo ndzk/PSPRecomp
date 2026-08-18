@@ -855,6 +855,174 @@ void test_event_flag_poll_code() {
     require((runtime.memory().load32(out) & 0x0Fu) == 0x0Fu, "the pattern was not reported");
 }
 
+// ---------------------------------------------------------------------------
+// Two threads, so a wait can be ended by somebody other than the waiter
+// ---------------------------------------------------------------------------
+// Nothing here executes guest code: install_profile leaves thread 0 running,
+// and blocking it hands the context to whichever thread is ready next. That is
+// the switch, and it is what lets a test stand in for the other thread.
+namespace kernel_nid {
+constexpr std::uint32_t kCreateThread = 0x446D8DE6u, kStartThread = 0xF475845Du,
+                        kGetThreadId = 0x293B45B8u, kTerminateThread = 0x616403BAu,
+                        kWaitThreadEnd = 0x278C0DF5u, kSleepThread = 0x9ACE131Eu,
+                        kWakeupThread = 0xD59EAD2Fu, kCreateSema = 0xD6DA4BA1u,
+                        kDeleteSema = 0x28B6489Cu, kSignalSema = 0x3F53E640u,
+                        kWaitSema = 0x4E3A1105u, kPollSema = 0x58B1F937u;
+}
+
+constexpr std::uint32_t kErrorWaitDelete = 0x800201ABu;
+constexpr std::uint32_t kErrorSemaZeroCode = 0x800201ADu;
+
+// A worker at a lower priority than thread 0, so starting it does not preempt.
+std::int32_t start_worker(psprecomp::Runtime &runtime, psprecomp::AllegrexContext &ctx) {
+    const std::uint32_t name = kIoScratch + 0x200u;
+    write_guest_string(runtime, name, "worker");
+    ctx.set_gpr(4, name);
+    ctx.set_gpr(5, 0x08800000u);   // an entry nothing ever runs
+    ctx.set_gpr(6, 40u);           // numerically higher is less urgent on PSP
+    ctx.set_gpr(7, 4096u);
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kCreateThread, ctx);
+    const auto uid = static_cast<std::int32_t>(ctx.gpr[2]);
+    require(uid > 0, "creating a worker thread failed");
+    ctx.set_gpr(4, static_cast<std::uint32_t>(uid));
+    ctx.set_gpr(5, 0u);
+    ctx.set_gpr(6, 0u);
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kStartThread, ctx);
+    return uid;
+}
+
+std::int32_t running_thread(psprecomp::Runtime &runtime, psprecomp::AllegrexContext &ctx) {
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kGetThreadId, ctx);
+    return static_cast<std::int32_t>(ctx.gpr[2]);
+}
+
+std::uint32_t make_empty_sema(psprecomp::Runtime &runtime, psprecomp::AllegrexContext &ctx) {
+    const std::uint32_t name = kIoScratch;
+    write_guest_string(runtime, name, "gate");
+    ctx.set_gpr(4, name);
+    ctx.set_gpr(5, 0u);
+    ctx.set_gpr(6, 0u);   // nothing available
+    ctx.set_gpr(7, 8u);
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kCreateSema, ctx);
+    return ctx.gpr[2];
+}
+
+// Blocks thread 0 on an empty semaphore with no timeout, which hands the
+// context to the worker. Returns the semaphore.
+std::uint32_t block_thread_zero(psprecomp::Runtime &runtime, psprecomp::AllegrexContext &ctx,
+                                std::int32_t worker) {
+    const std::uint32_t sema = make_empty_sema(runtime, ctx);
+    ctx.set_gpr(4, sema);
+    ctx.set_gpr(5, 1u);
+    ctx.set_gpr(6, 0u);   // no timeout: only another thread can end this
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kWaitSema, ctx);
+    require(!runtime.stopped(),
+            ("blocking thread 0 was reported as a deadlock: " + runtime.stop_reason()).c_str());
+    require(running_thread(runtime, ctx) == worker, "blocking thread 0 did not run the worker");
+    return sema;
+}
+
+void test_deleting_a_semaphore_releases_its_waiters() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+    psprecomp::AllegrexContext ctx{};
+
+    const std::int32_t worker = start_worker(runtime, ctx);
+    const std::uint32_t sema = block_thread_zero(runtime, ctx, worker);
+
+    // Running as the worker: delete the semaphore thread 0 is queued on. The
+    // object it was waiting for is gone, so the kernel hands it the delete
+    // error; leaving it queued strands it on something that no longer exists.
+    ctx.set_gpr(4, sema);
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kDeleteSema, ctx);
+
+    // Park the worker so the scheduler has to pick somebody. If thread 0 was
+    // stranded there is nobody left and this reports a deadlock instead.
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kSleepThread, ctx);
+    require(!runtime.stopped(),
+            ("the waiter was stranded: " + runtime.stop_reason()).c_str());
+    require(running_thread(runtime, ctx) == 0, "thread 0 was not resumed");
+    require(ctx.gpr[2] == kErrorWaitDelete || ctx.gpr[2] == 0u,
+            "thread 0 resumed without the delete error");
+}
+
+void test_terminating_a_thread_wakes_its_joiners() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+    psprecomp::AllegrexContext ctx{};
+
+    const std::int32_t worker = start_worker(runtime, ctx);
+
+    // Thread 0 joins the worker, which blocks it and runs the worker.
+    ctx.set_gpr(4, static_cast<std::uint32_t>(worker));
+    ctx.set_gpr(5, 0u);
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kWaitThreadEnd, ctx);
+    require(running_thread(runtime, ctx) == worker, "the join did not run the worker");
+
+    // The worker terminates itself. Its joiner is now free, and there is no
+    // longer a thread to return into, so the kernel has to pick another one.
+    ctx.set_gpr(4, static_cast<std::uint32_t>(worker));
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kTerminateThread, ctx);
+    require(!runtime.stopped(), ("terminating self stopped the run: " + runtime.stop_reason()).c_str());
+    require(running_thread(runtime, ctx) == 0,
+            "terminating a thread neither woke its joiner nor rescheduled");
+}
+
+void test_wakeup_does_not_break_a_semaphore_wait() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+    psprecomp::AllegrexContext ctx{};
+
+    const std::int32_t worker = start_worker(runtime, ctx);
+    const std::uint32_t sema = block_thread_zero(runtime, ctx, worker);
+
+    // sceKernelWakeupThread answers sceKernelSleepThread, not a wait on a
+    // kernel object. Tearing thread 0 off the semaphore here would leave its
+    // entry in the queue for the next signal to pay out to a thread that is
+    // already running.
+    ctx.set_gpr(4, 0u);
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kWakeupThread, ctx);
+    require(running_thread(runtime, ctx) == worker,
+            "a wakeup released a thread waiting on a semaphore");
+    const std::string report = defjam::thread_report();
+    require(report.find("on sema") != std::string::npos,
+            "thread 0 is no longer recorded as waiting on the semaphore");
+
+    // Signalling it is what releases thread 0, and it preempts because it is
+    // the more urgent of the two.
+    ctx.set_gpr(4, sema);
+    ctx.set_gpr(5, 1u);
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kSignalSema, ctx);
+    require(running_thread(runtime, ctx) == 0, "signalling did not resume the waiter");
+}
+
+void test_a_terminated_waiter_does_not_eat_the_count() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+    psprecomp::AllegrexContext ctx{};
+
+    const std::int32_t worker = start_worker(runtime, ctx);
+    const std::uint32_t sema = block_thread_zero(runtime, ctx, worker);
+
+    // Terminate the queued thread, then signal. The unit must still be there
+    // afterwards: paying it to a thread that will never wake spends it for
+    // good, and the semaphore never gets it back.
+    ctx.set_gpr(4, 0u);
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kTerminateThread, ctx);
+    require(running_thread(runtime, ctx) == worker, "terminating another thread switched away");
+
+    ctx.set_gpr(4, sema);
+    ctx.set_gpr(5, 1u);
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kSignalSema, ctx);
+
+    ctx.set_gpr(4, sema);
+    ctx.set_gpr(5, 1u);
+    call_hle(runtime, "ThreadManForUser", kernel_nid::kPollSema, ctx);
+    require(ctx.gpr[2] != kErrorSemaZeroCode,
+            "the signalled unit was consumed by a thread that had been terminated");
+    require(ctx.gpr[2] == 0u, "polling the signalled semaphore failed");
+}
+
 void test_synthetic_disc() {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "defjam_synthetic_disc_test";
@@ -1075,6 +1243,10 @@ int main() {
         test_kernel_wait_timeout();
         test_kernel_wait_satisfied();
         test_event_flag_poll_code();
+        test_deleting_a_semaphore_releases_its_waiters();
+        test_terminating_a_thread_wakes_its_joiners();
+        test_wakeup_does_not_break_a_semaphore_wait();
+        test_a_terminated_waiter_does_not_eat_the_count();
         test_synthetic_disc();
         test_frame_conversion();
         std::cout << "All defjam config tests passed.\n";
