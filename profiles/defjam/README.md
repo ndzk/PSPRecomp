@@ -215,6 +215,13 @@ mismatch.
 - **Movie playback is the newest and least exercised path.** The container,
   ring buffer and decoder sides are wired end to end, but playback has not yet
   been watched through to the end of a movie.
+- **Callbacks and alarms are registered but never delivered.**
+  `sceKernelCreateCallback` records its handler, `sceKernelCheckCallback` always
+  reports nothing pending, and `sceKernelSetAlarm` hands back a uid for an alarm
+  that never fires; the `...CB` wait variants block exactly like their plain
+  forms. A title that arms an alarm or waits on a callback waits forever, which
+  reads as a deadlock rather than a missing feature - worth checking early when
+  a thread is parked for no visible reason.
 - **Ad-hoc multiplayer is out of scope** for the first release. The title
   imports 41 NIDs across `sceNet`, `sceNetAdhoc`, `sceNetAdhocctl`,
   `sceNetAdhocMatching` and `sceWlanDrv`, and ships four `pspnet` PRXs. The plan
@@ -230,27 +237,6 @@ mismatch.
   end-of-stream report are covered by tests - but no ATRAC frame has been
   decoded from a real `.at3` file yet, only from synthetic containers. A build
   without FFmpeg hands out ids and plays silence rather than stopping.
-- **Ad-hoc multiplayer is out of scope** for the first release. The title
-  imports 41 NIDs across `sceNet`, `sceNetAdhoc`, `sceNetAdhocctl`,
-  `sceNetAdhocMatching` and `sceWlanDrv`, and ships four `pspnet` PRXs. The plan
-  is to report no wireless adapter and leave the rest unimplemented, so an
-  accidental call aborts loudly rather than silently returning success.
-- **13 Sony system PRXs are loaded at runtime** from `USRDIR/assets/module/`.
-  These must be intercepted and satisfied by HLE rather than recompiled. The
-  interception is in place: a load is verified against the staged disc, returns
-  a handle and runs no code, leaving the guest's imports to resolve to this
-  profile's own HLE.
-- **`sceAtrac3plus` is not implemented, and the title needs it.** Eight entry
-  points are imported and called from twenty-six sites in the corpus:
-  `sceAtracSetDataAndGetID`, `sceAtracDecodeData`, `sceAtracAddStreamData`,
-  `sceAtracGetStreamDataInfo`, `sceAtracGetNextSample`, `sceAtracGetMaxSample`,
-  `sceAtracSetLoopNum` and `sceAtracReleaseAtracID`. None is registered, so the
-  first one reached stops the run. This is the standalone streamed-audio
-  decoder, separate from the movie audio inside `sceMpeg`; the profile's
-  optional FFmpeg backend already decodes ATRAC3+, so the decoding half exists
-  and what is missing is the library surface around it. Of the 247 imports this
-  executable needs, these eight and the 39 networking NIDs below are the only
-  ones with no handler.
 - **CPU skinning is the main performance risk.** The reference renderer blends
   bone matrices per vertex on the CPU with no GPU path, which matters far more
   for a game rendering two to four skinned fighters than for an open world.
