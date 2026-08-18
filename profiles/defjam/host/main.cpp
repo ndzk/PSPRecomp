@@ -7,6 +7,7 @@
 #include "defjam_raster.hpp"
 #include "defjam_texture.hpp"
 #include "defjam_vertex.hpp"
+#include "defjam_window.hpp"
 #include "defjam_profile.hpp"
 
 #include "psprecomp/common.hpp"
@@ -232,8 +233,12 @@ int main(int argc, char **argv) {
         runtime.cpu().set_gpr(5, 0u);
 
         const std::uint64_t max_dispatches = configured_max_dispatches();
+        // Opened before the guest runs, so a boot that fails early is something
+        // to look at rather than a process that has already exited.
+        defjam::window_start();
         std::cout << "  dispatch cap:   " << max_dispatches << "\n"
-                  << "\nRunning headless...\n" << std::flush;
+                  << (defjam::window_enabled() ? "\nRunning with a window...\n"
+                                               : "\nRunning headless...\n") << std::flush;
 
         // A guest fault throws out of run(). The call history is the most
         // useful thing to have at that moment, so report it either way.
@@ -260,6 +265,7 @@ int main(int argc, char **argv) {
         std::cout << defjam::vertex_report();
         std::cout << defjam::texture_report();
         std::cout << defjam::raster_report();
+        std::cout << defjam::window_report();
         if (const std::string dump = defjam::frame_dump_path(); !dump.empty()) {
             std::string dump_error;
             if (defjam::dump_display(runtime, dump, dump_error)) {
@@ -323,6 +329,17 @@ int main(int argc, char **argv) {
             defjam::dump_dispatch_trace(200u);
         }
         defjam::runtime_log_shutdown();
+        // The window outlives the guest by design: a run that stopped on its
+        // own leaves the last frame up until it is closed, so there is
+        // something to look at rather than a window that vanishes with the
+        // report. Closing it, or Escape, returns here.
+        if (defjam::window_enabled() && !defjam::window_close_requested()) {
+            defjam::window_set_status("stopped - press Escape to close");
+            std::cout << "\nThe window is still open. Close it or press Escape to exit.\n"
+                      << std::flush;
+            defjam::window_wait_for_close();
+        }
+        defjam::window_shutdown();
         if (!guest_fault.empty() || !runtime.stop_reason().empty()) return kExitGuestStopped;
 #else
         std::cout << "\nProfile skeleton only: no generated corpus is linked yet, so there is "

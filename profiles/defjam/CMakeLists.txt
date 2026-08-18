@@ -22,11 +22,13 @@ set(DEFJAM_HOST_SOURCES
     host/defjam_ge.cpp
     host/defjam_io.cpp
     host/defjam_mpeg.cpp
+    host/defjam_present_dx12.cpp
     host/defjam_profile.cpp
     host/defjam_raster.cpp
     host/defjam_texture.cpp
     host/defjam_utility.cpp
     host/defjam_vertex.cpp
+    host/defjam_window.cpp
 )
 
 # A generated unit is one enormous function. Letting MSVC inline into it is
@@ -141,6 +143,12 @@ endfunction()
 function(defjam_target_common target)
     target_include_directories(${target} PRIVATE "${DEFJAM_PROFILE_DIR}/host")
     target_link_libraries(${target} PRIVATE psprecomp_core)
+    if(WIN32)
+        # The optional presentation window and its Direct3D 12 presenter. The
+        # profile stays headless without PSPRECOMP_DEFJAM_WINDOW, so these are
+        # linked but not touched unless the window is asked for.
+        target_link_libraries(${target} PRIVATE d3d12 dxgi d3dcompiler dxguid)
+    endif()
     defjam_link_decoder(${target})
     # Lets the tests and the development launch path find the in-tree manifest
     # without depending on the working directory.

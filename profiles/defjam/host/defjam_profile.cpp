@@ -4,7 +4,9 @@
 #include "defjam_io.hpp"
 #include "defjam_atrac.hpp"
 #include "defjam_mpeg.hpp"
+#include "defjam_raster.hpp"
 #include "defjam_utility.hpp"
+#include "defjam_window.hpp"
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
@@ -242,6 +244,10 @@ std::uint64_t g_virtual_time_us = 0;
 std::uint32_t g_compiled_sdk_version = 0;
 
 // Display / GE
+// The panel is 480x272 whatever the buffer stride is; the stride is the
+// allocation width, which this title keeps at 512.
+constexpr std::uint32_t kDisplayWidth = 480u;
+constexpr std::uint32_t kDisplayHeight = 272u;
 std::uint32_t g_display_framebuffer = 0;
 std::uint32_t g_display_stride = 512;
 std::uint32_t g_display_format = 3;
@@ -1640,11 +1646,20 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     runtime.register_hle("sceDisplay", 0x0E20F177u, [](Runtime &, AllegrexContext &ctx) {
         set_success(ctx);
     });
-    runtime.register_hle("sceDisplay", 0x289D82FEu, [](Runtime &, AllegrexContext &ctx) {
+    runtime.register_hle("sceDisplay", 0x289D82FEu, [](Runtime &rt, AllegrexContext &ctx) {
         g_display_framebuffer = ctx.gpr[4];
         g_display_stride = ctx.gpr[5];
         g_display_format = ctx.gpr[6];
         ++g_framebuffer_sets;
+        // The flip is the moment a buffer becomes the one being shown, so it is
+        // where the window takes it. The rasteriser works on a host copy, so
+        // that has to be pushed back into guest memory first - otherwise the
+        // window presents whatever was in the buffer before this frame.
+        if (window_enabled()) {
+            flush_surface(rt);
+            window_present(rt.memory(), g_display_framebuffer, g_display_stride, g_display_format,
+                           kDisplayWidth, kDisplayHeight);
+        }
         set_success(ctx);
     });
     runtime.register_hle("sceDisplay", 0xEEDA2E54u, [](Runtime &rt, AllegrexContext &ctx) {
@@ -1657,6 +1672,9 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         set_return(ctx, static_cast<std::uint32_t>(g_vblanks));
     });
     runtime.register_hle("sceDisplay", 0x984C27E7u, [](Runtime &rt, AllegrexContext &ctx) {
+        // Closing the window ends the run. This is the per-frame heartbeat,
+        // so it notices even when the title has stopped flipping buffers.
+        if (window_close_requested()) rt.stop("the window was closed");
         // Delaying to the next boundary is the whole frame pacing model until a
         // real presenter exists. The count itself belongs to the clock, which
         // runs whether or not anybody waits here.
@@ -1761,7 +1779,13 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         }();
         constexpr std::uint64_t kPulseHalfUs = 250000u;
         const bool pulse_down = (g_virtual_time_us / kPulseHalfUs) % 2u == 1u;
-        const std::uint32_t buttons = held | (pulse_down ? pulsed : 0u);
+        // A real key press is ORed onto the scripted masks rather than
+        // replacing them, so the measurement runs this profile was built with
+        // keep behaving identically with a window open.
+        std::uint8_t analog_x = 128u;
+        std::uint8_t analog_y = 128u;
+        window_analog(analog_x, analog_y);
+        const std::uint32_t buttons = held | (pulse_down ? pulsed : 0u) | window_buttons();
 
         // This is the blocking read. Controller data is sampled once per
         // cycle: the first read in a cycle takes the sample already waiting and
@@ -1802,8 +1826,8 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             const std::uint32_t entry = buffer + i * 16u;
             rt.memory().store32(entry, sample_time);
             rt.memory().store32(entry + 4u, buttons);
-            rt.memory().store8(entry + 8u, 128u);     // analog x
-            rt.memory().store8(entry + 9u, 128u);     // analog y
+            rt.memory().store8(entry + 8u, analog_x);
+            rt.memory().store8(entry + 9u, analog_y);
         }
 
         if (!already_read) {
