@@ -1,6 +1,7 @@
 #include "defjam_ge.hpp"
 
 #include "defjam_profile.hpp"
+#include "defjam_texture.hpp"
 #include "defjam_vertex.hpp"
 #include "psprecomp/common.hpp"
 
@@ -66,6 +67,7 @@ std::uint32_t resolve_address(std::uint32_t data24) {
 
 void ge_reset() {
     vertex_reset();
+    texture_reset();
     g_offset_address = 0u;
     g_vertex_address = 0u;
     g_index_address = 0u;
@@ -162,6 +164,7 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
             ++g_stats.primitives[primitive];
             // VADDR and IADDR are 24-bit and carry the same BASE high bits as
             // any other list address.
+            note_texture_draw();
             note_draw(runtime, g_registers[kCmdVertexType], g_vertex_address, g_index_address,
                       count);
             break;

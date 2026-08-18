@@ -2,6 +2,7 @@
 #include "defjam_decoder.hpp"
 #include "defjam_atrac.hpp"
 #include "defjam_disc.hpp"
+#include "defjam_texture.hpp"
 #include "defjam_vertex.hpp"
 #include "defjam_ge.hpp"
 #include "defjam_profile.hpp"
@@ -2124,6 +2125,68 @@ void test_vertex_colours() {
     require(vertices[0].color == 0xFF000000u, "5650 black lost its opaque alpha");
 }
 
+// Texture state is spread over several registers, and the address in
+// particular is split across two of them. Reading it back wrongly points a
+// sampler at whatever else is in memory, which shows up as a picture rather
+// than as an error, so the composition is pinned down here.
+void test_texture_state() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::ge_reset();
+
+    // Build a list that sets the texture registers, then walk it so the
+    // register file is latched exactly as a draw would see it.
+    std::vector<std::uint32_t> list;
+    const auto cmd = [&list](std::uint8_t command, std::uint32_t data) {
+        list.push_back((static_cast<std::uint32_t>(command) << 24u) | (data & 0x00FFFFFFu));
+    };
+    cmd(0x1Eu, 1u);            // texture mapping on
+    cmd(0xA0u, 0x00345678u);   // address, low 24 bits
+    cmd(0xA8u, 0x00080200u);   // buffer width: high address byte 0x08, stride 512
+    cmd(0xB8u, 0x00000807u);   // size: width 1<<7, height 1<<8
+    cmd(0xC2u, 0x00020001u);   // mode: swizzled, three mip levels
+    cmd(0xC3u, 5u);            // clut8
+    cmd(0xB0u, 0x00801000u);   // palette address, low bits
+    cmd(0xB1u, 0x00080000u);   // palette address, high bits
+    cmd(0xC5u, 0x0001FF01u);   // palette format 1, shift 0, mask 0xFF, offset 1
+    cmd(0x0Cu, 0u);            // END
+
+    constexpr std::uint32_t kListBase = 0x08900000u;
+    for (std::size_t i = 0; i < list.size(); ++i)
+        runtime.memory().store32(kListBase + static_cast<std::uint32_t>(i) * 4u, list[i]);
+    defjam::GeListState state{kListBase, {}, 0u};
+    (void)defjam::ge_execute_list(runtime, state, 0u);
+
+    const defjam::TextureState texture = defjam::current_texture_state();
+    require(texture.enabled, "texture mapping was not read as enabled");
+    require(texture.valid(), "a complete texture state was reported unusable");
+    // The high byte comes from the buffer width register, not the address one.
+    require(texture.address == 0x08345678u, "the split texture address was recomposed wrongly");
+    require(texture.stride == 512u, "the buffer width was not masked off the address bits");
+    require(texture.width == 128u && texture.height == 256u,
+            "the size register holds log2 of each dimension");
+    require(texture.swizzled, "the swizzle bit was not read");
+    require(texture.levels == 3u, "the mip level count was not read");
+    require(texture.format == defjam::TextureFormat::Clut8, "the format was misread");
+    require(defjam::texture_format_is_paletted(texture.format), "clut8 is a paletted format");
+    require(!defjam::texture_format_is_compressed(texture.format), "clut8 is not compressed");
+    require(texture.clut_address == 0x08801000u, "the palette address was recomposed wrongly");
+    require(texture.clut_mask == 0xFFu && texture.clut_offset == 1u,
+            "the palette format fields were misread");
+
+    // A size register beyond what the hardware can address is refused rather
+    // than turned into an enormous allocation.
+    defjam::ge_reset();
+    std::vector<std::uint32_t> oversize;
+    oversize.push_back((0x1Eu << 24u) | 1u);
+    oversize.push_back((0xB8u << 24u) | 0x00001010u);   // 1<<16 in both dimensions
+    oversize.push_back(0x0Cu << 24u);
+    for (std::size_t i = 0; i < oversize.size(); ++i)
+        runtime.memory().store32(kListBase + static_cast<std::uint32_t>(i) * 4u, oversize[i]);
+    defjam::GeListState second{kListBase, {}, 0u};
+    (void)defjam::ge_execute_list(runtime, second, 0u);
+    require(!defjam::current_texture_state().valid(), "an impossible texture size was accepted");
+}
+
 } // namespace
 
 int main() {
@@ -2170,6 +2233,7 @@ int main() {
         test_vertex_decoding();
         test_vertex_colours();
         test_indexed_vertices();
+        test_texture_state();
         std::cout << "All defjam config tests passed.\n";
         return 0;
     } catch (const std::exception &exception) {
