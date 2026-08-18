@@ -193,39 +193,126 @@ VertexFormat parse_vertex_type(std::uint32_t vtype) {
     return format;
 }
 
+namespace {
+
+// Decodes one vertex out of a staged buffer.
+Vertex read_vertex(const std::uint8_t *base, const VertexFormat &format) {
+    Vertex vertex;
+    const std::uint8_t *position = base + format.position_offset;
+    vertex.x = read_position_scalar(position, format.position, 0u, format.through);
+    vertex.y = read_position_scalar(position, format.position, 1u, format.through);
+    vertex.z = read_position_scalar(position, format.position, 2u, format.through);
+    if (format.texture_offset != kAbsent) {
+        const std::uint8_t *texture = base + format.texture_offset;
+        vertex.u = read_texture_scalar(texture, format.texture, 0u, format.through);
+        vertex.v = read_texture_scalar(texture, format.texture, 1u, format.through);
+        vertex.has_uv = true;
+    }
+    if (format.color_offset != kAbsent) {
+        vertex.color = expand_color(base + format.color_offset, format.color);
+        vertex.has_color = true;
+    }
+    return vertex;
+}
+
+// Staging buffers reused across draws. A title issues over a million of them in
+// a run, and a fresh allocation per draw dominates everything else here.
+std::vector<std::uint8_t> g_vertex_staging;
+std::vector<std::uint8_t> g_index_staging;
+
+// Copies `span` bytes of guest memory into `staging`, or fails if they are not
+// all there.
+bool stage(Runtime &runtime, std::uint32_t address, std::uint32_t span,
+           std::vector<std::uint8_t> &staging) {
+    if (span == 0u || !runtime.memory().contains(address, span)) return false;
+    staging.resize(span);
+    runtime.memory().copy_out(address, staging);
+    return true;
+}
+
+} // namespace
+
 bool decode_vertices(Runtime &runtime, const VertexFormat &format, std::uint32_t address,
                      std::uint32_t count, std::vector<Vertex> &out) {
     out.clear();
     if (!format.valid() || address == 0u || count == 0u) return false;
     const std::uint64_t bytes = static_cast<std::uint64_t>(format.stride) * count;
     if (bytes > 0xFFFFFFFFull) return false;
-    const auto span = static_cast<std::uint32_t>(bytes);
-    if (!runtime.memory().contains(address, span)) return false;
+    if (!stage(runtime, address, static_cast<std::uint32_t>(bytes), g_vertex_staging)) return false;
 
-    std::vector<std::uint8_t> staging(span);
-    runtime.memory().copy_out(address, staging);
-
-    out.reserve(count);
+    out.resize(count);
     for (std::uint32_t i = 0; i < count; ++i) {
-        const std::uint8_t *base = staging.data() + static_cast<std::size_t>(i) * format.stride;
-        Vertex vertex;
-        const std::uint8_t *position = base + format.position_offset;
-        vertex.x = read_position_scalar(position, format.position, 0u, format.through);
-        vertex.y = read_position_scalar(position, format.position, 1u, format.through);
-        vertex.z = read_position_scalar(position, format.position, 2u, format.through);
-        if (format.texture_offset != kAbsent) {
-            const std::uint8_t *texture = base + format.texture_offset;
-            vertex.u = read_texture_scalar(texture, format.texture, 0u, format.through);
-            vertex.v = read_texture_scalar(texture, format.texture, 1u, format.through);
-            vertex.has_uv = true;
-        }
-        if (format.color_offset != kAbsent) {
-            vertex.color = expand_color(base + format.color_offset, format.color);
-            vertex.has_color = true;
-        }
-        out.push_back(vertex);
+        out[i] = read_vertex(g_vertex_staging.data() + static_cast<std::size_t>(i) * format.stride,
+                             format);
     }
     return true;
+}
+
+bool decode_indexed_vertices(Runtime &runtime, const VertexFormat &format,
+                             std::uint32_t vertex_address, std::uint32_t index_address,
+                             std::uint32_t count, std::vector<Vertex> &out) {
+    out.clear();
+    if (!format.valid() || vertex_address == 0u || index_address == 0u || count == 0u) return false;
+    const std::uint32_t index_size = format.index == 1u ? 1u : format.index == 2u ? 2u : 0u;
+    if (index_size == 0u) return false;
+
+    const std::uint64_t index_bytes = static_cast<std::uint64_t>(index_size) * count;
+    if (index_bytes > 0xFFFFFFFFull) return false;
+    if (!stage(runtime, index_address, static_cast<std::uint32_t>(index_bytes), g_index_staging))
+        return false;
+
+    // The vertex array's length is not stated anywhere, so the largest index
+    // used is what has to be in memory.
+    std::uint32_t highest = 0u;
+    for (std::uint32_t i = 0; i < count; ++i) {
+        std::uint32_t index = 0u;
+        if (index_size == 1u) {
+            index = g_index_staging[i];
+        } else {
+            std::uint16_t raw{};
+            std::memcpy(&raw, g_index_staging.data() + static_cast<std::size_t>(i) * 2u, 2u);
+            index = raw;
+        }
+        highest = std::max(highest, index);
+    }
+
+    g_stats.max_index = std::max(g_stats.max_index, highest);
+    const std::uint64_t vertex_bytes =
+        (static_cast<std::uint64_t>(highest) + 1u) * format.stride;
+    if (vertex_bytes > 0xFFFFFFFFull) return false;
+    if (!stage(runtime, vertex_address, static_cast<std::uint32_t>(vertex_bytes), g_vertex_staging))
+        return false;
+
+    out.resize(count);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        std::uint32_t index = 0u;
+        if (index_size == 1u) {
+            index = g_index_staging[i];
+        } else {
+            std::uint16_t raw{};
+            std::memcpy(&raw, g_index_staging.data() + static_cast<std::size_t>(i) * 2u, 2u);
+            index = raw;
+        }
+        out[i] = read_vertex(
+            g_vertex_staging.data() + static_cast<std::size_t>(index) * format.stride, format);
+    }
+    return true;
+}
+
+void VertexStats::Extent::add(float x, float y, float z) {
+    if (!any) {
+        min_x = max_x = x;
+        min_y = max_y = y;
+        min_z = max_z = z;
+        any = true;
+        return;
+    }
+    min_x = std::min(min_x, x);
+    max_x = std::max(max_x, x);
+    min_y = std::min(min_y, y);
+    max_y = std::max(max_y, y);
+    min_z = std::min(min_z, z);
+    max_z = std::max(max_z, z);
 }
 
 void vertex_reset() {
@@ -251,36 +338,21 @@ void note_draw(Runtime &runtime, std::uint32_t vtype, std::uint32_t vertex_addre
     if (format.color != 0u) ++g_stats.with_color;
     if (format.normal != 0u) ++g_stats.with_normal;
 
-    // An indexed draw reaches its vertices through the index buffer. Walking
-    // that is a separate step, so those are counted rather than decoded as if
-    // the vertices were consecutive, which would report confident nonsense.
-    if (index_address != 0u || format.index != 0u) {
+    static std::vector<Vertex> vertices;
+    const bool indexed = format.index != 0u;
+    const bool decoded =
+        indexed ? decode_indexed_vertices(runtime, format, vertex_address, index_address, count,
+                                          vertices)
+                : decode_vertices(runtime, format, vertex_address, count, vertices);
+    if (!decoded) {
         ++g_stats.draws_skipped;
         return;
     }
-
-    std::vector<Vertex> vertices;
-    if (!decode_vertices(runtime, format, vertex_address, count, vertices)) {
-        ++g_stats.draws_skipped;
-        return;
-    }
+    if (indexed) ++g_stats.indexed_decoded;
     ++g_stats.draws_decoded;
     g_stats.vertices_decoded += vertices.size();
-    for (const Vertex &vertex : vertices) {
-        if (!g_stats.any_position) {
-            g_stats.min_x = g_stats.max_x = vertex.x;
-            g_stats.min_y = g_stats.max_y = vertex.y;
-            g_stats.min_z = g_stats.max_z = vertex.z;
-            g_stats.any_position = true;
-            continue;
-        }
-        g_stats.min_x = std::min(g_stats.min_x, vertex.x);
-        g_stats.max_x = std::max(g_stats.max_x, vertex.x);
-        g_stats.min_y = std::min(g_stats.min_y, vertex.y);
-        g_stats.max_y = std::max(g_stats.max_y, vertex.y);
-        g_stats.min_z = std::min(g_stats.min_z, vertex.z);
-        g_stats.max_z = std::max(g_stats.max_z, vertex.z);
-    }
+    VertexStats::Extent &extent = format.through ? g_stats.screen : g_stats.model;
+    for (const Vertex &vertex : vertices) extent.add(vertex.x, vertex.y, vertex.z);
 }
 
 std::string vertex_report() {
@@ -290,12 +362,15 @@ std::string vertex_report() {
         << " skipped, " << stats.vertices_decoded << " vertices\n"
         << "  vertex content:     " << stats.with_uv << " textured, " << stats.with_color
         << " coloured, " << stats.with_normal << " with normals, " << stats.indexed_draws
-        << " indexed, " << stats.through_draws << " through\n";
-    if (stats.any_position) {
-        out << "  position extent:    x " << stats.min_x << ".." << stats.max_x << "  y "
-            << stats.min_y << ".." << stats.max_y << "  z " << stats.min_z << ".." << stats.max_z
-            << "\n";
-    }
+        << " indexed (" << stats.indexed_decoded << " walked, highest index "
+        << stats.max_index << "), " << stats.through_draws << " through\n";
+    const auto extent_line = [&out](const char *label, const VertexStats::Extent &extent) {
+        if (!extent.any) return;
+        out << label << " x " << extent.min_x << ".." << extent.max_x << "  y " << extent.min_y
+            << ".." << extent.max_y << "  z " << extent.min_z << ".." << extent.max_z << "\n";
+    };
+    extent_line("  screen extent:     ", stats.screen);
+    extent_line("  model extent:      ", stats.model);
     out << "  vertex types:      ";
     for (std::size_t i = 0; i < stats.vertex_types.size() && i < 6u; ++i) {
         const VertexFormat format = parse_vertex_type(stats.vertex_types[i].first);

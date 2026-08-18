@@ -2048,6 +2048,61 @@ void test_vertex_decoding() {
             "a null vertex address was accepted");
 }
 
+void test_indexed_vertices() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    constexpr std::uint32_t kVertices = 0x08800000u;
+    constexpr std::uint32_t kIndices = 0x08801000u;
+
+    // Four sprite-layout vertices, then the six indices that make a quad out of
+    // them - the exact shape this title issues.
+    const auto put = [&runtime](std::uint32_t at, std::uint32_t color, std::int16_t x,
+                                std::int16_t y) {
+        runtime.memory().store32(at, color);
+        runtime.memory().store16(at + 4u, static_cast<std::uint16_t>(x));
+        runtime.memory().store16(at + 6u, static_cast<std::uint16_t>(y));
+        runtime.memory().store16(at + 8u, 0u);
+    };
+    put(kVertices, 0xFF000001u, 10, 20);
+    put(kVertices + 12u, 0xFF000002u, 30, 20);
+    put(kVertices + 24u, 0xFF000003u, 30, 40);
+    put(kVertices + 36u, 0xFF000004u, 10, 40);
+    const std::uint16_t quad[6] = {0u, 1u, 2u, 0u, 2u, 3u};
+    for (std::size_t i = 0; i < 6u; ++i)
+        runtime.memory().store16(kIndices + static_cast<std::uint32_t>(i) * 2u, quad[i]);
+
+    // The sprite layout with 16-bit indices switched on.
+    const defjam::VertexFormat format = defjam::parse_vertex_type(0x0080011Cu | (2u << 11u));
+    require(format.index == 2u, "the index format was not read");
+    require(format.stride == 12u, "adding indices changed the vertex stride");
+
+    std::vector<defjam::Vertex> vertices;
+    require(defjam::decode_indexed_vertices(runtime, format, kVertices, kIndices, 6u, vertices),
+            "a well-formed indexed draw was rejected");
+    require(vertices.size() == 6u, "an indexed draw returns one vertex per index, not per vertex");
+
+    // Index order is what decides the shape; a decoder that ignored it and read
+    // consecutively would pass every other check but draw the wrong triangle.
+    require(vertices[0].x == 10.0f && vertices[0].y == 20.0f, "index 0 resolved wrongly");
+    require(vertices[2].x == 30.0f && vertices[2].y == 40.0f, "index 2 resolved wrongly");
+    require(vertices[3].x == 10.0f && vertices[3].y == 20.0f,
+            "the repeated index did not come back as the same vertex");
+    require(vertices[5].color == 0xFF000004u, "the last index resolved to the wrong vertex");
+
+    // An index buffer that runs past memory is refused rather than half-read.
+    require(!defjam::decode_indexed_vertices(runtime, format, kVertices, kIndices, 0x08000000u,
+                                             vertices),
+            "an oversized index buffer was accepted");
+    require(!defjam::decode_indexed_vertices(runtime, format, kVertices, 0u, 6u, vertices),
+            "a null index address was accepted");
+
+    // An index pointing past the end of memory must fail, not read whatever is
+    // there: the vertex array has no declared length, so the highest index used
+    // is the only bound available.
+    runtime.memory().store16(kIndices, 0xFFFFu);
+    require(!defjam::decode_indexed_vertices(runtime, format, 0x09FFFFF0u, kIndices, 6u, vertices),
+            "an index reaching past memory was accepted");
+}
+
 void test_vertex_colours() {
     psprecomp::Runtime runtime(32u * 1024u * 1024u);
     constexpr std::uint32_t kBase = 0x08800000u;
@@ -2114,6 +2169,7 @@ int main() {
         test_vertex_formats();
         test_vertex_decoding();
         test_vertex_colours();
+        test_indexed_vertices();
         std::cout << "All defjam config tests passed.\n";
         return 0;
     } catch (const std::exception &exception) {

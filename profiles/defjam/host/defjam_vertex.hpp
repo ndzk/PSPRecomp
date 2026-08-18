@@ -68,6 +68,17 @@ struct Vertex {
                                    std::uint32_t address, std::uint32_t count,
                                    std::vector<Vertex> &out);
 
+// Reads `count` indices at `index_address`, then the vertices they select from
+// the array at `vertex_address`. Indices are u8 or u16 depending on the format.
+//
+// The vertex array has no stated length, so the bound is the largest index the
+// draw actually uses: everything up to and including it must fit in guest
+// memory, or the draw is refused rather than half-read.
+[[nodiscard]] bool decode_indexed_vertices(psprecomp::Runtime &runtime, const VertexFormat &format,
+                                           std::uint32_t vertex_address,
+                                           std::uint32_t index_address, std::uint32_t count,
+                                           std::vector<Vertex> &out);
+
 // What the draws actually contained, accumulated across a run. This exists to
 // answer whether the interpreter hands a backend enough to work with, before
 // there is a backend to find out the hard way.
@@ -76,12 +87,21 @@ struct VertexStats {
     std::uint64_t draws_skipped{};      // no vertex address, or a format we could not read
     std::uint64_t vertices_decoded{};
     std::uint64_t indexed_draws{};
+    std::uint64_t indexed_decoded{};
+    std::uint32_t max_index{};      // the largest index any draw referenced
     std::uint64_t through_draws{};
     std::uint64_t with_uv{}, with_color{}, with_normal{};
-    // The extent of every decoded position, which shows at a glance whether the
-    // numbers are plausible coordinates or garbage.
-    float min_x{}, min_y{}, min_z{}, max_x{}, max_y{}, max_z{};
-    bool any_position{};
+    // The extent of decoded positions, kept apart for the two kinds of draw.
+    // Mixing them hides the answer: through-mode vertices are screen pixels and
+    // transformed ones are model coordinates, so one combined range is always
+    // dominated by whichever happens to be larger.
+    struct Extent {
+        float min_x{}, min_y{}, min_z{}, max_x{}, max_y{}, max_z{};
+        bool any{};
+        void add(float x, float y, float z);
+    };
+    Extent screen;      // through-mode
+    Extent model;       // transformed
     // Distinct VTYPE words seen, most frequent first when reported.
     std::vector<std::pair<std::uint32_t, std::uint64_t>> vertex_types;
 };
