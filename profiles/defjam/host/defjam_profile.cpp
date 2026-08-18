@@ -61,7 +61,12 @@ struct PartitionTable {
 // ---------------------------------------------------------------------------
 // Threads
 // ---------------------------------------------------------------------------
-enum class ThreadState { Created, Ready, Running, Sleeping, Delayed, Completed };
+// Sleeping and Waiting are both "blocked", but only Sleeping is what
+// sceKernelWakeupThread acts on. Collapsing them lets a wakeup aimed at a
+// sleeper tear a thread off a semaphore, leaving its entry in that
+// semaphore's queue for the next signal to pay out to a thread that is
+// already running.
+enum class ThreadState { Created, Ready, Running, Sleeping, Waiting, Delayed, Completed };
 
 struct ThreadRecord {
     std::string name;
@@ -83,6 +88,11 @@ struct ThreadRecord {
     AllegrexContext suspended{};
     std::uint32_t wakeup_count{};
     std::uint64_t delay_until_us{};
+    // A timed wait's deadline. The kernel calls these back with a timeout
+    // error rather than leaving them blocked, which is the whole point of the
+    // caller having passed one.
+    std::uint64_t wait_until_us{};
+    bool wait_has_deadline{};
     std::uint64_t ready_sequence{};
     bool waiting_thread_end{false};
     std::int32_t waiting_on_thread{-1};
@@ -96,6 +106,16 @@ struct ThreadTable {
     std::uint64_t switches{0};
     std::map<std::int32_t, ThreadRecord> threads;
 };
+
+// Kernel error codes a blocked thread can come back with. A timed wait that
+// expires and a wait whose object was deleted are both normal outcomes the
+// caller is expected to handle; reporting neither is what turns them into a
+// thread that never runs again.
+constexpr std::uint32_t kErrorWaitTimeout = 0x800201A8u;
+constexpr std::uint32_t kErrorWaitDelete = 0x800201ABu;
+constexpr std::uint32_t kErrorSemaZero = 0x800201ADu;
+constexpr std::uint32_t kErrorEvfCond = 0x800201B1u;
+constexpr std::uint32_t kErrorMboxNoMsg = 0x800201B4u;
 
 struct SemaphoreWaiter {
     std::int32_t thread_uid{};
@@ -435,15 +455,95 @@ ThreadRecord *thread_at(std::int32_t uid) {
 ThreadRecord *current_thread() { return thread_at(g_threads.current_uid); }
 
 void make_ready(ThreadRecord &thread) {
+    // A thread that has exited stays exited. It is still in the table, and
+    // still in whatever wait queues it was in when it died, so a later signal
+    // will find it and try to run it again.
+    if (thread.state == ThreadState::Completed) return;
     thread.state = ThreadState::Ready;
     thread.ready_sequence = ++g_threads.ready_sequence;
+}
+
+// Drops a thread from every queue it could be waiting in. A thread leaves a
+// wait for reasons the object it waited on knows nothing about - a timeout, or
+// the thread being terminated - and an entry left behind is later paid out to
+// somebody who is no longer waiting for it.
+void remove_from_wait_queues(std::int32_t uid) {
+    for (auto &[id, semaphore] : g_semaphores) {
+        (void)id;
+        auto &waiters = semaphore.waiters;
+        waiters.erase(std::remove_if(waiters.begin(), waiters.end(),
+                                     [uid](const SemaphoreWaiter &w) { return w.thread_uid == uid; }),
+                      waiters.end());
+    }
+    for (auto &[id, flag] : g_event_flags) {
+        (void)id;
+        auto &waiters = flag.waiters;
+        waiters.erase(std::remove_if(waiters.begin(), waiters.end(),
+                                     [uid](const EventFlagWaiter &w) { return w.thread_uid == uid; }),
+                      waiters.end());
+    }
+    for (auto &[id, mailbox] : g_mailboxes) {
+        (void)id;
+        auto &waiters = mailbox.waiters;
+        waiters.erase(std::remove_if(waiters.begin(), waiters.end(),
+                                     [uid](const MbxWaiter &w) { return w.thread_uid == uid; }),
+                      waiters.end());
+    }
+}
+
+// Ends a blocked thread's wait early, reporting `error` where the call it is
+// suspended in will return it.
+void cancel_wait(std::int32_t uid, ThreadRecord &thread, std::uint32_t error) {
+    remove_from_wait_queues(uid);
+    thread.wait_has_deadline = false;
+    thread.waiting_thread_end = false;
+    thread.waiting_on_thread = -1;
+    thread.suspended.set_gpr(2, error);
+    make_ready(thread);
+}
+
+// Deleting a kernel object is no reason for the threads queued on it to stop
+// existing. The kernel hands each of them the delete error and lets them run;
+// erasing the record underneath them strands them on something that is gone.
+void release_deleted_object_waiters(const std::vector<std::int32_t> &uids) {
+    for (std::int32_t uid : uids)
+        if (ThreadRecord *thread = thread_at(uid); thread != nullptr)
+            cancel_wait(uid, *thread, kErrorWaitDelete);
+}
+
+// Frees anything blocked in sceKernelWaitThreadEnd on this thread. Every path
+// that ends a thread owes this, and the one that did not was leaving its
+// joiners blocked for good.
+void wake_joiners(std::int32_t uid) {
+    for (auto &[other_uid, other] : g_threads.threads) {
+        (void)other_uid;
+        if (!other.waiting_thread_end || other.waiting_on_thread != uid) continue;
+        other.waiting_thread_end = false;
+        other.waiting_on_thread = -1;
+        other.wait_has_deadline = false;
+        other.suspended.set_gpr(2, 0u);
+        make_ready(other);
+    }
+}
+
+// Hands a blocked thread its wait back as a success.
+void complete_wait(ThreadRecord &thread) {
+    thread.wait_has_deadline = false;
+    thread.suspended.set_gpr(2, 0u);
+    make_ready(thread);
 }
 
 void promote_expired_delays() {
     for (auto &[uid, thread] : g_threads.threads) {
         if (thread.state == ThreadState::Delayed && thread.delay_until_us <= g_virtual_time_us) {
-            (void)uid;
             make_ready(thread);
+            continue;
+        }
+        // A timed wait that has run out comes back with a timeout, exactly as
+        // the caller asked for when it passed one.
+        if (thread.state == ThreadState::Waiting && thread.wait_has_deadline &&
+            thread.wait_until_us <= g_virtual_time_us) {
+            cancel_wait(uid, thread, kErrorWaitTimeout);
         }
     }
 }
@@ -476,8 +576,14 @@ bool activate_next_thread(Runtime &rt, AllegrexContext &ctx, const char *reason)
         std::optional<std::uint64_t> earliest;
         for (const auto &[uid, thread] : g_threads.threads) {
             (void)uid;
-            if (thread.state != ThreadState::Delayed) continue;
-            if (!earliest || thread.delay_until_us < *earliest) earliest = thread.delay_until_us;
+            // Both a delay and a timed wait are deadlines somebody is due to
+            // come back from. Looking only at delays reports a deadlock while
+            // a timeout is still pending.
+            if (thread.state == ThreadState::Delayed) {
+                if (!earliest || thread.delay_until_us < *earliest) earliest = thread.delay_until_us;
+            } else if (thread.state == ThreadState::Waiting && thread.wait_has_deadline) {
+                if (!earliest || thread.wait_until_us < *earliest) earliest = thread.wait_until_us;
+            }
         }
         if (!earliest) return false;
         g_virtual_time_us = std::max(g_virtual_time_us, *earliest);
@@ -510,6 +616,21 @@ bool block_current_thread(Runtime &rt, AllegrexContext &ctx, ThreadState state,
         return false;
     }
     return true;
+}
+
+// Blocks on a kernel object rather than in sceKernelSleepThread. `timeout_ptr`
+// is the guest pointer the caller passed: it holds a limit in microseconds,
+// and a null pointer means "for as long as it takes". Every one of these used
+// to discard the limit, which turned every timed wait in the title into an
+// unbounded one.
+bool block_on_object(Runtime &rt, AllegrexContext &ctx, std::uint32_t timeout_ptr,
+                     const char *reason) {
+    if (ThreadRecord *thread = current_thread(); thread != nullptr) {
+        thread->wait_has_deadline = timeout_ptr != 0u && rt.memory().contains(timeout_ptr, 4u);
+        if (thread->wait_has_deadline)
+            thread->wait_until_us = g_virtual_time_us + rt.memory().load32(timeout_ptr);
+    }
+    return block_current_thread(rt, ctx, ThreadState::Waiting, make_wait_context(ctx), reason);
 }
 
 // `result` is what the guest sees in v0 once it resumes, which matters for
@@ -560,15 +681,7 @@ void thread_return_trampoline(Runtime &rt, AllegrexContext &ctx) {
         thread->state = ThreadState::Completed;
         runtime_log_line("thread " + std::to_string(g_threads.current_uid) + " (" + thread->name +
                          ") returned, status=" + std::to_string(thread->exit_status));
-        // Wake anything blocked in sceKernelWaitThreadEnd on this thread.
-        for (auto &[uid, other] : g_threads.threads) {
-            (void)uid;
-            if (other.waiting_thread_end && other.waiting_on_thread == g_threads.current_uid) {
-                other.waiting_thread_end = false;
-                other.waiting_on_thread = -1;
-                make_ready(other);
-            }
-        }
+        wake_joiners(g_threads.current_uid);
     }
     if (!activate_next_thread(rt, ctx, "thread-exit")) {
         rt.stop("all PSP threads have exited");
@@ -1039,25 +1152,31 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         if (thread != nullptr) {
             thread->exit_status = ctx.gpr[4];
             thread->state = ThreadState::Completed;
-            for (auto &[uid, other] : g_threads.threads) {
-                (void)uid;
-                if (other.waiting_thread_end && other.waiting_on_thread == g_threads.current_uid) {
-                    other.waiting_thread_end = false;
-                    other.waiting_on_thread = -1;
-                    make_ready(other);
-                }
-            }
+            wake_joiners(g_threads.current_uid);
         }
         if (!activate_next_thread(rt, ctx, "exit-thread")) rt.stop("all PSP threads have exited");
     };
     runtime.register_hle("ThreadManForUser", 0xAA73C935u, exit_thread);  // ExitThread
     runtime.register_hle("ThreadManForUser", 0x809CE29Bu, exit_thread);  // ExitDeleteThread
     const auto terminate_thread = [](Runtime &rt, AllegrexContext &ctx) {
-        ThreadRecord *thread = thread_at(static_cast<std::int32_t>(ctx.gpr[4]));
+        const auto uid = static_cast<std::int32_t>(ctx.gpr[4]);
+        ThreadRecord *thread = thread_at(uid);
         if (thread == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
         thread->state = ThreadState::Completed;
+        thread->wait_has_deadline = false;
+        // It is no longer waiting for anything, and anything waiting for it is
+        // now free. Leaving its entries behind has a later signal pay out to a
+        // thread that is never going to collect.
+        remove_from_wait_queues(uid);
+        wake_joiners(uid);
+        if (uid == g_threads.current_uid) {
+            // A thread that terminates itself has nowhere to return to;
+            // carrying on would keep executing inside one marked Completed.
+            if (!activate_next_thread(rt, ctx, "terminate-self"))
+                rt.stop("all PSP threads have exited");
+            return;
+        }
         set_success(ctx);
-        (void)rt;
     };
     runtime.register_hle("ThreadManForUser", 0x616403BAu, terminate_thread);
     runtime.register_hle("ThreadManForUser", 0x383F7BCCu, terminate_thread);
@@ -1102,8 +1221,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         if (self == nullptr) { set_success(ctx); return; }
         self->waiting_thread_end = true;
         self->waiting_on_thread = target;
-        (void)block_current_thread(rt, ctx, ThreadState::Sleeping, make_wait_context(ctx),
-                                   "wait-thread-end");
+        (void)block_on_object(rt, ctx, ctx.gpr[5], "wait-thread-end");   // $a1 is the timeout
     };
     runtime.register_hle("ThreadManForUser", 0x278C0DF5u, wait_thread_end);
     runtime.register_hle("ThreadManForUser", 0x840E8133u, wait_thread_end);
@@ -1148,7 +1266,14 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         set_return(ctx, static_cast<std::uint32_t>(uid));
     });
     runtime.register_hle("ThreadManForUser", 0x28B6489Cu, [](Runtime &, AllegrexContext &ctx) {
-        g_semaphores.erase(static_cast<std::int32_t>(ctx.gpr[4]));
+        const auto it = g_semaphores.find(static_cast<std::int32_t>(ctx.gpr[4]));
+        if (it != g_semaphores.end()) {
+            std::vector<std::int32_t> waiting;
+            for (const SemaphoreWaiter &waiter : it->second.waiters)
+                waiting.push_back(waiter.thread_uid);
+            g_semaphores.erase(it);
+            release_deleted_object_waiters(waiting);
+        }
         set_success(ctx);
     });
     runtime.register_hle("ThreadManForUser", 0x3F53E640u, [](Runtime &rt, AllegrexContext &ctx) {
@@ -1157,10 +1282,18 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         it->second.count += static_cast<std::int32_t>(ctx.gpr[5]);
         // Release waiters in FIFO order while the count covers them.
         auto &waiters = it->second.waiters;
-        while (!waiters.empty() && it->second.count >= waiters.front().requested) {
+        while (!waiters.empty()) {
+            ThreadRecord *thread = thread_at(waiters.front().thread_uid);
+            // A waiter that has since exited is dropped rather than paid.
+            // Taking the count for a thread that will never wake spends those
+            // units permanently, and the semaphore never recovers them.
+            if (thread == nullptr || thread->state == ThreadState::Completed) {
+                waiters.erase(waiters.begin());
+                continue;
+            }
+            if (it->second.count < waiters.front().requested) break;
             it->second.count -= waiters.front().requested;
-            if (ThreadRecord *thread = thread_at(waiters.front().thread_uid); thread != nullptr)
-                make_ready(*thread);
+            complete_wait(*thread);
             waiters.erase(waiters.begin());
         }
         set_success(ctx);
@@ -1176,7 +1309,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             return;
         }
         it->second.waiters.push_back(SemaphoreWaiter{g_threads.current_uid, requested});
-        (void)block_current_thread(rt, ctx, ThreadState::Sleeping, make_wait_context(ctx), "sema");
+        (void)block_on_object(rt, ctx, ctx.gpr[6], "sema");   // $a2 is the timeout
     };
     runtime.register_hle("ThreadManForUser", 0x4E3A1105u, wait_sema);
     runtime.register_hle("ThreadManForUser", 0x6D212BACu, wait_sema);
@@ -1185,7 +1318,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         if (it == g_semaphores.end()) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
         const std::int32_t requested = static_cast<std::int32_t>(ctx.gpr[5]);
         if (it->second.count < requested) {
-            set_return(ctx, 0x800201ADu);  // SCE_KERNEL_ERROR_SEMA_ZERO
+            set_return(ctx, kErrorSemaZero);
             return;
         }
         it->second.count -= requested;
@@ -1216,7 +1349,14 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         set_return(ctx, static_cast<std::uint32_t>(uid));
     });
     runtime.register_hle("ThreadManForUser", 0xEF9E4C70u, [](Runtime &, AllegrexContext &ctx) {
-        g_event_flags.erase(static_cast<std::int32_t>(ctx.gpr[4]));
+        const auto it = g_event_flags.find(static_cast<std::int32_t>(ctx.gpr[4]));
+        if (it != g_event_flags.end()) {
+            std::vector<std::int32_t> waiting;
+            for (const EventFlagWaiter &waiter : it->second.waiters)
+                waiting.push_back(waiter.thread_uid);
+            g_event_flags.erase(it);
+            release_deleted_object_waiters(waiting);
+        }
         set_success(ctx);
     });
     runtime.register_hle("ThreadManForUser", 0x1FB15A32u,
@@ -1226,6 +1366,13 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             it->second.pattern |= ctx.gpr[5];
             auto &waiters = it->second.waiters;
             for (auto waiter = waiters.begin(); waiter != waiters.end();) {
+                ThreadRecord *thread = thread_at(waiter->thread_uid);
+                // Drop a waiter that has exited without letting it consume the
+                // pattern, which would clear bits nobody is there to receive.
+                if (thread == nullptr || thread->state == ThreadState::Completed) {
+                    waiter = waiters.erase(waiter);
+                    continue;
+                }
                 if (!event_flag_matches(it->second, waiter->pattern, waiter->mode)) {
                     ++waiter;
                     continue;
@@ -1233,8 +1380,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
                 if (waiter->result_ptr != 0u)
                     rt.memory().store32(waiter->result_ptr, it->second.pattern);
                 consume_event_flag(it->second, waiter->pattern, waiter->mode);
-                if (ThreadRecord *thread = thread_at(waiter->thread_uid); thread != nullptr)
-                    make_ready(*thread);
+                complete_wait(*thread);
                 waiter = waiters.erase(waiter);
             }
             set_success(ctx);
@@ -1261,8 +1407,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             }
             it->second.waiters.push_back(
                 EventFlagWaiter{g_threads.current_uid, pattern, mode, result_ptr});
-            (void)block_current_thread(rt, ctx, ThreadState::Sleeping, make_wait_context(ctx),
-                                       "event-flag");
+            (void)block_on_object(rt, ctx, ctx.gpr[8], "event-flag");   // $t0 is the timeout
         };
     runtime.register_hle("ThreadManForUser", 0x402FCF22u, wait_event_flag);
     runtime.register_hle("ThreadManForUser", 0x30FD48F0u,
@@ -1272,7 +1417,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             const std::uint32_t pattern = ctx.gpr[5];
             const std::uint32_t mode = ctx.gpr[6];
             if (!event_flag_matches(it->second, pattern, mode)) {
-                set_return(ctx, 0x800201A8u);  // SCE_KERNEL_ERROR_EVF_COND
+                set_return(ctx, kErrorEvfCond);
                 return;
             }
             if (ctx.gpr[7] != 0u) rt.memory().store32(ctx.gpr[7], it->second.pattern);
@@ -1291,22 +1436,34 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         set_return(ctx, static_cast<std::uint32_t>(uid));
     });
     runtime.register_hle("ThreadManForUser", 0x86255ADAu, [](Runtime &, AllegrexContext &ctx) {
-        g_mailboxes.erase(static_cast<std::int32_t>(ctx.gpr[4]));
+        const auto it = g_mailboxes.find(static_cast<std::int32_t>(ctx.gpr[4]));
+        if (it != g_mailboxes.end()) {
+            std::vector<std::int32_t> waiting;
+            for (const MbxWaiter &waiter : it->second.waiters) waiting.push_back(waiter.thread_uid);
+            g_mailboxes.erase(it);
+            release_deleted_object_waiters(waiting);
+        }
         set_success(ctx);
     });
     runtime.register_hle("ThreadManForUser", 0xE9B3061Eu, [](Runtime &rt, AllegrexContext &ctx) {
         const auto it = g_mailboxes.find(static_cast<std::int32_t>(ctx.gpr[4]));
         if (it == g_mailboxes.end()) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
         const std::uint32_t message = ctx.gpr[5];
-        if (!it->second.waiters.empty()) {
+        // Skip past any waiter that has exited. Delivering into a dead thread's
+        // buffer and calling it sent loses the message outright, where queuing
+        // it leaves it for whoever receives next.
+        bool delivered = false;
+        while (!it->second.waiters.empty()) {
             const MbxWaiter waiter = it->second.waiters.front();
             it->second.waiters.erase(it->second.waiters.begin());
+            ThreadRecord *thread = thread_at(waiter.thread_uid);
+            if (thread == nullptr || thread->state == ThreadState::Completed) continue;
             if (waiter.message_out != 0u) rt.memory().store32(waiter.message_out, message);
-            if (ThreadRecord *thread = thread_at(waiter.thread_uid); thread != nullptr)
-                make_ready(*thread);
-        } else {
-            it->second.messages.push_back(MbxMessage{message});
+            complete_wait(*thread);
+            delivered = true;
+            break;
         }
+        if (!delivered) it->second.messages.push_back(MbxMessage{message});
         set_success(ctx);
         preempt_if_higher_priority(rt, ctx);
     });
@@ -1321,14 +1478,14 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             return;
         }
         it->second.waiters.push_back(MbxWaiter{g_threads.current_uid, ctx.gpr[5]});
-        (void)block_current_thread(rt, ctx, ThreadState::Sleeping, make_wait_context(ctx), "mbx");
+        (void)block_on_object(rt, ctx, ctx.gpr[6], "mbx");   // $a2 is the timeout
     };
     runtime.register_hle("ThreadManForUser", 0x18260574u, receive_mbx);
     runtime.register_hle("ThreadManForUser", 0xF3986382u, receive_mbx);
     runtime.register_hle("ThreadManForUser", 0x0D81716Au, [](Runtime &rt, AllegrexContext &ctx) {
         const auto it = g_mailboxes.find(static_cast<std::int32_t>(ctx.gpr[4]));
         if (it == g_mailboxes.end() || it->second.messages.empty()) {
-            set_return(ctx, 0x800201B4u);  // SCE_KERNEL_ERROR_MBOX_NOMSG
+            set_return(ctx, kErrorMboxNoMsg);
             return;
         }
         const std::uint32_t message = it->second.messages.front().address;
@@ -2021,7 +2178,8 @@ void report_headless_stats() {
 }
 
 std::string thread_report() {
-    static const char *names[] = {"created", "ready", "running", "sleeping", "delayed", "done"};
+    static const char *names[] = {"created", "ready",   "running",
+                                  "sleeping", "waiting", "delayed", "done"};
     std::ostringstream out;
     for (const auto &[uid, thread] : g_threads.threads) {
         if (thread.state == ThreadState::Completed) continue;
