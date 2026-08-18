@@ -38,6 +38,19 @@ struct ProgramAnalysis {
 [[nodiscard]] bool is_executable_address(const std::vector<ExecutableRange> &ranges,
                                          std::uint32_t address) noexcept;
 
+// Walks code that is already in memory, from a set of executable ranges and a
+// set of entry points, without needing an executable file behind it.
+//
+// This is what analyze_program does once it has finished asking the ELF where
+// the code is and where to start looking. It is separate because not all guest
+// code arrives in an ELF: a title may load a relocatable blob from a data file
+// at run time and call into it, and that code has to be analysed from the
+// bytes and a base address alone.
+[[nodiscard]] ProgramAnalysis analyze_image(std::vector<ExecutableRange> ranges,
+                                            std::map<std::uint32_t, std::string> seeds,
+                                            const GuestMemory &memory,
+                                            std::size_t max_instructions_per_function = 131072u);
+
 [[nodiscard]] ProgramAnalysis analyze_program(const Elf32Image &elf,
                                               const GuestMemory &memory,
                                               std::uint32_t load_base,
