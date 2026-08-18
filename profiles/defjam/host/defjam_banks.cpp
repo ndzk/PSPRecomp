@@ -2,7 +2,7 @@
 
 #include "psprecomp/common.hpp"
 
-#include <array>
+#include <cstring>
 #include <iostream>
 #include <set>
 #include <sstream>
@@ -13,16 +13,18 @@ namespace {
 
 BankStats g_stats;
 // A bank is read once and stays put, but the same routine appears in several
-// banks, so registering it twice at the same address has to be harmless.
+// banks, so being offered one twice at the same address has to be harmless.
 std::set<std::uint32_t> g_registered;
 
 constexpr std::uint32_t kHeaderCodeStart = 132u;
 constexpr std::uint32_t kHeaderCodeEnd = 136u;
 constexpr std::uint32_t kJrRa = 0x03E00008u;
+constexpr std::uint32_t kAbkcMagic = 0x434B4241u;   // "ABKC", little endian
 
 // The routine identifies itself by its bytes, before the game links it. FNV-1a
 // is here because it is four lines and this is an identity check against a
-// short list, not a security boundary.
+// known list, not a security boundary. The offline tool computes the same value
+// over the same bytes, so the two cannot disagree about what a routine is.
 std::uint64_t fingerprint(const std::vector<std::uint8_t> &bytes) {
     std::uint64_t hash = 0xcbf29ce484222325ull;
     for (const std::uint8_t byte : bytes) {
@@ -40,35 +42,38 @@ struct KnownRoutine {
 } // namespace
 } // namespace defjam
 
+// The generated list is expanded twice - once into the declarations, once into
+// the table - so the two cannot drift apart. recompile_bank_code.ps1 writes it.
 #if defined(DEFJAM_HAS_GENERATED_CORPUS)
 namespace psprecomp {
-void register_recomp_unit_0400_at(Runtime &rt, std::uint32_t base);
-void register_recomp_unit_0401_at(Runtime &rt, std::uint32_t base);
+#define BANK_ROUTINE(fingerprint, symbol, name) \
+    void register_##symbol##_at(Runtime &rt, std::uint32_t base);
+#include "../generated/generated_bank_routines.inc"
+#undef BANK_ROUTINE
 } // namespace psprecomp
 #endif
 
 namespace defjam {
 namespace {
 
-// Every audio bank routine that has been through psp_recomp --relocatable.
-// The fingerprints are measured, not chosen: each is the FNV-1a of the code
-// region exactly as it sits in the file the routine was recompiled from.
-constexpr std::array<KnownRoutine, 2> kKnownRoutines{{
+constexpr KnownRoutine kKnownRoutines[] = {
 #if defined(DEFJAM_HAS_GENERATED_CORPUS)
-    {0x1A3CAE0C50E1BAE2ull, &psprecomp::register_recomp_unit_0400_at, "unit 400"},
-    {0xD716155277D737F3ull, &psprecomp::register_recomp_unit_0401_at, "unit 401"},
-#else
-    {0ull, nullptr, nullptr},
-    {0ull, nullptr, nullptr},
+#define BANK_ROUTINE(fingerprint, symbol, name) \
+    {fingerprint, &psprecomp::register_##symbol##_at, name},
+#include "../generated/generated_bank_routines.inc"
+#undef BANK_ROUTINE
 #endif
-}};
+    // Keeps the array well formed when no corpus is linked, and is skipped by
+    // the null check below.
+    {0ull, nullptr, nullptr},
+};
 
 } // namespace
 
 void note_possible_bank(psprecomp::Runtime &runtime, std::uint32_t address, std::uint32_t length) {
     if (length < 600u) return;
     if (!runtime.memory().contains(address, 600u)) return;
-    if (runtime.memory().load32(address) != 0x434B4241u) return;   // "ABKC", little endian
+    if (runtime.memory().load32(address) != kAbkcMagic) return;
 
     const std::uint32_t code_start = runtime.memory().load32(address + kHeaderCodeStart);
     const std::uint32_t code_end = runtime.memory().load32(address + kHeaderCodeEnd);
@@ -79,8 +84,10 @@ void note_possible_bank(psprecomp::Runtime &runtime, std::uint32_t address, std:
     const std::uint32_t code_address = address + code_start;
     const std::uint32_t code_length = code_end - code_start;
     if (!runtime.memory().contains(code_address, code_length)) return;
-    // The same two invariants the offline tool checks, so a buffer that merely
+    // The same invariants the offline tool checks, so a buffer that merely
     // starts with the right four bytes is not mistaken for a bank.
+    const std::uint32_t first = runtime.memory().load32(code_address);
+    if ((first >> 16u) != 0x27BDu || (first & 0x8000u) == 0u) return;
     if (runtime.memory().load32(code_address + code_length - 8u) != kJrRa) return;
 
     ++g_stats.banks_seen;
@@ -95,14 +102,12 @@ void note_possible_bank(psprecomp::Runtime &runtime, std::uint32_t address, std:
         known.register_at(runtime, code_address);
         g_registered.insert(code_address);
         ++g_stats.routines_registered;
-        std::cout << "  bank routine:       " << known.name << " registered at "
-                  << psprecomp::hex32(code_address) << "\n" << std::flush;
         return;
     }
 
-    // Saying so is the point. A routine nobody recompiled will stop the run the
+    // Saying so is the point. A routine nobody recompiled stops the run the
     // moment the sound engine calls it, and the fingerprint printed here is
-    // what psp_recomp --relocatable has to be pointed at to fix that.
+    // what recompile_bank_code.ps1 has to be pointed at to fix that.
     ++g_stats.routines_unknown;
     g_registered.insert(code_address);
     std::ostringstream note;

@@ -8,13 +8,13 @@
 
 namespace psprecomp {
 
-static const std::uint16_t kEntryIds_recomp_unit_0401[67] = {
-    1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7,
-    0, 0, 8,
+static const std::uint16_t kEntryIds_recomp_unit_0416[77] = {
+    1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
+    0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 7, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 8, 0, 0, 0, 9, 0, 0, 10,
 };
-void recomp_unit_0401_entry(Runtime &rt, AllegrexContext &ctx, std::uint16_t direct_entry_id, GuestMemory::AotFastView &aot_mem) {
-    const std::uint32_t unit_base = rt.unit_base(401u);
+void recomp_unit_0416_entry(Runtime &rt, AllegrexContext &ctx, std::uint16_t direct_entry_id, GuestMemory::AotFastView &aot_mem) {
+    const std::uint32_t unit_base = rt.unit_base(416u);
     std::uint32_t jump_target = 0u;
     std::uint32_t local_transfers = 0u;
     std::uint32_t local_pc = ctx.pc;
@@ -23,17 +23,19 @@ LOCAL_DISPATCH:
     {
     if (entry_id == 0u) {
         const std::uint32_t entry_delta = local_pc - unit_base;
-        entry_id = (entry_delta < 268u && (entry_delta & 3u) == 0u) ? kEntryIds_recomp_unit_0401[entry_delta >> 2u] : 0u;
+        entry_id = (entry_delta < 308u && (entry_delta & 3u) == 0u) ? kEntryIds_recomp_unit_0416[entry_delta >> 2u] : 0u;
     }
     switch (entry_id) {
     case 1u: goto L_09000000;
     case 2u: goto L_09000018;
     case 3u: goto L_09000050;
-    case 4u: goto L_09000074;
-    case 5u: goto L_090000C4;
-    case 6u: goto L_090000D4;
-    case 7u: goto L_090000FC;
-    case 8u: goto L_09000108;
+    case 4u: goto L_0900007C;
+    case 5u: goto L_0900008C;
+    case 6u: goto L_090000DC;
+    case 7u: goto L_090000EC;
+    case 8u: goto L_09000114;
+    case 9u: goto L_09000124;
+    case 10u: goto L_09000130;
     default:
         if (local_transfers == 0u) rt.unsupported(ctx.pc, 0u, "invalid internal function entry");
         else ctx.pc = local_pc;
@@ -51,17 +53,17 @@ L_09000000:
     if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x00000018u)) goto L_09000018;
     return;
 L_09000018:
-    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(296), ctx.gpr[2]);
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(352), ctx.gpr[2]);
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(20));
     ctx.set_gpr(2, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(24)));
-    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(192), ctx.gpr[2]);
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(208), ctx.gpr[2]);
+    ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(28));
+    ctx.set_gpr(2, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(24)));
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(184), ctx.gpr[2]);
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(28));
     ctx.set_gpr(2, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(24)));
     rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(168), ctx.gpr[2]);
-    ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(28));
-    ctx.set_gpr(2, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(24)));
-    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(152), ctx.gpr[2]);
-    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(92), ctx.gpr[2]);
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(108), ctx.gpr[2]);
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(28));
     ctx.set_gpr(31, (unit_base + 0x00000050u));
     ctx.set_gpr(4, ctx.gpr[16] | 0u);
@@ -69,19 +71,29 @@ L_09000018:
     if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x00000050u)) goto L_09000050;
     return;
 L_09000050:
-    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(148), ctx.gpr[2]);
-    ctx.set_gpr(2, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(24)));
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(156), ctx.gpr[2]);
     rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(44), ctx.gpr[2]);
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(180), ctx.gpr[2]);
+    ctx.set_gpr(2, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(24)));
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(60), ctx.gpr[2]);
     ctx.set_gpr(2, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(28)));
-    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(48), ctx.gpr[2]);
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(64), ctx.gpr[2]);
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(32));
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(0));
-    ctx.set_gpr(31, (unit_base + 0x00000074u));
+    ctx.set_gpr(31, (unit_base + 0x0000007Cu));
     ctx.set_gpr(4, ctx.gpr[16] | 0u);
     ctx.pc = 0x08A6C038u;
-    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x00000074u)) goto L_09000074;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x0000007Cu)) goto L_0900007C;
     return;
-L_09000074:
+L_0900007C:
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(200), ctx.gpr[2]);
+    ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(16));
+    ctx.set_gpr(31, (unit_base + 0x0000008Cu));
+    ctx.set_gpr(4, ctx.gpr[16] | 0u);
+    ctx.pc = 0x08A6C038u;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x0000008Cu)) goto L_0900008C;
+    return;
+L_0900008C:
     rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(24), ctx.gpr[2]);
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(16));
     ctx.set_gpr(2, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(0)));
@@ -92,7 +104,7 @@ L_09000074:
     ctx.set_gpr(2, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(0)));
     ctx.set_gpr(3, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(4)));
     ctx.set_gpr(2, ctx.gpr[2] + ctx.gpr[3]);
-    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(96), ctx.gpr[2]);
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(112), ctx.gpr[2]);
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(8));
     ctx.set_gpr(2, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(0)));
     ctx.set_gpr(3, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(4)));
@@ -100,41 +112,49 @@ L_09000074:
     ctx.set_gpr(2, ctx.lo);
     rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(32), ctx.gpr[2]);
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(8));
-    ctx.set_gpr(31, (unit_base + 0x000000C4u));
+    ctx.set_gpr(31, (unit_base + 0x000000DCu));
     ctx.set_gpr(4, ctx.gpr[16] | 0u);
     ctx.pc = 0x08A6D1C0u;
-    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x000000C4u)) goto L_090000C4;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x000000DCu)) goto L_090000DC;
     return;
-L_090000C4:
+L_090000DC:
     rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(44), ctx.gpr[2]);
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(28));
-    ctx.set_gpr(31, (unit_base + 0x000000D4u));
+    ctx.set_gpr(31, (unit_base + 0x000000ECu));
     ctx.set_gpr(4, ctx.gpr[16] | 0u);
     ctx.pc = 0x08A6C3E4u;
-    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x000000D4u)) goto L_090000D4;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x000000ECu)) goto L_090000EC;
     return;
-L_090000D4:
-    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(76), ctx.gpr[2]);
+L_090000EC:
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(92), ctx.gpr[2]);
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(20));
     ctx.set_gpr(2, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(0)));
     ctx.set_gpr(3, rt.memory().aot_load32(ctx.gpr[16] + static_cast<std::uint32_t>(4)));
     { const std::int64_t product = static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[2])) * static_cast<std::int64_t>(static_cast<std::int32_t>(ctx.gpr[3])); ctx.lo = static_cast<std::uint32_t>(product); ctx.hi = static_cast<std::uint32_t>(static_cast<std::uint64_t>(product) >> 32u); }
     ctx.set_gpr(2, ctx.lo);
-    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(44), ctx.gpr[2]);
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(60), ctx.gpr[2]);
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(8));
-    ctx.set_gpr(31, (unit_base + 0x000000FCu));
+    ctx.set_gpr(31, (unit_base + 0x00000114u));
+    ctx.set_gpr(4, ctx.gpr[16] | 0u);
+    ctx.pc = 0x08A6C038u;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x00000114u)) goto L_09000114;
+    return;
+L_09000114:
+    rt.memory().aot_store32(ctx.gpr[16] + static_cast<std::uint32_t>(76), ctx.gpr[2]);
+    ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(16));
+    ctx.set_gpr(31, (unit_base + 0x00000124u));
     ctx.set_gpr(4, ctx.gpr[16] | 0u);
     ctx.pc = 0x08A6CE4Cu;
-    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x000000FCu)) goto L_090000FC;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x00000124u)) goto L_09000124;
     return;
-L_090000FC:
-    ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(52));
-    ctx.set_gpr(31, (unit_base + 0x00000108u));
+L_09000124:
+    ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(76));
+    ctx.set_gpr(31, (unit_base + 0x00000130u));
     ctx.set_gpr(4, ctx.gpr[16] | 0u);
     ctx.pc = 0x08A6D7B4u;
-    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x00000108u)) goto L_09000108;
+    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == (unit_base + 0x00000130u)) goto L_09000130;
     return;
-L_09000108:
+L_09000130:
     ctx.set_gpr(16, ctx.gpr[16] + static_cast<std::uint32_t>(16));
     ctx.set_gpr(31, rt.memory().aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(4)));
     ctx.set_gpr(16, rt.memory().aot_load32(ctx.gpr[29] + static_cast<std::uint32_t>(0)));
@@ -146,22 +166,24 @@ L_09000108:
     return;
 }
 
-void recomp_unit_0401(Runtime &rt, AllegrexContext &ctx) {
+void recomp_unit_0416(Runtime &rt, AllegrexContext &ctx) {
     auto aot_mem = rt.memory().aot_fast_view();
-    recomp_unit_0401_entry(rt, ctx, 0u, aot_mem);
+    recomp_unit_0416_entry(rt, ctx, 0u, aot_mem);
 }
 
 
-void register_recomp_unit_0401_at(Runtime &rt, std::uint32_t base) {
-    rt.set_unit_base(401u, base);
-    rt.register_function(base + 0x00000000u, &recomp_unit_0401, "recomp_unit_0401+0x00000000");
-    rt.register_function(base + 0x00000018u, &recomp_unit_0401, "recomp_unit_0401+0x00000018");
-    rt.register_function(base + 0x00000050u, &recomp_unit_0401, "recomp_unit_0401+0x00000050");
-    rt.register_function(base + 0x00000074u, &recomp_unit_0401, "recomp_unit_0401+0x00000074");
-    rt.register_function(base + 0x000000C4u, &recomp_unit_0401, "recomp_unit_0401+0x000000C4");
-    rt.register_function(base + 0x000000D4u, &recomp_unit_0401, "recomp_unit_0401+0x000000D4");
-    rt.register_function(base + 0x000000FCu, &recomp_unit_0401, "recomp_unit_0401+0x000000FC");
-    rt.register_function(base + 0x00000108u, &recomp_unit_0401, "recomp_unit_0401+0x00000108");
+void register_recomp_unit_0416_at(Runtime &rt, std::uint32_t base) {
+    rt.set_unit_base(416u, base);
+    rt.register_function(base + 0x00000000u, &recomp_unit_0416, "recomp_unit_0416+0x00000000");
+    rt.register_function(base + 0x00000018u, &recomp_unit_0416, "recomp_unit_0416+0x00000018");
+    rt.register_function(base + 0x00000050u, &recomp_unit_0416, "recomp_unit_0416+0x00000050");
+    rt.register_function(base + 0x0000007Cu, &recomp_unit_0416, "recomp_unit_0416+0x0000007C");
+    rt.register_function(base + 0x0000008Cu, &recomp_unit_0416, "recomp_unit_0416+0x0000008C");
+    rt.register_function(base + 0x000000DCu, &recomp_unit_0416, "recomp_unit_0416+0x000000DC");
+    rt.register_function(base + 0x000000ECu, &recomp_unit_0416, "recomp_unit_0416+0x000000EC");
+    rt.register_function(base + 0x00000114u, &recomp_unit_0416, "recomp_unit_0416+0x00000114");
+    rt.register_function(base + 0x00000124u, &recomp_unit_0416, "recomp_unit_0416+0x00000124");
+    rt.register_function(base + 0x00000130u, &recomp_unit_0416, "recomp_unit_0416+0x00000130");
 }
 
 } // namespace psprecomp
