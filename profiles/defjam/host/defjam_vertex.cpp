@@ -1,6 +1,8 @@
 #include "defjam_vertex.hpp"
 
 #include "defjam_profile.hpp"
+#include "defjam_raster.hpp"
+#include "defjam_texture.hpp"
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
@@ -328,7 +330,8 @@ VertexStats vertex_stats() {
     return stats;
 }
 
-void note_draw(Runtime &runtime, std::uint32_t vtype, std::uint32_t vertex_address,
+void note_draw(Runtime &runtime, std::uint32_t primitive, std::uint32_t vtype,
+               std::uint32_t vertex_address,
                std::uint32_t index_address, std::uint32_t count) {
     ++g_types[vtype];
     const VertexFormat format = parse_vertex_type(vtype);
@@ -351,6 +354,10 @@ void note_draw(Runtime &runtime, std::uint32_t vtype, std::uint32_t vertex_addre
     if (indexed) ++g_stats.indexed_decoded;
     ++g_stats.draws_decoded;
     g_stats.vertices_decoded += vertices.size();
+    // Hand the decoded vertices to the rasteriser. It draws the screen-space
+    // ones and counts the rest.
+    (void)rasterise(runtime, primitive, vertices, format, current_texture_state());
+
     VertexStats::Extent &extent = format.through ? g_stats.screen : g_stats.model;
     for (const Vertex &vertex : vertices) extent.add(vertex.x, vertex.y, vertex.z);
 }

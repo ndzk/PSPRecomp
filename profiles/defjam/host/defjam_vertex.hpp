@@ -110,7 +110,8 @@ void vertex_reset();
 [[nodiscard]] std::string vertex_report();
 
 // Called by the display-list interpreter for each PRIM.
-void note_draw(psprecomp::Runtime &runtime, std::uint32_t vtype, std::uint32_t vertex_address,
+void note_draw(psprecomp::Runtime &runtime, std::uint32_t primitive, std::uint32_t vtype,
+               std::uint32_t vertex_address,
                std::uint32_t index_address, std::uint32_t count);
 
 } // namespace defjam

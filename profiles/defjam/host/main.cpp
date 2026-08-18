@@ -4,6 +4,7 @@
 #include "defjam_io.hpp"
 #include "defjam_mpeg.hpp"
 #include "defjam_utility.hpp"
+#include "defjam_raster.hpp"
 #include "defjam_texture.hpp"
 #include "defjam_vertex.hpp"
 #include "defjam_profile.hpp"
@@ -258,6 +259,15 @@ int main(int argc, char **argv) {
         std::cout << defjam::ge_report();
         std::cout << defjam::vertex_report();
         std::cout << defjam::texture_report();
+        std::cout << defjam::raster_report();
+        if (const std::string dump = defjam::frame_dump_path(); !dump.empty()) {
+            std::string dump_error;
+            if (defjam::dump_display(runtime, dump, dump_error)) {
+                std::cout << "  frame written:      " << dump << "\n";
+            } else {
+                std::cerr << "  frame not written:  " << dump_error << "\n";
+            }
+        }
         const defjam::IoStats io = defjam::io_stats();
         std::cout << "  file opens:         " << io.opens << " (" << io.failed_opens << " failed)\n"
                   << "  reads:              " << io.reads << ", " << io.bytes_read << " bytes\n"

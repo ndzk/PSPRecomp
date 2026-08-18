@@ -23,6 +23,7 @@ set(DEFJAM_HOST_SOURCES
     host/defjam_io.cpp
     host/defjam_mpeg.cpp
     host/defjam_profile.cpp
+    host/defjam_raster.cpp
     host/defjam_texture.cpp
     host/defjam_utility.cpp
     host/defjam_vertex.cpp
