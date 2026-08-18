@@ -96,6 +96,10 @@ struct ThreadRecord {
     std::uint64_t ready_sequence{};
     bool waiting_thread_end{false};
     std::int32_t waiting_on_thread{-1};
+    // The controller sample cycle this thread last read, so a second read
+    // inside one cycle can be told apart from the first.
+    std::uint64_t last_ctrl_cycle{};
+    bool ctrl_sampled{};
 };
 
 struct ThreadTable {
@@ -1642,23 +1646,39 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             return static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
         }();
 
-        // This is the blocking read: controller data is sampled once per cycle,
-        // and asking again inside the same cycle waits for the next one. The
-        // non-blocking form is sceCtrlPeekBufferPositive.
+        // This is the blocking read. Controller data is sampled once per
+        // cycle: the first read in a cycle takes the sample already waiting and
+        // returns, and only a second read inside the same cycle waits for the
+        // next one. The non-blocking form is sceCtrlPeekBufferPositive.
         //
-        // Returning immediately turns a loop that should be paced at the sample
-        // rate into one that spins as fast as the host allows, and because it
-        // then never yields, every lower-priority thread starves. A title whose
-        // movie player runs below the main loop simply never advances.
+        // Never blocking turns a loop that should be paced at the sample rate
+        // into one that spins as fast as the host allows, starving every
+        // lower-priority thread - a title whose movie player runs below the
+        // main loop then never advances. But always blocking is wrong in the
+        // other direction: it charges a caller that has just spent most of a
+        // frame rendering for a sample it has not yet taken, so a loop doing a
+        // frame of work per iteration runs at half the rate it should.
         constexpr std::uint64_t kSamplePeriodUs = 16683u;
-        const auto remainder =
-            static_cast<std::uint32_t>(kSamplePeriodUs - (g_virtual_time_us % kSamplePeriodUs));
+        const std::uint64_t cycle = g_virtual_time_us / kSamplePeriodUs;
+        ThreadRecord *reader = current_thread();
+        const bool already_read =
+            reader != nullptr && reader->ctrl_sampled && reader->last_ctrl_cycle == cycle;
+        const std::uint32_t wait =
+            already_read
+                ? static_cast<std::uint32_t>(kSamplePeriodUs - (g_virtual_time_us % kSamplePeriodUs))
+                : 0u;
 
-        // The caller resumes at the next sample, so that is the sample it is
-        // being handed. Stamping it with the time of the call instead dates
-        // every reading a cycle into the past, and a title deriving its frame
-        // interval from consecutive readings measures the wrong one.
-        const auto sample_time = static_cast<std::uint32_t>(g_virtual_time_us + remainder);
+        // Whichever sample the caller ends up with is the one it is stamped
+        // with: the current one when returning now, the next one when waiting.
+        // Stamping a waited-for reading with the time of the call dates it a
+        // cycle into the past, and a title deriving its frame interval from
+        // consecutive readings measures the wrong one.
+        const auto sample_time = static_cast<std::uint32_t>(g_virtual_time_us + wait);
+        if (reader != nullptr) {
+            reader->ctrl_sampled = true;
+            reader->last_ctrl_cycle = already_read ? cycle + 1u : cycle;
+        }
+
         const std::uint32_t buffer = ctx.gpr[4];
         const std::uint32_t count = std::max(1u, ctx.gpr[5]);
         for (std::uint32_t i = 0; i < count; ++i) {
@@ -1669,7 +1689,11 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             rt.memory().store8(entry + 9u, 128u);     // analog y
         }
 
-        delay_current_thread(rt, ctx, remainder, count);
+        if (!already_read) {
+            set_return(ctx, count);
+            return;
+        }
+        delay_current_thread(rt, ctx, wait, count);
     });
 
     // -----------------------------------------------------------------------

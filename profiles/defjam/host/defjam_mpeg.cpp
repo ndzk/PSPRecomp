@@ -53,7 +53,6 @@ constexpr std::uint32_t kPacketSize = 2048u;
 // little and overrun.
 constexpr std::uint32_t kMpegMemorySize = 0x10000u;
 constexpr std::uint32_t kRingbufferPacketOverhead = 104u;
-constexpr std::uint32_t kAvcEsSize = 2048u;
 constexpr std::uint32_t kAtracEsSize = 2112u;
 constexpr std::uint32_t kAtracEsOutputSize = 8192u;
 
@@ -126,6 +125,11 @@ std::uint32_t g_next_es_buffer = 0;
 // and the duplicate silently aliases the surviving one.
 std::uint32_t g_next_handle = 0;
 
+// The ring buffer records the stream that owns it, so the demultiplexer being
+// fed is the one belonging to this buffer rather than whichever context
+// happens to sort first.
+MpegContext *context_for_ringbuffer(Runtime &rt, std::uint32_t ringbuffer);
+
 MpegContext *context_for(Runtime &rt, std::uint32_t handle_pointer) {
     // The guest holds a pointer to its own storage whose first word the library
     // fills in; that word is the handle everything else is keyed on.
@@ -151,10 +155,17 @@ void write_access_unit(Runtime &rt, std::uint32_t au_pointer, const AccessUnit &
 // are not free yet; anything else has the two sides disagree about the same
 // number. Written into the structure as well as returned, because a title may
 // read the field directly instead of calling the query.
+MpegContext *context_for_ringbuffer(Runtime &rt, std::uint32_t ringbuffer) {
+    if (ringbuffer == 0u || !rt.memory().contains(ringbuffer, kRingbufferSize)) return nullptr;
+    const auto it = g_contexts.find(rt.memory().load32(ringbuffer + kRingbufferMpegOffset));
+    return it == g_contexts.end() ? nullptr : &it->second;
+}
+
 std::uint32_t store_ringbuffer_available(Runtime &rt, std::uint32_t ringbuffer,
                                          std::uint32_t packets) {
-    if (packets == 0u || g_contexts.empty()) return packets;
-    const std::uint64_t held = g_contexts.begin()->second.demuxer.queued_bytes();
+    MpegContext *context = context_for_ringbuffer(rt, ringbuffer);
+    if (packets == 0u || context == nullptr) return packets;
+    const std::uint64_t held = context->demuxer.queued_bytes();
     const auto occupied = static_cast<std::uint32_t>(
         std::min<std::uint64_t>((held + kPacketSize - 1u) / kPacketSize, packets));
     const std::uint32_t free_packets = packets - occupied;
@@ -203,19 +214,6 @@ PsmfHeader parse_psmf_header(const std::uint8_t *data, std::size_t size) {
 void ProgramStreamDemuxer::select_streams(std::uint8_t video_id, std::uint8_t audio_id) {
     video_id_ = video_id;
     audio_id_ = audio_id;
-}
-
-void ProgramStreamDemuxer::reset() {
-    pending_.clear();
-    video_.clear();
-    audio_.clear();
-    current_video_ = AccessUnit{};
-    current_audio_ = AccessUnit{};
-    video_open_ = false;
-    audio_open_ = false;
-    video_units_ = 0;
-    audio_units_ = 0;
-    bytes_seen_ = 0;
 }
 
 void ProgramStreamDemuxer::emit_video() {
@@ -531,7 +529,20 @@ void install_mpeg_hle(Runtime &runtime) {
             set_return(ctx, static_cast<std::uint32_t>(-1));
             return;
         }
+        // The guest sizes its data block from sceMpegRingbufferQueryMemSize, so
+        // a packet count that does not fit the block it passed is a
+        // disagreement about the same number rather than something to take on
+        // trust: everything downstream indexes that block by this count.
         const std::uint32_t packets = ctx.gpr[5];
+        const std::uint64_t required =
+            static_cast<std::uint64_t>(packets) * (kRingbufferPacketOverhead + kPacketSize);
+        if (packets == 0u || required > ctx.gpr[7]) {
+            runtime_log_line("sceMpegRingbufferConstruct: " + std::to_string(packets) +
+                             " packets need " + std::to_string(required) + " bytes but got " +
+                             std::to_string(ctx.gpr[7]));
+            set_return(ctx, static_cast<std::uint32_t>(-1));
+            return;
+        }
         rt.memory().store32(ringbuffer + kRingbufferPacketsOffset, packets);
         rt.memory().store32(ringbuffer + kRingbufferReadOffset, 0u);
         rt.memory().store32(ringbuffer + kRingbufferWriteOffset, 0u);
@@ -613,14 +624,15 @@ void install_mpeg_hle(Runtime &runtime) {
                 // checked before the buffer for it is allocated, so a packet
                 // count the guest picked cannot ask for an allocation the
                 // guest's own memory could never hold.
-                if (!g_contexts.empty()) {
+                MpegContext *owner = context_for_ringbuffer(runtime, ringbuffer);
+                if (owner != nullptr) {
                     const std::uint64_t bytes = static_cast<std::uint64_t>(count) * kPacketSize;
                     if (bytes <= 0xFFFFFFFFull &&
                         runtime.memory().contains(destination,
                                                   static_cast<std::uint32_t>(bytes))) {
                         std::vector<std::uint8_t> staging(static_cast<std::size_t>(bytes));
                         runtime.memory().copy_out(destination, staging);
-                        MpegContext &context = g_contexts.begin()->second;
+                        MpegContext &context = *owner;
                         context.demuxer.append(staging.data(), staging.size());
 
                         // Once the whole program stream has been fed there is
@@ -829,7 +841,11 @@ void install_mpeg_hle(Runtime &runtime) {
         // leave the access unit claiming a presentation time of zero.
         if (delivered && frame.has_timestamp && au != 0u &&
             rt.memory().contains(au, kAuSizeOffset + 4u)) {
+            // The field is 33 bits wide, in two words. Writing only the low
+            // one leaves the high bit holding what the demultiplexer put there.
             rt.memory().store32(au + kAuPtsOffset, static_cast<std::uint32_t>(frame.timestamp));
+            rt.memory().store32(au + kAuPtsHighOffset,
+                                static_cast<std::uint32_t>(frame.timestamp >> 32));
         }
         set_return(ctx, 0u);
     });
@@ -875,8 +891,11 @@ void install_mpeg_hle(Runtime &runtime) {
                                     reinterpret_cast<const std::uint8_t *>(audio.samples.data()),
                                     bytes));
             ++g_stats.audio_blocks_decoded;
-            if (audio.has_timestamp && au != 0u && rt.memory().contains(au, kAuSizeOffset + 4u))
+            if (audio.has_timestamp && au != 0u && rt.memory().contains(au, kAuSizeOffset + 4u)) {
                 rt.memory().store32(au + kAuPtsOffset, static_cast<std::uint32_t>(audio.timestamp));
+                rt.memory().store32(au + kAuPtsHighOffset,
+                                    static_cast<std::uint32_t>(audio.timestamp >> 32));
+            }
         }
         set_return(ctx, 0u);
     });

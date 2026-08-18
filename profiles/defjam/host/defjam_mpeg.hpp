@@ -51,8 +51,6 @@ struct PsmfHeader {
 // so it can be tested against a stream without a Runtime.
 class ProgramStreamDemuxer {
 public:
-    void reset();
-
     // Restricts demultiplexing to the ids the container declared, so a program
     // carrying more than one stream of a kind does not have them concatenated
     // into a single access unit. 0 means "any of that kind", which is the state
