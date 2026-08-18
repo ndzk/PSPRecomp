@@ -186,7 +186,7 @@ will need re-measuring if the corpus is ever built at `/Ox /Ob3`.
 | Section | Key | Meaning |
 |---|---|---|
 | `[game]` | `name`, `disc_id`, `region`, `disc_version`, `psp_system_ver`, `module` | Identity, reported at startup |
-| | `ram_mb` | Guest RAM, 1–64 |
+| | `ram_mb` | Guest RAM, 32 or 64; the runtime models no other size |
 | | `load_base` | Guest load base, hex string |
 | | `expected_sha256` | **Enforced.** 64 hex digits; startup fails on mismatch |
 | `[input]` | `executable`, `game_root`, `nids_csv` | Paths, relative to the profile directory |

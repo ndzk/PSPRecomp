@@ -73,6 +73,34 @@ void test_parses_the_shipped_manifest() {
     require(!manifest.policy.allow_jit_fallback, "jit fallback is not disabled");
 }
 
+void test_ram_size_is_one_the_runtime_models() {
+    // GuestMemory accepts 32 MiB and 64 MiB and nothing else, so a manifest
+    // asking for anything different must not carry that value to the runtime.
+    const defjam::ProfileManifest big = defjam::parse_profile_manifest(R"([game]
+ram_mb = 64
+expected_sha256 = "27C28EFCC59327C1CD9CCC84A0D7D8E2356002B7026CFA130A43D944EFB4B27A"
+
+[policy]
+missing_function = "stop"
+unsupported_instruction = "stop"
+)");
+    require(big.game.ram_mb == 64u, "a 64 MiB manifest was not honoured");
+
+    for (const char *bad : {"0", "16", "100", "notanumber"}) {
+        const std::string text = std::string(R"([game]
+ram_mb = )") + bad + R"(
+expected_sha256 = "27C28EFCC59327C1CD9CCC84A0D7D8E2356002B7026CFA130A43D944EFB4B27A"
+
+[policy]
+missing_function = "stop"
+unsupported_instruction = "stop"
+)";
+        const defjam::ProfileManifest manifest = defjam::parse_profile_manifest(text);
+        require(manifest.game.ram_mb == 32u || manifest.game.ram_mb == 64u,
+                (std::string("ram_mb = ") + bad + " reached the manifest").c_str());
+    }
+}
+
 void test_expected_hash_checking() {
     const auto manifest = defjam::parse_profile_manifest(kMinimal);
     const std::string expected =
@@ -1697,6 +1725,7 @@ void test_frame_conversion() {
 int main() {
     try {
         test_parses_the_shipped_manifest();
+        test_ram_size_is_one_the_runtime_models();
         test_expected_hash_checking();
         test_policy_is_enforced_not_decorative();
         test_identity_is_mandatory();

@@ -144,9 +144,19 @@ ProfileManifest parse_profile_manifest(std::string_view text, std::filesystem::p
             else if (key == "psp_system_ver") manifest.game.psp_system_ver = value.text;
             else if (key == "module") manifest.game.module = value.text;
             else if (key == "ram_mb") {
-                if (!parse_u32(value.text, manifest.game.ram_mb) || manifest.game.ram_mb == 0u ||
-                    manifest.game.ram_mb > 64u) {
-                    warn("ram_mb must be 1..64, keeping " + std::to_string(manifest.game.ram_mb));
+                // GuestMemory models a 32 MiB and a 64 MiB PSP and nothing in
+                // between, so anything else is refused here rather than carried
+                // to the runtime, which would reject it with a message about a
+                // byte count this manifest never mentions. Parsing into a
+                // temporary matters too: the previous form validated the field
+                // after writing it, so an out-of-range value was warned about
+                // and then kept anyway.
+                std::uint32_t megabytes = 0u;
+                if (!parse_u32(value.text, megabytes) || (megabytes != 32u && megabytes != 64u)) {
+                    warn("ram_mb must be 32 or 64, keeping " +
+                         std::to_string(manifest.game.ram_mb));
+                } else {
+                    manifest.game.ram_mb = megabytes;
                 }
             } else if (key == "load_base") {
                 if (!parse_u32(value.text, manifest.game.load_base)) {
