@@ -26,6 +26,9 @@ constexpr std::uint32_t kVramBase = 0x04000000u;
 constexpr std::uint32_t kVramSize = 2u * 1024u * 1024u;
 
 RasterStats g_stats;
+// Set for the duration of one draw, so the inner loop does not re-read the
+// register file per pixel.
+bool g_clearing = false;
 
 // The frame buffer, kept host-side while a frame is drawn and pushed back to
 // guest memory afterwards. Reading and writing single pixels through the guest
@@ -50,6 +53,19 @@ void bind_surface(psprecomp::Runtime &runtime, const RenderTarget &target) {
     }
 }
 
+// Clear mode, measured rather than assumed: register 0xD3 is non-zero exactly
+// while this title draws its screen-clearing sprites and zero for every other
+// draw. Its low bit enables the mode and bits 8 to 10 say which buffers are
+// written.
+//
+// In clear mode the hardware writes the colour straight through. Blending it
+// instead loses the clear entirely whenever the clear colour is transparent,
+// which is what this title uses - so the screen was never cleared and every
+// frame came out as whatever the buffer already held.
+constexpr std::uint8_t kCmdClearMode = 0xD3u;
+
+bool clear_mode_active() { return (ge_registers()[kCmdClearMode] & 1u) != 0u; }
+
 std::uint32_t blend_over(std::uint32_t source, std::uint32_t destination) {
     const std::uint32_t alpha = (source >> 24u) & 0xFFu;
     if (alpha == 255u) return source;
@@ -70,7 +86,7 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color) {
     std::uint32_t &target = g_surface[static_cast<std::size_t>(uy) * g_surface_target.stride + ux];
     if ((color & 0xFF000000u) == 0u) ++g_stats.transparent_writes;
     if ((color & 0x00FFFFFFu) != 0u) ++g_stats.coloured_writes;
-    target = blend_over(color, target);
+    target = g_clearing ? (color | 0xFF000000u) : blend_over(color, target);
     ++g_stats.pixels_written;
 }
 
@@ -199,6 +215,7 @@ bool rasterise(psprecomp::Runtime &runtime, std::uint32_t primitive,
         return false;
     }
     bind_surface(runtime, target);
+    g_clearing = clear_mode_active();
 
     // The texture, if this draw samples one.
     static std::vector<std::uint32_t> texels;
