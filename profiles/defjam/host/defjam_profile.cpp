@@ -2148,6 +2148,17 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         // memmove rather than depending on copy direction.
         const std::uint32_t length = ctx.gpr[6];
         if (length != 0u) {
+            // Both ends are checked before the staging buffer is sized: the
+            // length is the guest's, and copy_out would only discover a bad
+            // range after an allocation that large had already been asked for.
+            if (!rt.memory().contains(ctx.gpr[5], length) ||
+                !rt.memory().contains(ctx.gpr[4], length)) {
+                runtime_log_line("sceDmacMemcpy: " + std::to_string(length) + " bytes from " +
+                                 psprecomp::hex32(ctx.gpr[5]) + " to " +
+                                 psprecomp::hex32(ctx.gpr[4]) + " is not guest memory");
+                set_return(ctx, static_cast<std::uint32_t>(-1));
+                return;
+            }
             std::vector<std::uint8_t> buffer(length);
             rt.memory().copy_out(ctx.gpr[5], buffer);
             rt.memory().copy_in(ctx.gpr[4], buffer);

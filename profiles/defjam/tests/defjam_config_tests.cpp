@@ -1523,6 +1523,36 @@ void test_audio_counts_only_accepted_buffers() {
             "a buffer that was waited for was not counted");
 }
 
+// sceDmacMemcpy sizes a staging buffer from a length the guest chose, so the
+// ranges are checked before that buffer exists.
+void test_dmac_checks_before_staging() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+
+    constexpr std::uint32_t kDmacMemcpy = 0x617F3FE6u;
+    const std::uint32_t source = kIoScratch;
+    const std::uint32_t destination = kIoScratch + 0x1000u;
+    for (std::uint32_t i = 0; i < 16u; ++i)
+        runtime.memory().store8(source + i, static_cast<std::uint8_t>(0x40u + i));
+
+    psprecomp::AllegrexContext ctx{};
+    ctx.set_gpr(4, destination);
+    ctx.set_gpr(5, source);
+    ctx.set_gpr(6, 16u);
+    call_hle(runtime, "sceDmac", kDmacMemcpy, ctx);
+    require(ctx.gpr[2] == 0u, "an ordinary copy failed");
+    for (std::uint32_t i = 0; i < 16u; ++i)
+        require(runtime.memory().load8(destination + i) == static_cast<std::uint8_t>(0x40u + i),
+                "the copy did not move the bytes");
+
+    // A length no guest buffer could hold is refused rather than staged.
+    ctx.set_gpr(4, destination);
+    ctx.set_gpr(5, source);
+    ctx.set_gpr(6, 0xFFFFFFF0u);
+    call_hle(runtime, "sceDmac", kDmacMemcpy, ctx);
+    require(static_cast<std::int32_t>(ctx.gpr[2]) < 0, "an oversized DMA copy was not refused");
+}
+
 void test_synthetic_disc() {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "defjam_synthetic_disc_test";
@@ -1752,6 +1782,7 @@ int main() {
         test_atrac_surface();
         test_savedata_names_stay_put();
         test_mpeg_surface();
+        test_dmac_checks_before_staging();
         test_ge_user_surface();
         test_sas_voice_length();
         test_audio_counts_only_accepted_buffers();
