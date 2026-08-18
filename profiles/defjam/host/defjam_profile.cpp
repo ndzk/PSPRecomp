@@ -115,11 +115,17 @@ struct ThreadTable {
 // expires and a wait whose object was deleted are both normal outcomes the
 // caller is expected to handle; reporting neither is what turns them into a
 // thread that never runs again.
+// Values from pspsdk's pspkerror.h, which is BSD licensed and so compatible
+// with this tree. Each of these sits next to a neighbour a step away that
+// means something entirely different - 0x800201AF is EVF_COND but 0x800201B1
+// is EVF_ILPAT, 0x800201B2 is MBOX_NOMSG but 0x800201B4 is MPP_EMPTY - so a
+// value that is nearly right is a real code for another condition rather than
+// an obviously wrong number.
 constexpr std::uint32_t kErrorWaitTimeout = 0x800201A8u;
-constexpr std::uint32_t kErrorWaitDelete = 0x800201ABu;
 constexpr std::uint32_t kErrorSemaZero = 0x800201ADu;
-constexpr std::uint32_t kErrorEvfCond = 0x800201B1u;
-constexpr std::uint32_t kErrorMboxNoMsg = 0x800201B4u;
+constexpr std::uint32_t kErrorEvfCond = 0x800201AFu;
+constexpr std::uint32_t kErrorMboxNoMsg = 0x800201B2u;
+constexpr std::uint32_t kErrorWaitDelete = 0x800201B5u;
 
 struct SemaphoreWaiter {
     std::int32_t thread_uid{};

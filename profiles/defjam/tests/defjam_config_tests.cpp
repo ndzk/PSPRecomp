@@ -821,7 +821,7 @@ void test_event_flag_poll_code() {
                             kSetEventFlag = 0x1FB15A32u;
     // A failed poll reports the condition code, not the timeout code: they are
     // different answers and a title branches on which it got.
-    constexpr std::uint32_t kErrorEvfCond = 0x800201B1u;
+    constexpr std::uint32_t kErrorEvfCond = 0x800201AFu;
 
     const std::uint32_t name = kIoScratch;
     write_guest_string(runtime, name, "flag");
@@ -870,7 +870,7 @@ constexpr std::uint32_t kCreateThread = 0x446D8DE6u, kStartThread = 0xF475845Du,
                         kWaitSema = 0x4E3A1105u, kPollSema = 0x58B1F937u;
 }
 
-constexpr std::uint32_t kErrorWaitDelete = 0x800201ABu;
+constexpr std::uint32_t kErrorWaitDelete = 0x800201B5u;
 constexpr std::uint32_t kErrorSemaZeroCode = 0x800201ADu;
 
 // A worker at a lower priority than thread 0, so starting it does not preempt.
@@ -941,9 +941,11 @@ void test_deleting_a_semaphore_releases_its_waiters() {
     call_hle(runtime, "ThreadManForUser", kernel_nid::kSleepThread, ctx);
     require(!runtime.stopped(),
             ("the waiter was stranded: " + runtime.stop_reason()).c_str());
+    // Read what the resumed thread came back with before anything else runs:
+    // the next HLE call writes its own result over $v0.
+    const std::uint32_t resumed_with = ctx.gpr[2];
     require(running_thread(runtime, ctx) == 0, "thread 0 was not resumed");
-    require(ctx.gpr[2] == kErrorWaitDelete || ctx.gpr[2] == 0u,
-            "thread 0 resumed without the delete error");
+    require(resumed_with == kErrorWaitDelete, "thread 0 resumed without the delete error");
 }
 
 void test_terminating_a_thread_wakes_its_joiners() {
