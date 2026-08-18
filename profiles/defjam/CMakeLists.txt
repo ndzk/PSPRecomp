@@ -167,6 +167,12 @@ function(defjam_set_runtime_output target)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<CONFIG>")
 endfunction()
 
+# Offline linker for the code the title embeds in its audio banks. Not part of
+# the runtime: it produces the images the analyzer and code generator consume.
+add_executable(defjam_extract_bank_code tools/extract_bank_code.cpp)
+target_link_libraries(defjam_extract_bank_code PRIVATE psprecomp_core)
+defjam_set_runtime_output(defjam_extract_bank_code)
+
 add_executable(DefJamNative
     host/main.cpp
     ${DEFJAM_HOST_SOURCES}
