@@ -10,9 +10,19 @@ is git-ignored.
 
 ## Current status
 
-**Skeleton.** `DefJamNative` loads and validates its manifest, locates your
-staged executable and verifies its identity, then exits. There is no generated
-AOT corpus, no HLE layer and no renderer yet, so it does not run the game.
+**Runs headless; nothing is drawn yet.** `DefJamNative` validates its manifest
+and the executable's identity, then runs the checked-in AOT corpus against an
+HLE layer: threads and synchronisation, memory partitions and the scratchpad,
+`IoFileMgrForUser` over a generated UMD layout, `sceAudio` and `sceSasCore`,
+`ModuleMgrForUser`, the utility dialogs, and `sceMpeg` with a PSMF
+demultiplexer feeding an optional FFmpeg decoder. 203 imports across 22
+modules are implemented of the 247 this executable needs; the remainder are
+deliberately absent (see below).
+
+There is no rasteriser. `host/defjam_ge.cpp` is the front half of one: it walks
+the guest's display lists, maintains the 256-entry GE register file and
+resolves list control flow, so draw state is available to a backend. No backend
+reads it, so there are still no pixels on a screen.
 
 ## Supported executable
 
@@ -118,6 +128,10 @@ byte-identical output, and re-running in place reports `rewritten units: 0`.
 There is no post-generation optimization step, so the checked-in files are
 exactly what the command above emits.
 
+Every instruction in this executable is lowered: the corpus contains no
+unsupported-instruction traps. The only `rt.unsupported` call in it is the
+one-per-unit guard against an invalid internal function entry.
+
 Measured corpus:
 
 | | |
@@ -196,11 +210,11 @@ mismatch.
 
 ## Known issues and open work
 
-- **No corpus, no HLE, no renderer.** Skeleton only.
-- **31 VFPU instructions are not lowered.** `vi2uc` ×15, `vi2s` ×13, `vi2c` ×3.
-  The framework decoder handles the unpack direction (`vuc2i`/`vc2i`/`vus2i`/
-  `vs2i`) but not the matching pack direction, so these currently become runtime
-  traps. Needs correct saturation semantics before it can be fixed.
+- **No rasteriser.** Display lists are interpreted and their state latched;
+  nothing turns that into pixels.
+- **Movie playback is the newest and least exercised path.** The container,
+  ring buffer and decoder sides are wired end to end, but playback has not yet
+  been watched through to the end of a movie.
 - **Ad-hoc multiplayer is out of scope** for the first release. The title
   imports 41 NIDs across `sceNet`, `sceNetAdhoc`, `sceNetAdhocctl`,
   `sceNetAdhocMatching` and `sceWlanDrv`, and ships four `pspnet` PRXs. The plan
