@@ -164,7 +164,7 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
             ++g_stats.primitives[primitive];
             // VADDR and IADDR are 24-bit and carry the same BASE high bits as
             // any other list address.
-            note_texture_draw();
+            note_texture_draw(runtime);
             note_draw(runtime, g_registers[kCmdVertexType], g_vertex_address, g_index_address,
                       count);
             break;

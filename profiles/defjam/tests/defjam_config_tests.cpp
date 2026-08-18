@@ -2187,6 +2187,88 @@ void test_texture_state() {
     require(!defjam::current_texture_state().valid(), "an impossible texture size was accepted");
 }
 
+// The tiled layout is the piece most likely to be wrong in a way that still
+// produces a picture: a scrambled texture looks like a bug in something else.
+// This builds the swizzled form by hand and checks it comes back linear.
+void test_texture_unswizzle() {
+    // 32 bytes per row, 16 rows: two blocks across, two down.
+    constexpr std::uint32_t kStride = 32u;
+    constexpr std::uint32_t kRows = 16u;
+    std::vector<std::uint8_t> linear(kStride * kRows);
+    for (std::uint32_t y = 0; y < kRows; ++y)
+        for (std::uint32_t x = 0; x < kStride; ++x)
+            linear[y * kStride + x] = static_cast<std::uint8_t>(y * kStride + x);
+
+    // Lay the same bytes out as blocks of 16 by 8, one block after another.
+    std::vector<std::uint8_t> swizzled(linear.size());
+    const std::uint32_t blocks_across = kStride / 16u;
+    for (std::uint32_t y = 0; y < kRows; ++y) {
+        for (std::uint32_t x = 0; x < kStride; ++x) {
+            const std::uint32_t block = (x / 16u) + (y / 8u) * blocks_across;
+            swizzled[block * 128u + (y % 8u) * 16u + (x % 16u)] = linear[y * kStride + x];
+        }
+    }
+    require(swizzled != linear, "the test data is not actually swizzled");
+
+    std::vector<std::uint8_t> result;
+    defjam::unswizzle(swizzled.data(), swizzled.size(), kStride, kRows, result);
+    require(result == linear, "unswizzling did not restore the original layout");
+
+    // A short source must not read past its end; the tail is left zeroed.
+    defjam::unswizzle(swizzled.data(), 64u, kStride, kRows, result);
+    require(result.size() == linear.size(), "a short source changed the output size");
+}
+
+// Decoding an indexed texture: the palette is a separate buffer, and reading it
+// with the wrong entry size or the wrong window gives colours that look like a
+// palette but are not this one.
+void test_texture_decode_clut8() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    constexpr std::uint32_t kTexels = 0x08800000u;
+    constexpr std::uint32_t kPalette = 0x08810000u;
+
+    // A 16x8 clut8 texture, unswizzled, whose indices count up.
+    for (std::uint32_t y = 0; y < 8u; ++y)
+        for (std::uint32_t x = 0; x < 16u; ++x)
+            runtime.memory().store8(kTexels + y * 16u + x, static_cast<std::uint8_t>(x));
+    // A 256-entry 8888 palette where entry n is a recognisable function of n.
+    for (std::uint32_t i = 0; i < 256u; ++i)
+        runtime.memory().store32(kPalette + i * 4u, 0xFF000000u | (i * 0x00010101u));
+
+    defjam::TextureState state;
+    state.enabled = true;
+    state.format = defjam::TextureFormat::Clut8;
+    state.address = kTexels;
+    state.stride = 16u;
+    state.width = 16u;
+    state.height = 8u;
+    state.swizzled = false;
+    state.clut_address = kPalette;
+    state.clut_format = 3u;   // 8888 entries
+    state.clut_mask = 0xFFu;
+
+    std::vector<std::uint32_t> pixels;
+    std::string error;
+    require(defjam::decode_texture(runtime, state, pixels, error),
+            ("a well-formed clut8 texture was rejected: " + error).c_str());
+    require(pixels.size() == 16u * 8u, "the decoded texture is the wrong size");
+    require(pixels[0] == 0xFF000000u, "index 0 did not resolve to palette entry 0");
+    require(pixels[5] == (0xFF000000u | 0x00050505u), "index 5 resolved to the wrong entry");
+    require(pixels[16u] == 0xFF000000u, "the second row did not start at the stride");
+
+    // A texture outside guest memory is refused rather than read as zeroes.
+    state.address = 0x0F000000u;
+    require(!defjam::decode_texture(runtime, state, pixels, error),
+            "a texture outside memory was accepted");
+
+    // A format with no decoder says so rather than producing a blank picture.
+    state.address = kTexels;
+    state.format = defjam::TextureFormat::Dxt1;
+    require(!defjam::decode_texture(runtime, state, pixels, error),
+            "a compressed format was reported as decoded");
+    require(!error.empty(), "a refusal came back without a reason");
+}
+
 } // namespace
 
 int main() {
@@ -2234,6 +2316,8 @@ int main() {
         test_vertex_colours();
         test_indexed_vertices();
         test_texture_state();
+        test_texture_unswizzle();
+        test_texture_decode_clut8();
         std::cout << "All defjam config tests passed.\n";
         return 0;
     } catch (const std::exception &exception) {
