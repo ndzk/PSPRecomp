@@ -49,6 +49,16 @@ struct PsmfHeader {
 // Fed packets as they arrive, it accumulates PES payloads and emits an access
 // unit each time a new one starts. This is deliberately separate from the HLE
 // so it can be tested against a stream without a Runtime.
+// A presentation and decode timestamp pair, held from the packet that carried
+// it until the access unit it names is opened.
+struct StreamTimestamp {
+    bool valid{};
+    std::uint32_t pts_high{};
+    std::uint32_t pts{};
+    std::uint32_t dts_high{};
+    std::uint32_t dts{};
+};
+
 class ProgramStreamDemuxer {
 public:
     // Restricts demultiplexing to the ids the container declared, so a program
@@ -81,6 +91,10 @@ public:
 private:
     void emit_video();
     void emit_audio();
+    // Appends elementary stream bytes to the open video access unit, closing
+    // it wherever a delimiter starts the next one.
+    void append_video_payload(const std::uint8_t *data, std::size_t size);
+    void open_video_unit();
 
     std::vector<std::uint8_t> pending_;      // bytes not yet forming a whole packet
     std::vector<AccessUnit> video_;
@@ -89,6 +103,13 @@ private:
     AccessUnit current_audio_;
     bool video_open_{};
     bool audio_open_{};
+    // Whether this stream has ever shown an access unit delimiter. Until it
+    // has, a timestamp is the only boundary on offer and still ends a unit.
+    bool video_delimited_{};
+    // How far into the open video unit the delimiter scan has already looked.
+    std::size_t video_scan_{};
+    // The timestamp waiting for the video unit it belongs to.
+    StreamTimestamp pending_video_ts_{};
     std::uint8_t video_id_{};   // 0 = accept any video stream id
     std::uint8_t audio_id_{};
     std::uint64_t video_units_{};

@@ -234,6 +234,98 @@ void ProgramStreamDemuxer::select_streams(std::uint8_t video_id, std::uint8_t au
     audio_id_ = audio_id;
 }
 
+// H.264 marks the start of every frame with an access unit delimiter, NAL
+// type 9. That is the boundary the library hands out, one frame per call.
+//
+// Splitting on PES timestamps instead looks right and is not: this container
+// carries a timestamp only at group boundaries. The opening movie holds 118
+// delimiters against 8 timestamped packets, so a timestamp split hands the
+// decoder fifteen frames where the title asked for one, and the frame it
+// accounts for is the only one that survives.
+constexpr std::size_t kNoDelimiter = static_cast<std::size_t>(-1);
+
+// The forbidden zero bit has to be clear as well, which rules out payload
+// bytes that merely look like a delimiter.
+static std::size_t find_access_unit_delimiter(const std::vector<std::uint8_t> &buffer,
+                                              std::size_t from) {
+    for (std::size_t i = from; i + 4u <= buffer.size(); ++i) {
+        if (buffer[i] == 0u && buffer[i + 1u] == 0u && buffer[i + 2u] == 1u &&
+            (buffer[i + 3u] & 0x80u) == 0u && (buffer[i + 3u] & 0x1Fu) == 9u) {
+            return i;
+        }
+    }
+    return kNoDelimiter;
+}
+
+// Marks the open unit as fresh and gives it the timestamp that was waiting for
+// it, if the stream named one.
+void ProgramStreamDemuxer::open_video_unit() {
+    video_open_ = true;
+    video_scan_ = 0u;
+    if (!pending_video_ts_.valid) return;
+    current_video_.has_timestamp = true;
+    current_video_.pts_high = pending_video_ts_.pts_high;
+    current_video_.pts = pending_video_ts_.pts;
+    current_video_.dts_high = pending_video_ts_.dts_high;
+    current_video_.dts = pending_video_ts_.dts;
+    pending_video_ts_ = StreamTimestamp{};
+}
+
+void ProgramStreamDemuxer::append_video_payload(const std::uint8_t *data, std::size_t size) {
+    if (!video_open_) {
+        current_video_ = AccessUnit{};
+        open_video_unit();
+    }
+
+    const std::size_t previous = current_video_.data.size();
+    current_video_.data.insert(current_video_.data.end(), data, data + size);
+
+    // A start code can straddle a packet boundary, so the scan resumes three
+    // bytes short of the new data rather than at it.
+    std::size_t search = video_scan_;
+    if (previous >= 3u && search < previous - 3u) search = previous - 3u;
+
+    while (true) {
+        std::size_t at = find_access_unit_delimiter(current_video_.data, search);
+        if (at == kNoDelimiter) break;
+        video_delimited_ = true;
+        // A four-byte start code is a three-byte one with a zero in front, and
+        // this stream uses the four-byte form. The zeros ahead of a delimiter
+        // belong with it rather than with the frame that just ended, so the
+        // split backs up over them; without that the first unit of the stream
+        // is a single padding byte and the decoder is handed it as a frame.
+        while (at > 0u && current_video_.data[at - 1u] == 0u) --at;
+        if (at == 0u) {
+            // The open unit's own delimiter, not the start of the next one.
+            search = 4u;
+            continue;
+        }
+
+        AccessUnit finished;
+        finished.has_timestamp = current_video_.has_timestamp;
+        finished.pts_high = current_video_.pts_high;
+        finished.pts = current_video_.pts;
+        finished.dts_high = current_video_.dts_high;
+        finished.dts = current_video_.dts;
+        finished.data.assign(current_video_.data.begin(),
+                             current_video_.data.begin() + static_cast<std::ptrdiff_t>(at));
+        video_.push_back(std::move(finished));
+        ++video_units_;
+
+        current_video_.data.erase(current_video_.data.begin(),
+                                  current_video_.data.begin() + static_cast<std::ptrdiff_t>(at));
+        current_video_.has_timestamp = false;
+        current_video_.pts_high = 0u;
+        current_video_.pts = 0u;
+        current_video_.dts_high = 0u;
+        current_video_.dts = 0u;
+        open_video_unit();
+        search = 4u;
+    }
+
+    video_scan_ = current_video_.data.size() >= 3u ? current_video_.data.size() - 3u : 0u;
+}
+
 void ProgramStreamDemuxer::emit_video() {
     if (!video_open_) return;
     if (!current_video_.data.empty()) {
@@ -242,6 +334,7 @@ void ProgramStreamDemuxer::emit_video() {
     }
     current_video_ = AccessUnit{};
     video_open_ = false;
+    video_scan_ = 0u;
 }
 
 void ProgramStreamDemuxer::emit_audio() {
@@ -306,33 +399,19 @@ void ProgramStreamDemuxer::append(const std::uint8_t *data, std::size_t size) {
         // container declared is ours; appending the others to the same access
         // unit hands the decoder two interleaved bitstreams as though they
         // were one.
-        AccessUnit *current = nullptr;
-        bool *open = nullptr;
+        bool is_video = false;
+        bool is_audio = false;
         if (id >= kVideoStreamBase && id < kVideoStreamBase + 16u) {
-            if (video_id_ == 0u || id == video_id_) {
-                current = &current_video_;
-                open = &video_open_;
-            }
+            is_video = video_id_ == 0u || id == video_id_;
         } else if (id == kPrivateStream1) {
-            if (audio_id_ == 0u || id == audio_id_) {
-                current = &current_audio_;
-                open = &audio_open_;
-            }
+            is_audio = audio_id_ == 0u || id == audio_id_;
         }
 
-        if (current != nullptr) {
+        if (is_video || is_audio) {
             const bool has_pts = (flags & 0x80u) != 0u;
             const bool has_dts = (flags & 0x40u) != 0u;
-            // A packet carrying a timestamp begins a new access unit; the
-            // packets after it continue the same one.
-            if (has_pts) {
-                if (current == &current_video_) emit_video();
-                else emit_audio();
-            }
-            if (!*open) {
-                *current = AccessUnit{};
-                *open = true;
-            }
+
+            StreamTimestamp stamp;
             if (has_pts && header_length >= 5u) {
                 const std::uint8_t *ts = p + 9;
                 // 33 bits split across five bytes, with marker bits between.
@@ -342,11 +421,11 @@ void ProgramStreamDemuxer::append(const std::uint8_t *data, std::size_t size) {
                     (static_cast<std::uint64_t>(ts[2] & 0xFEu) << 14u) |
                     (static_cast<std::uint64_t>(ts[3]) << 7u) |
                     (static_cast<std::uint64_t>(ts[4] & 0xFEu) >> 1u);
-                current->has_timestamp = true;
-                current->pts_high = static_cast<std::uint32_t>(value >> 32u);
-                current->pts = static_cast<std::uint32_t>(value & 0xFFFFFFFFu);
-                current->dts_high = current->pts_high;
-                current->dts = current->pts;
+                stamp.valid = true;
+                stamp.pts_high = static_cast<std::uint32_t>(value >> 32u);
+                stamp.pts = static_cast<std::uint32_t>(value & 0xFFFFFFFFu);
+                stamp.dts_high = stamp.pts_high;
+                stamp.dts = stamp.pts;
                 if (has_dts && header_length >= 10u) {
                     const std::uint8_t *d = p + 14;
                     const std::uint64_t dts =
@@ -355,8 +434,8 @@ void ProgramStreamDemuxer::append(const std::uint8_t *data, std::size_t size) {
                         (static_cast<std::uint64_t>(d[2] & 0xFEu) << 14u) |
                         (static_cast<std::uint64_t>(d[3]) << 7u) |
                         (static_cast<std::uint64_t>(d[4] & 0xFEu) >> 1u);
-                    current->dts_high = static_cast<std::uint32_t>(dts >> 32u);
-                    current->dts = static_cast<std::uint32_t>(dts & 0xFFFFFFFFu);
+                    stamp.dts_high = static_cast<std::uint32_t>(dts >> 32u);
+                    stamp.dts = static_cast<std::uint32_t>(dts & 0xFFFFFFFFu);
                 }
             }
 
@@ -369,8 +448,40 @@ void ProgramStreamDemuxer::append(const std::uint8_t *data, std::size_t size) {
             // short to hold that header is all header and no data, so it
             // contributes nothing rather than contributing its own prefix.
             if (id == kPrivateStream1) skip = std::min<std::size_t>(payload_size, 4u);
-            if (payload_size > skip)
-                current->data.insert(current->data.end(), payload + skip, payload + payload_size);
+
+            if (is_video) {
+                // The timestamp names the unit that begins in this packet,
+                // which is seldom the one being filled right now, so it waits
+                // for the delimiter that opens the unit it belongs to.
+                if (stamp.valid) {
+                    // Before any delimiter has been seen the timestamp is the
+                    // only boundary there is, so it still ends the unit. Once
+                    // one appears, delimiters take over.
+                    if (!video_delimited_) emit_video();
+                    pending_video_ts_ = stamp;
+                }
+                if (payload_size > skip)
+                    append_video_payload(payload + skip, payload_size - skip);
+            } else {
+                // Audio keeps the timestamp split. Its frames are fixed-size
+                // blocks the decoder resynchronises on by itself, and nothing
+                // seen so far shows the coarser boundary hurting it.
+                if (stamp.valid) emit_audio();
+                if (!audio_open_) {
+                    current_audio_ = AccessUnit{};
+                    audio_open_ = true;
+                }
+                if (stamp.valid) {
+                    current_audio_.has_timestamp = true;
+                    current_audio_.pts_high = stamp.pts_high;
+                    current_audio_.pts = stamp.pts;
+                    current_audio_.dts_high = stamp.dts_high;
+                    current_audio_.dts = stamp.dts;
+                }
+                if (payload_size > skip)
+                    current_audio_.data.insert(current_audio_.data.end(), payload + skip,
+                                               payload + payload_size);
+            }
         }
 
         cursor += 6u + length;

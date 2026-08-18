@@ -412,6 +412,66 @@ void test_program_stream_demuxer() {
             "a stream split across calls demultiplexed differently");
 }
 
+// H.264 begins every frame with an access unit delimiter, and this container
+// timestamps only a handful of packets per stream: the opening movie holds 118
+// delimiters against 8 timestamped packets. Splitting on timestamps therefore
+// hands the decoder a whole group of pictures where the title asked for a
+// single frame, and only the first frame of each group survives.
+void test_demuxer_splits_on_access_unit_delimiters() {
+    // A frame: the delimiter NAL, then one slice NAL carrying a marker byte.
+    const auto frame = [](std::uint8_t marker) {
+        return std::vector<std::uint8_t>{0x00, 0x00, 0x01, 0x09, 0x10,
+                                         0x00, 0x00, 0x01, 0x65, marker};
+    };
+
+    // Three frames inside a single timestamped packet. Under a timestamp split
+    // this is one access unit; it has to come apart into three.
+    std::vector<std::uint8_t> payload;
+    for (std::uint8_t i = 1u; i <= 3u; ++i) {
+        const auto one = frame(i);
+        payload.insert(payload.end(), one.begin(), one.end());
+    }
+
+    std::vector<std::uint8_t> stream;
+    append_pes(stream, 0xE0, payload, true, 90000);
+
+    defjam::ProgramStreamDemuxer demuxer;
+    demuxer.append(stream.data(), stream.size());
+    demuxer.flush();
+    require(demuxer.video_units() == 3u, "frames sharing one packet were not split apart");
+
+    const defjam::AccessUnit first = demuxer.take_video();
+    require(first.data.size() == 10u, "the first frame kept bytes belonging to the next");
+    require(first.data[9] == 0x01u, "the frames came out in the wrong order");
+    require(first.has_timestamp && first.pts == 90000u,
+            "the packet timestamp did not reach the frame that began in it");
+
+    // The stream names no time for the frames after it, and a made-up one
+    // would be worse than none: the library reports absence explicitly.
+    const defjam::AccessUnit second = demuxer.take_video();
+    require(!second.has_timestamp, "a frame the stream never timestamped claims a time");
+    require(second.data[9] == 0x02u, "the second frame is not the second frame");
+
+    // The ring buffer fills wherever it likes, so a delimiter arriving split
+    // across two calls must still be found.
+    defjam::ProgramStreamDemuxer piecemeal;
+    for (std::uint8_t byte : stream) piecemeal.append(&byte, 1u);
+    piecemeal.flush();
+    require(piecemeal.video_units() == 3u,
+            "a delimiter straddling a fill boundary was missed");
+
+    // A stream that carries no delimiters at all still has to come apart
+    // somewhere, so there the timestamp goes on doing the work.
+    std::vector<std::uint8_t> plain;
+    append_pes(plain, 0xE0, {0x11, 0x22}, true, 90000);
+    append_pes(plain, 0xE0, {0x33, 0x44}, true, 93000);
+    defjam::ProgramStreamDemuxer undelimited;
+    undelimited.append(plain.data(), plain.size());
+    undelimited.flush();
+    require(undelimited.video_units() == 2u,
+            "a stream without delimiters stopped being split at all");
+}
+
 // A synthetic disc has to be a real ISO 9660 volume, not merely something the
 // profile's own reader happens to accept: the title reads the volume
 // descriptor, walks the path table and reopens content by the sector it found
@@ -1772,6 +1832,7 @@ int main() {
         test_psmf_header();
         test_program_stream_demuxer();
         test_demuxer_stream_selection();
+        test_demuxer_splits_on_access_unit_delimiters();
         test_ge_walks_a_list();
         test_ge_control_flow();
         test_ge_call_stack_survives_a_stall();
