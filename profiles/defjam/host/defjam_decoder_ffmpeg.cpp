@@ -43,6 +43,46 @@ constexpr std::size_t kAtracProbeBytes = 8192u;
 constexpr int kAtracChannels = 2;
 constexpr int kAtracSampleRate = 44100;
 
+// ATRAC decodes to planar float; the PSP wants interleaved 16-bit. Shared by
+// the movie's audio and by sceAtrac3plus, which are the same codec reached
+// through two different libraries.
+bool frame_to_stereo_s16(const AVFrame *frame, std::vector<std::int16_t> &out,
+                         std::string &error) {
+    const int channels = frame->ch_layout.nb_channels;
+    const int samples = frame->nb_samples;
+    if (channels <= 0 || samples <= 0) {
+        error = "the ATRAC decoder produced an empty frame";
+        return false;
+    }
+    out.assign(static_cast<std::size_t>(samples) * kAtracChannels, 0);
+    if (frame->format == AV_SAMPLE_FMT_FLTP) {
+        for (int channel = 0; channel < kAtracChannels; ++channel) {
+            const auto *source =
+                reinterpret_cast<const float *>(frame->data[std::min(channel, channels - 1)]);
+            for (int i = 0; i < samples; ++i) {
+                const float value = std::clamp(source[i], -1.0f, 1.0f);
+                out[static_cast<std::size_t>(i) * kAtracChannels + channel] =
+                    static_cast<std::int16_t>(value * 32767.0f);
+            }
+        }
+        return true;
+    }
+    if (frame->format == AV_SAMPLE_FMT_S16) {
+        // Interleaved: a mono frame holds one sample per position, not two.
+        const auto *source = reinterpret_cast<const std::int16_t *>(frame->data[0]);
+        for (int i = 0; i < samples; ++i) {
+            for (int channel = 0; channel < kAtracChannels; ++channel) {
+                out[static_cast<std::size_t>(i) * kAtracChannels + channel] =
+                    source[static_cast<std::size_t>(i) * channels +
+                           std::min(channel, channels - 1)];
+            }
+        }
+        return true;
+    }
+    error = "the ATRAC stream decoded to an unexpected sample format";
+    return false;
+}
+
 std::string averror_text(int code) {
     char buffer[AV_ERROR_MAX_STRING_SIZE] = {};
     av_strerror(code, buffer, sizeof(buffer));
@@ -222,41 +262,7 @@ private:
     }
 
     bool take_audio(DecodedAudio &out, std::string &error) {
-        // ATRAC3+ decodes to planar float; the PSP wants interleaved 16-bit.
-        // Converted here rather than through a resampling library, which would
-        // be a second dependency for a few lines of arithmetic.
-        const int channels = frame_->ch_layout.nb_channels;
-        const int samples = frame_->nb_samples;
-        if (channels <= 0 || samples <= 0) {
-            error = "the ATRAC3+ decoder produced an empty frame";
-            av_frame_unref(frame_);
-            return false;
-        }
-        out.samples.assign(static_cast<std::size_t>(samples) * kAtracChannels, 0);
-        if (frame_->format == AV_SAMPLE_FMT_FLTP) {
-            for (int channel = 0; channel < kAtracChannels; ++channel) {
-                const auto *source =
-                    reinterpret_cast<const float *>(frame_->data[std::min(channel, channels - 1)]);
-                for (int i = 0; i < samples; ++i) {
-                    const float value = std::clamp(source[i], -1.0f, 1.0f);
-                    out.samples[static_cast<std::size_t>(i) * kAtracChannels + channel] =
-                        static_cast<std::int16_t>(value * 32767.0f);
-                }
-            }
-        } else if (frame_->format == AV_SAMPLE_FMT_S16) {
-            // Interleaved: a mono frame holds one sample per position, not two.
-            // Copying the output's length straight out of it would read past
-            // the decoder's buffer, so the lone channel is duplicated instead.
-            const auto *source = reinterpret_cast<const std::int16_t *>(frame_->data[0]);
-            for (int i = 0; i < samples; ++i) {
-                for (int channel = 0; channel < kAtracChannels; ++channel) {
-                    out.samples[static_cast<std::size_t>(i) * kAtracChannels + channel] =
-                        source[static_cast<std::size_t>(i) * channels +
-                               std::min(channel, channels - 1)];
-                }
-            }
-        } else {
-            error = "the ATRAC3+ stream decoded to an unexpected sample format";
+        if (!frame_to_stereo_s16(frame_, out.samples, error)) {
             av_frame_unref(frame_);
             return false;
         }
@@ -325,7 +331,107 @@ private:
     bool audio_disabled_{};   // the framing could not be measured; video goes on
 };
 
+// One standalone ATRAC stream. sceAtrac3plus hands over a whole file at once
+// and then asks for it a frame at a time, so this holds a codec context and
+// nothing else: the framing comes from the container, not from the bitstream.
+class FfmpegAtracDecoder final : public AtracDecoder {
+public:
+    ~FfmpegAtracDecoder() override {
+        avcodec_free_context(&context_);
+        av_frame_free(&frame_);
+        av_packet_free(&packet_);
+    }
+
+    bool open(const AtracFormat &format, std::string &error) {
+        packet_ = av_packet_alloc();
+        frame_ = av_frame_alloc();
+        if (packet_ == nullptr || frame_ == nullptr) {
+            error = "could not allocate an ATRAC packet or frame";
+            return false;
+        }
+        const AVCodecID id =
+            format.codec == AtracCodec::Atrac3Plus ? AV_CODEC_ID_ATRAC3P : AV_CODEC_ID_ATRAC3;
+        const AVCodec *codec = avcodec_find_decoder(id);
+        if (codec == nullptr) {
+            error = format.codec == AtracCodec::Atrac3Plus ? "this FFmpeg has no ATRAC3+ decoder"
+                                                           : "this FFmpeg has no ATRAC3 decoder";
+            return false;
+        }
+        context_ = avcodec_alloc_context3(codec);
+        if (context_ == nullptr) {
+            error = "could not allocate the ATRAC decoder";
+            return false;
+        }
+        context_->block_align = static_cast<int>(format.block_align);
+        context_->sample_rate = static_cast<int>(format.sample_rate);
+        av_channel_layout_default(&context_->ch_layout, static_cast<int>(format.channels));
+        // ATRAC3 needs the fmt chunk's codec-private tail; ATRAC3+ does not,
+        // but passing it along is harmless when the container supplied one.
+        if (!format.extradata.empty()) {
+            context_->extradata = static_cast<std::uint8_t *>(
+                av_mallocz(format.extradata.size() + AV_INPUT_BUFFER_PADDING_SIZE));
+            if (context_->extradata == nullptr) {
+                error = "could not allocate ATRAC extradata";
+                return false;
+            }
+            std::memcpy(context_->extradata, format.extradata.data(), format.extradata.size());
+            context_->extradata_size = static_cast<int>(format.extradata.size());
+        }
+        if (const int rc = avcodec_open2(context_, codec, nullptr); rc < 0) {
+            error = "could not open the ATRAC decoder: " + averror_text(rc);
+            return false;
+        }
+        return true;
+    }
+
+    int decode(const std::uint8_t *data, std::size_t size, std::vector<std::int16_t> &out,
+               std::string &error) override {
+        if (data == nullptr || size == 0u) return 0;
+        if (av_new_packet(packet_, static_cast<int>(size)) < 0) {
+            error = "could not allocate an ATRAC packet";
+            return -1;
+        }
+        std::memcpy(packet_->data, data, size);
+
+        // EAGAIN leaves the packet unconsumed, exactly as on the movie path.
+        bool collected = false;
+        int sent = avcodec_send_packet(context_, packet_);
+        if (sent == AVERROR(EAGAIN)) {
+            collected = avcodec_receive_frame(context_, frame_) >= 0;
+            sent = avcodec_send_packet(context_, packet_);
+        }
+        av_packet_unref(packet_);
+        if (sent < 0 && sent != AVERROR(EAGAIN)) {
+            error = "ATRAC decode failed: " + averror_text(sent);
+            return -1;
+        }
+        if (!collected) {
+            const int got = avcodec_receive_frame(context_, frame_);
+            if (got == AVERROR(EAGAIN) || got == AVERROR_EOF) return 0;
+            if (got < 0) {
+                error = "ATRAC decode failed: " + averror_text(got);
+                return -1;
+            }
+        }
+        const int samples = frame_->nb_samples;
+        const bool ok = frame_to_stereo_s16(frame_, out, error);
+        av_frame_unref(frame_);
+        return ok ? samples : -1;
+    }
+
+private:
+    AVCodecContext *context_{};
+    AVFrame *frame_{};
+    AVPacket *packet_{};
+};
+
 } // namespace
+
+std::unique_ptr<AtracDecoder> make_atrac_decoder(const AtracFormat &format, std::string &error) {
+    auto decoder = std::make_unique<FfmpegAtracDecoder>();
+    if (!decoder->open(format, error)) return nullptr;
+    return decoder;
+}
 
 bool decoder_available() { return true; }
 

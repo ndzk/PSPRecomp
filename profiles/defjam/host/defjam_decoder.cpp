@@ -59,6 +59,13 @@ bool frame_to_abgr8888(const DecodedFrame &frame, std::uint32_t stride,
 
 bool decoder_available() { return false; }
 
+std::unique_ptr<AtracDecoder> make_atrac_decoder(const AtracFormat &, std::string &error) {
+    error =
+        "this build has no ATRAC decoder; configure with -DPSPRECOMP_DEFJAM_FFMPEG=ON "
+        "and an LGPL FFmpeg to enable one";
+    return nullptr;
+}
+
 std::unique_ptr<DecoderBackend> make_decoder_backend(std::string &error) {
     error =
         "this build has no movie decoder; configure with -DPSPRECOMP_DEFJAM_FFMPEG=ON "

@@ -1,3 +1,4 @@
+#include "defjam_atrac.hpp"
 #include "defjam_config.hpp"
 #include "defjam_ge.hpp"
 #include "defjam_io.hpp"
@@ -282,6 +283,19 @@ int main(int argc, char **argv) {
                       << " audio\n"
                       << "  mpeg decoded:       " << mpeg.frames_decoded << " frames, "
                       << mpeg.audio_blocks_decoded << " audio blocks\n";
+        }
+        const defjam::AtracStats atrac = defjam::atrac_stats();
+        if (atrac.streams_opened != 0u || atrac.containers_rejected != 0u) {
+            std::cout << "  atrac streams:      " << atrac.streams_opened << " opened, "
+                      << atrac.streams_released << " released, " << atrac.open_streams
+                      << " still open\n"
+                      << "  atrac frames:       " << atrac.frames_decoded << " delivered, "
+                      << atrac.frames_past_end << " asked for past the end\n";
+            if (atrac.containers_rejected != 0u)
+                std::cout << "  atrac rejected:     " << atrac.containers_rejected
+                          << " containers this profile could not read\n";
+            if (atrac.decoder_missing)
+                std::cout << "  atrac decoder:      none in this build, so the stream is silent\n";
         }
         std::cout << "  live thread states:\n" << defjam::thread_report();
         runtime.report_hle_histogram();

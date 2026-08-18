@@ -1,5 +1,6 @@
 #include "defjam_config.hpp"
 #include "defjam_decoder.hpp"
+#include "defjam_atrac.hpp"
 #include "defjam_disc.hpp"
 #include "defjam_ge.hpp"
 #include "defjam_profile.hpp"
@@ -1025,6 +1026,186 @@ void test_a_terminated_waiter_does_not_eat_the_count() {
     require(ctx.gpr[2] == 0u, "polling the signalled semaphore failed");
 }
 
+// ---------------------------------------------------------------------------
+// sceAtrac3plus
+// ---------------------------------------------------------------------------
+void put_le16(std::vector<std::uint8_t> &v, std::uint32_t x) {
+    v.push_back(static_cast<std::uint8_t>(x));
+    v.push_back(static_cast<std::uint8_t>(x >> 8));
+}
+void put_le32(std::vector<std::uint8_t> &v, std::uint32_t x) {
+    put_le16(v, x & 0xFFFFu);
+    put_le16(v, x >> 16);
+}
+void put_tag(std::vector<std::uint8_t> &v, const char *tag) {
+    for (int i = 0; i < 4; ++i) v.push_back(static_cast<std::uint8_t>(tag[i]));
+}
+
+// A minimal but well-formed .at3 container: RIFF/WAVE with fmt, fact and data.
+std::vector<std::uint8_t> make_at3(std::uint16_t format_tag, std::uint16_t channels,
+                                   std::uint32_t rate, std::uint16_t block_align,
+                                   std::uint32_t frames) {
+    std::vector<std::uint8_t> fmt;
+    put_le16(fmt, format_tag);
+    put_le16(fmt, channels);
+    put_le32(fmt, rate);
+    put_le32(fmt, rate * block_align);
+    put_le16(fmt, block_align);
+    put_le16(fmt, 16u);        // bits per sample
+    put_le16(fmt, 4u);         // cbSize
+    for (int i = 0; i < 4; ++i) fmt.push_back(0xA5u);   // codec-private tail
+
+    std::vector<std::uint8_t> body;
+    put_tag(body, "WAVE");
+    put_tag(body, "fmt ");
+    put_le32(body, static_cast<std::uint32_t>(fmt.size()));
+    body.insert(body.end(), fmt.begin(), fmt.end());
+    put_tag(body, "fact");
+    put_le32(body, 4u);
+    put_le32(body, frames * 2048u);
+    put_tag(body, "data");
+    put_le32(body, frames * block_align);
+    for (std::uint32_t i = 0; i < frames * block_align; ++i)
+        body.push_back(static_cast<std::uint8_t>(i));
+
+    std::vector<std::uint8_t> file;
+    put_tag(file, "RIFF");
+    put_le32(file, static_cast<std::uint32_t>(body.size()));
+    file.insert(file.end(), body.begin(), body.end());
+    return file;
+}
+
+void test_at3_container() {
+    const std::vector<std::uint8_t> file = make_at3(0xFFFEu, 2u, 44100u, 376u, 3u);
+    const defjam::AtracHeader header = defjam::parse_at3_header(file.data(), file.size());
+    require(header.valid, "a well-formed AT3+ container was rejected");
+    require(header.codec == defjam::AtracCodec::Atrac3Plus, "the format tag was misread");
+    require(header.channels == 2u && header.sample_rate == 44100u, "fmt fields were misread");
+    require(header.block_align == 376u, "the block size was misread");
+    require(header.data_bytes == 3u * 376u, "the data chunk length was misread");
+    require(header.samples_per_frame == 2048u, "AT3+ frames are 2048 samples");
+    require(header.extradata.size() == 4u && header.extradata[0] == 0xA5u,
+            "the codec-private tail was not carried through");
+    require(header.total_samples == 3u * 2048u, "the fact chunk was not read");
+    // The data offset must actually point at the frames.
+    require(file[header.data_offset] == 0u && header.data_offset + header.data_bytes <= file.size(),
+            "the data offset does not address the frames");
+
+    const std::vector<std::uint8_t> at3 = make_at3(0x0270u, 2u, 44100u, 192u, 2u);
+    const defjam::AtracHeader plain = defjam::parse_at3_header(at3.data(), at3.size());
+    require(plain.valid && plain.codec == defjam::AtracCodec::Atrac3, "AT3 was not recognised");
+    require(plain.samples_per_frame == 1024u, "AT3 frames are 1024 samples");
+
+    // Containers this profile must refuse rather than guess past: the frame
+    // size comes from here and nowhere else.
+    auto broken = file;
+    broken[0] = 'X';
+    require(!defjam::parse_at3_header(broken.data(), broken.size()).valid, "bad magic was accepted");
+    require(!defjam::parse_at3_header(file.data(), 8u).valid, "a truncated buffer was accepted");
+    const std::vector<std::uint8_t> zero_block = make_at3(0xFFFEu, 2u, 44100u, 0u, 3u);
+    require(!defjam::parse_at3_header(zero_block.data(), zero_block.size()).valid,
+            "a zero block size was accepted");
+    const std::vector<std::uint8_t> unknown = make_at3(0x0055u, 2u, 44100u, 376u, 3u);
+    require(!defjam::parse_at3_header(unknown.data(), unknown.size()).valid,
+            "an unknown codec tag was accepted");
+}
+
+void test_atrac_surface() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+
+    constexpr std::uint32_t kSetData = 0x7A20E7AFu, kDecode = 0x6A8C3CD5u, kRelease = 0x61EB33F5u,
+                            kGetMax = 0xD6A5F2F7u, kGetNext = 0x36FAABFBu, kStreamInfo = 0x5D268707u;
+    constexpr std::uint32_t kErrorBadAtracId = 0x80630005u;
+    constexpr std::uint32_t kErrorAllDecoded = 0x80630024u;
+    constexpr std::uint32_t kErrorUnknownFormat = 0x80630006u;
+
+    const std::uint32_t file_at = kIoScratch;
+    const std::uint32_t out_at = kIoScratch + 0x10000u;
+    const std::uint32_t scratch = kIoScratch + 0x100u;
+
+    const std::vector<std::uint8_t> file = make_at3(0xFFFEu, 2u, 44100u, 376u, 2u);
+    for (std::size_t i = 0; i < file.size(); ++i)
+        runtime.memory().store8(file_at + static_cast<std::uint32_t>(i), file[i]);
+
+    psprecomp::AllegrexContext ctx{};
+    ctx.set_gpr(4, file_at);
+    ctx.set_gpr(5, static_cast<std::uint32_t>(file.size()));
+    call_hle(runtime, "sceAtrac3plus", kSetData, ctx);
+    const auto id = static_cast<std::int32_t>(ctx.gpr[2]);
+    require(id > 0, "handing over a well-formed container did not yield an id");
+
+    // The codec fixes the frame length, and the next frame is the same until
+    // the stream runs out.
+    ctx.set_gpr(4, static_cast<std::uint32_t>(id));
+    ctx.set_gpr(5, scratch);
+    call_hle(runtime, "sceAtrac3plus", kGetMax, ctx);
+    require(ctx.gpr[2] == 0u && runtime.memory().load32(scratch) == 2048u,
+            "the maximum frame length is wrong");
+
+    // Two frames, then the stream is spent. This build has no decoder, so the
+    // frames are silence - but the bookkeeping around them still has to hold.
+    for (int frame = 0; frame < 2; ++frame) {
+        ctx.set_gpr(4, static_cast<std::uint32_t>(id));
+        ctx.set_gpr(5, out_at);
+        ctx.set_gpr(6, scratch);
+        ctx.set_gpr(7, scratch + 4u);
+        ctx.set_gpr(8, scratch + 8u);
+        call_hle(runtime, "sceAtrac3plus", kDecode, ctx);
+        require(ctx.gpr[2] == 0u, "decoding a frame that exists failed");
+        require(runtime.memory().load32(scratch) == 2048u, "the frame length was not reported");
+        require(runtime.memory().load32(scratch + 4u) == (frame == 1 ? 1u : 0u),
+                "the end flag does not follow the last frame");
+        // -1 tells the title everything is already in memory; anything else
+        // sends it looking for more of a file it has handed over in full.
+        require(runtime.memory().load32(scratch + 8u) == 0xFFFFFFFFu,
+                "the remaining-frame count should say all data is on memory");
+    }
+
+    ctx.set_gpr(4, static_cast<std::uint32_t>(id));
+    ctx.set_gpr(5, scratch);
+    call_hle(runtime, "sceAtrac3plus", kGetNext, ctx);
+    require(runtime.memory().load32(scratch) == 0u, "a spent stream still offers a next frame");
+
+    // Past the end the library says so rather than failing generically.
+    ctx.set_gpr(4, static_cast<std::uint32_t>(id));
+    ctx.set_gpr(5, out_at);
+    ctx.set_gpr(6, scratch);
+    ctx.set_gpr(7, scratch + 4u);
+    ctx.set_gpr(8, scratch + 8u);
+    call_hle(runtime, "sceAtrac3plus", kDecode, ctx);
+    require(ctx.gpr[2] == kErrorAllDecoded, "decoding past the end reported the wrong code");
+    require(runtime.memory().load32(scratch + 4u) == 1u, "the end flag was cleared past the end");
+
+    // Nothing is ever available to stream in.
+    ctx.set_gpr(4, static_cast<std::uint32_t>(id));
+    ctx.set_gpr(5, scratch);
+    ctx.set_gpr(6, scratch + 4u);
+    ctx.set_gpr(7, scratch + 8u);
+    call_hle(runtime, "sceAtrac3plus", kStreamInfo, ctx);
+    require(ctx.gpr[2] == 0u && runtime.memory().load32(scratch + 4u) == 0u,
+            "the library asked for more of a file it already has");
+
+    ctx.set_gpr(4, static_cast<std::uint32_t>(id));
+    call_hle(runtime, "sceAtrac3plus", kRelease, ctx);
+    require(ctx.gpr[2] == 0u, "releasing a live id failed");
+    ctx.set_gpr(4, static_cast<std::uint32_t>(id));
+    call_hle(runtime, "sceAtrac3plus", kRelease, ctx);
+    require(ctx.gpr[2] == kErrorBadAtracId, "releasing a dead id was accepted");
+
+    // A container this profile cannot read is refused at the door, not turned
+    // into a stream that decodes rubbish.
+    runtime.memory().store8(file_at, 'X');
+    ctx.set_gpr(4, file_at);
+    ctx.set_gpr(5, static_cast<std::uint32_t>(file.size()));
+    call_hle(runtime, "sceAtrac3plus", kSetData, ctx);
+    require(ctx.gpr[2] == kErrorUnknownFormat, "an unreadable container was accepted");
+
+    const defjam::AtracStats stats = defjam::atrac_stats();
+    require(stats.streams_opened == 1u && stats.containers_rejected == 1u,
+            "the statistics do not match what happened");
+}
+
 void test_synthetic_disc() {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "defjam_synthetic_disc_test";
@@ -1249,6 +1430,8 @@ int main() {
         test_terminating_a_thread_wakes_its_joiners();
         test_wakeup_does_not_break_a_semaphore_wait();
         test_a_terminated_waiter_does_not_eat_the_count();
+        test_at3_container();
+        test_atrac_surface();
         test_synthetic_disc();
         test_frame_conversion();
         std::cout << "All defjam config tests passed.\n";

@@ -71,6 +71,43 @@ public:
 // True when this build has a decoder at all.
 [[nodiscard]] bool decoder_available();
 
+// ---------------------------------------------------------------------------
+// Standalone ATRAC streams
+// ---------------------------------------------------------------------------
+// sceAtrac3plus is the library a title uses for streamed audio - music, and
+// anything else that is not the soundtrack inside a movie. It is a separate
+// surface from sceMpeg's audio, but the same codec underneath, so it is served
+// by the same optional backend.
+
+enum class AtracCodec { Atrac3, Atrac3Plus };
+
+// What the RIFF/WAVE container states about the stream. The decoder is told
+// these rather than inferring them: ATRAC frames carry no header of their own,
+// so the block size in particular has to come from the container.
+struct AtracFormat {
+    AtracCodec codec{AtracCodec::Atrac3Plus};
+    std::uint32_t channels{2};
+    std::uint32_t sample_rate{44100};
+    std::uint32_t block_align{};
+    std::vector<std::uint8_t> extradata;   // the fmt chunk's codec-private tail
+};
+
+class AtracDecoder {
+public:
+    virtual ~AtracDecoder() = default;
+    // Decodes one frame, which is exactly block_align bytes. Returns the
+    // number of samples per channel, 0 when the decoder consumed the frame
+    // without producing one, or -1 with `error` set.
+    virtual int decode(const std::uint8_t *data, std::size_t size,
+                       std::vector<std::int16_t> &out, std::string &error) = 0;
+};
+
+// The compiled-in backend for one stream, or nullptr with `error` explaining
+// why there is none. As with the movie decoder, a build without one is a
+// supported configuration: it costs the title its music, not its run.
+[[nodiscard]] std::unique_ptr<AtracDecoder> make_atrac_decoder(const AtracFormat &format,
+                                                               std::string &error);
+
 // Converts a decoded picture to 32-bit ABGR8888, the PSP display format, into a
 // buffer `stride` pixels wide. Written here rather than taken from a scaling
 // library so the profile depends on a decoder and nothing else.

@@ -2,6 +2,7 @@
 
 #include "defjam_ge.hpp"
 #include "defjam_io.hpp"
+#include "defjam_atrac.hpp"
 #include "defjam_mpeg.hpp"
 #include "defjam_utility.hpp"
 #include "psprecomp/common.hpp"
@@ -2199,6 +2200,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     install_io_hle(runtime);
     install_utility_hle(runtime, resolve_savedata_root(runtime.game_root().string()));
     install_mpeg_hle(runtime);
+    install_atrac_hle(runtime);
 
     runtime_log_line("install_profile: HLE registered");
 }
