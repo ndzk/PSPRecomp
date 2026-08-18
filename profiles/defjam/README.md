@@ -229,9 +229,13 @@ mismatch.
 
 - **No rasteriser.** Display lists are interpreted and their state latched;
   nothing turns that into pixels.
-- **Movie playback is the newest and least exercised path.** The container,
-  ring buffer and decoder sides are wired end to end, but playback has not yet
-  been watched through to the end of a movie.
+- **Movie playback runs end to end.** The opening movie decodes all 118 of its
+  frames and the player's threads exit cleanly, after which the title carries
+  on. Two things had to be true for that: video access units are split on H.264
+  access unit delimiters rather than on PES timestamps (this container
+  timestamps only 8 of its 63 video packets, so a timestamp split hands the
+  decoder fifteen frames where the title asked for one), and the vblank
+  sub-interrupt actually reaches the guest.
 - **Callbacks and alarms are registered but never delivered.**
   `sceKernelCreateCallback` records its handler, `sceKernelCheckCallback` always
   reports nothing pending, and `sceKernelSetAlarm` hands back a uid for an alarm
@@ -239,6 +243,17 @@ mismatch.
   forms. A title that arms an alarm or waits on a callback waits forever, which
   reads as a deadlock rather than a missing feature - worth checking early when
   a thread is parked for no visible reason.
+
+  Sub-interrupt handlers are the exception and are delivered.
+  `sceKernelRegisterSubIntrHandler` records the handler and argument,
+  `sceKernelEnableSubIntr` arms it, and the vblank raises it on whichever thread
+  is about to run - the same shape hardware uses, and the same machinery that
+  carries a GE callback. The vblank itself is driven by virtual time rather than
+  by `sceDisplayWaitVblankStart`: it is a clock, and a title can spend a whole
+  movie without asking for one. This was not academic. The movie player waits on
+  an event flag that only its vblank handler sets, so with the handler dropped
+  the display thread never consumed a frame, the player's ring of four frame
+  buffers filled, and playback stopped dead after exactly four frames.
 - **Ad-hoc multiplayer is out of scope** for the first release. The title
   imports 41 NIDs across `sceNet`, `sceNetAdhoc`, `sceNetAdhocctl`,
   `sceNetAdhocMatching` and `sceWlanDrv`, and ships four `pspnet` PRXs. The plan
