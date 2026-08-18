@@ -1,6 +1,7 @@
 #include "defjam_config.hpp"
 #include "defjam_decoder.hpp"
 #include "defjam_disc.hpp"
+#include "defjam_ge.hpp"
 #include "defjam_io.hpp"
 #include "defjam_mpeg.hpp"
 #include "defjam_utility.hpp"
@@ -426,6 +427,177 @@ void test_demuxer_stream_selection() {
     require(block.data[0] == 0x01 && block.data[1] == 0x02, "audio payload was mistrimmed");
 }
 
+// ---------------------------------------------------------------------------
+// GE display list interpretation
+// ---------------------------------------------------------------------------
+// A GE command word is (command << 24) | 24 bits of data.
+constexpr std::uint32_t ge_cmd(std::uint8_t command, std::uint32_t data) {
+    return (static_cast<std::uint32_t>(command) << 24u) | (data & 0x00FFFFFFu);
+}
+
+constexpr std::uint8_t kGeNop = 0x00u, kGePrim = 0x04u, kGeJump = 0x08u, kGeCall = 0x0Au,
+                       kGeRet = 0x0Bu, kGeEnd = 0x0Cu, kGeSignal = 0x0Eu, kGeFinish = 0x0Fu,
+                       kGeBase = 0x10u, kGeVertexType = 0x12u;
+
+// Lists live in guest RAM, which starts at 0x08000000.
+constexpr std::uint32_t kListBase = 0x08100000u;
+
+std::uint32_t ge_write(psprecomp::Runtime &runtime, std::uint32_t at,
+                       std::initializer_list<std::uint32_t> words) {
+    for (std::uint32_t word : words) {
+        runtime.memory().store32(at, word);
+        at += 4u;
+    }
+    return at;
+}
+
+void test_ge_walks_a_list() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::ge_reset();
+
+    const std::uint32_t end = ge_write(runtime, kListBase, {
+        ge_cmd(kGeNop, 0u),
+        ge_cmd(kGeVertexType, 0x123456u),
+        ge_cmd(kGePrim, (3u << 16u) | 24u),   // 24 triangles
+        ge_cmd(kGePrim, (6u << 16u) | 4u),    // 4 sprites
+        ge_cmd(kGeEnd, 0u),
+        ge_cmd(kGePrim, (3u << 16u) | 99u),   // past END: must not run
+    });
+    (void)end;
+
+    defjam::GeListState state{};
+    state.resume = kListBase;
+    const defjam::GeExecution execution = defjam::ge_execute_list(runtime, state, 0u);
+
+    const defjam::GeStats stats = defjam::ge_stats();
+    require(stats.commands == 5u, "the walk did not stop at END");
+    require(stats.draws == 2u, "PRIM commands were not counted");
+    require(stats.vertices == 28u, "vertex counts were not summed");
+    require(stats.primitives[3] == 1u && stats.primitives[6] == 1u,
+            "primitives were filed under the wrong type");
+    require(stats.last_vertex_type == 0x123456u, "the vertex type was not latched");
+    require(execution.resume_address == kListBase + 5u * 4u,
+            "execution did not resume just past END");
+    // Every command latches, so a backend can read draw state out of the file.
+    require(defjam::ge_registers()[kGeVertexType] == 0x123456u, "the register file was not updated");
+}
+
+void test_ge_control_flow() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::ge_reset();
+
+    // BASE supplies the high bits a 24-bit operand cannot hold: 0x08000000
+    // comes from bits 16-19 of the BASE operand, shifted up by eight.
+    const std::uint32_t subroutine = kListBase + 0x40u;
+    ge_write(runtime, kListBase, {
+        ge_cmd(kGeBase, 0x080000u),
+        ge_cmd(kGeCall, subroutine & 0x00FFFFFFu),
+        ge_cmd(kGePrim, (3u << 16u) | 1u),   // must run after the call returns
+        ge_cmd(kGeEnd, 0u),
+    });
+    ge_write(runtime, subroutine, {
+        ge_cmd(kGePrim, (3u << 16u) | 2u),
+        ge_cmd(kGeRet, 0u),
+    });
+
+    defjam::GeListState state{};
+    state.resume = kListBase;
+    (void)defjam::ge_execute_list(runtime, state, 0u);
+
+    const defjam::GeStats stats = defjam::ge_stats();
+    require(stats.calls == 1u && stats.returns == 1u, "the call and return were not counted");
+    require(stats.draws == 2u, "RET did not come back to the caller");
+    require(stats.vertices == 3u, "the wrong side of the call ran");
+}
+
+void test_ge_call_stack_survives_a_stall() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::ge_reset();
+
+    // The guest routinely stalls a list part-way through, including inside a
+    // subroutine. The call stack has to survive that pause, or the matching
+    // RET finds nothing to return to and execution falls straight through it.
+    const std::uint32_t subroutine = kListBase + 0x40u;
+    ge_write(runtime, kListBase, {
+        ge_cmd(kGeBase, 0x080000u),
+        ge_cmd(kGeCall, subroutine & 0x00FFFFFFu),
+        ge_cmd(kGePrim, (3u << 16u) | 7u),   // only reached by returning
+        ge_cmd(kGeEnd, 0u),
+    });
+    ge_write(runtime, subroutine, {
+        ge_cmd(kGeNop, 0u),
+        ge_cmd(kGeNop, 0u),                  // stall here, inside the subroutine
+        ge_cmd(kGeRet, 0u),
+        ge_cmd(kGeEnd, 0u),                  // where a lost stack lands instead
+    });
+
+    defjam::GeListState state{};
+    state.resume = kListBase;
+    const std::uint32_t stall = subroutine + 4u;
+    const defjam::GeExecution first = defjam::ge_execute_list(runtime, state, stall);
+    require(first.resume_address == stall, "the list did not stop at the stall address");
+    require(defjam::ge_stats().draws == 0u, "nothing should have been drawn yet");
+
+    // The guest moves the stall on; the rest of the subroutine, its RET, and
+    // the caller's remaining work all run.
+    const defjam::GeExecution second = defjam::ge_execute_list(runtime, state, 0u);
+    (void)second;
+    const defjam::GeStats stats = defjam::ge_stats();
+    require(stats.returns == 1u, "RET was not reached after the stall");
+    require(stats.draws == 1u && stats.vertices == 7u,
+            "the call stack did not survive the stall, so RET fell through");
+}
+
+void test_ge_guards_its_limits() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::ge_reset();
+
+    // A call stack deeper than the hardware's is stopped rather than smashed.
+    std::uint32_t at = kListBase;
+    at = ge_write(runtime, at, {ge_cmd(kGeBase, 0x080000u)});
+    for (std::uint32_t i = 0; i < defjam::kGeCallStackDepth + 4u; ++i) {
+        const std::uint32_t next = at + 4u;
+        at = ge_write(runtime, at, {ge_cmd(kGeCall, next & 0x00FFFFFFu)});
+    }
+    ge_write(runtime, at, {ge_cmd(kGeEnd, 0u)});
+
+    defjam::GeListState overflow{};
+    overflow.resume = kListBase;
+    (void)defjam::ge_execute_list(runtime, overflow, 0u);
+    require(defjam::ge_stats().calls == defjam::kGeCallStackDepth + 1u,
+            "the call stack did not stop at its depth limit");
+
+    // A list that walks out of guest memory stops instead of reading on.
+    defjam::ge_reset();
+    ge_write(runtime, kListBase, {ge_cmd(kGeJump, 0u)});   // BASE is 0: jumps to 0
+    defjam::GeListState astray{};
+    astray.resume = kListBase;
+    const defjam::GeExecution wandered = defjam::ge_execute_list(runtime, astray, 0u);
+    require(wandered.resume_address != 0u || defjam::ge_stats().jumps == 1u,
+            "a jump out of memory was not stopped");
+}
+
+void test_ge_signal_and_finish() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::ge_reset();
+
+    ge_write(runtime, kListBase, {
+        ge_cmd(kGeSignal, 0x4321u),
+        ge_cmd(kGeFinish, 0x8765u),
+        ge_cmd(kGeEnd, 0u),
+    });
+
+    defjam::GeListState state{};
+    state.resume = kListBase;
+    const defjam::GeExecution execution = defjam::ge_execute_list(runtime, state, 0u);
+    require(execution.signalled && execution.signal_argument == 0x4321u,
+            "SIGNAL did not reach the caller with its payload");
+    require(execution.finished && execution.finish_argument == 0x8765u,
+            "FINISH did not reach the caller with its payload");
+    // FINISH does not end the walk; END does.
+    require(defjam::ge_stats().commands == 3u, "FINISH ended the list early");
+}
+
 void test_synthetic_disc() {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "defjam_synthetic_disc_test";
@@ -637,6 +809,11 @@ int main() {
         test_psmf_header();
         test_program_stream_demuxer();
         test_demuxer_stream_selection();
+        test_ge_walks_a_list();
+        test_ge_control_flow();
+        test_ge_call_stack_survives_a_stall();
+        test_ge_guards_its_limits();
+        test_ge_signal_and_finish();
         test_synthetic_disc();
         test_frame_conversion();
         std::cout << "All defjam config tests passed.\n";

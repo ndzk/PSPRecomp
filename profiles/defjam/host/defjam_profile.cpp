@@ -220,7 +220,7 @@ std::map<std::int32_t, GeCallbackRecord> g_ge_callbacks;
 // A queued list keeps the callback set it was enqueued with, because
 // sceGeListUpdateStallAddr names only the list.
 struct GeListRecord {
-    std::uint32_t resume{};
+    GeListState state;
     std::int32_t callback_id{-1};
 };
 
@@ -1598,8 +1598,10 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         // ge_execute_list returns where it stopped so a stall update resumes.
         const std::int32_t id = g_next_ge_list_id++;
         const auto callback_id = static_cast<std::int32_t>(ctx.gpr[6]);
-        const GeExecution execution = ge_execute_list(rt, ctx.gpr[4], ctx.gpr[5]);
-        g_ge_lists[id] = GeListRecord{execution.resume_address, callback_id};
+        GeListState state;
+        state.resume = ctx.gpr[4];
+        const GeExecution execution = ge_execute_list(rt, state, ctx.gpr[5]);
+        g_ge_lists[id] = GeListRecord{state, callback_id};
         ++g_display_list_submissions;
         queue_ge_callbacks(execution, callback_id);
         (void)deliver_pending_guest_calls(ctx, static_cast<std::uint32_t>(id));
@@ -1611,8 +1613,9 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             set_success(ctx);
             return;
         }
-        const GeExecution execution = ge_execute_list(rt, it->second.resume, ctx.gpr[5]);
-        it->second.resume = execution.resume_address;
+        // The state carries the call stack, so a list stalled inside a
+        // subroutine resumes inside it.
+        const GeExecution execution = ge_execute_list(rt, it->second.state, ctx.gpr[5]);
         queue_ge_callbacks(execution, it->second.callback_id);
         (void)deliver_pending_guest_calls(ctx, 0u);
     });

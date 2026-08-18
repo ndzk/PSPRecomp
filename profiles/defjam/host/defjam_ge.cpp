@@ -39,7 +39,6 @@ constexpr std::uint8_t kCmdFrameBufferWidth = 0x9Du;
 
 // A malformed or self-referential list must not spin forever.
 constexpr std::uint32_t kMaxCommandsPerList = 2u * 1000u * 1000u;
-constexpr std::uint32_t kCallStackDepth = 32u;
 
 std::array<std::uint32_t, 256> g_registers{};
 GeStats g_stats{};
@@ -62,15 +61,18 @@ void ge_reset() {
 const std::array<std::uint32_t, 256> &ge_registers() { return g_registers; }
 GeStats ge_stats() { return g_stats; }
 
-GeExecution ge_execute_list(Runtime &runtime, std::uint32_t start, std::uint32_t stall) {
+GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t stall) {
     GeExecution result{};
-    const auto stop_at = [&result](std::uint32_t address) {
+    // Where interpretation stopped is recorded in the state as well as
+    // returned, because the state is what a later resume continues from.
+    const auto stop_at = [&result, &state](std::uint32_t address) {
         result.resume_address = address;
+        state.resume = address;
         return result;
     };
-    std::uint32_t pc = start;
-    std::array<std::uint32_t, kCallStackDepth> call_stack{};
-    std::uint32_t call_depth = 0u;
+    std::uint32_t pc = state.resume;
+    auto &call_stack = state.call_stack;
+    std::uint32_t &call_depth = state.call_depth;
     std::uint32_t executed = 0u;
     ++g_stats.lists_executed;
 
@@ -158,7 +160,7 @@ GeExecution ge_execute_list(Runtime &runtime, std::uint32_t start, std::uint32_t
 
         case kCmdCall:
             ++g_stats.calls;
-            if (call_depth < kCallStackDepth) {
+            if (call_depth < kGeCallStackDepth) {
                 call_stack[call_depth++] = pc;
                 pc = resolve_address(data);
             } else {

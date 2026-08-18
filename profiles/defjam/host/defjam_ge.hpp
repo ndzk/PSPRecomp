@@ -32,6 +32,22 @@ struct GeStats {
     std::uint32_t last_vertex_type{};
 };
 
+// The GE's own call stack depth.
+constexpr std::uint32_t kGeCallStackDepth = 32u;
+
+// A list's execution state, which outlives any one call into the interpreter.
+//
+// The guest stalls a list part-way through and moves the stall address on as
+// it produces more work, so interpretation resumes mid-list - and it may be
+// mid-subroutine. Rebuilding the call stack empty on each resume leaves the
+// matching RET with nowhere to return to, and execution falls through it into
+// whatever follows the subroutine.
+struct GeListState {
+    std::uint32_t resume{};
+    std::array<std::uint32_t, kGeCallStackDepth> call_stack{};
+    std::uint32_t call_depth{};
+};
+
 struct GeExecution {
     // Where execution stopped, so a later stall update resumes from here.
     std::uint32_t resume_address{};
@@ -43,8 +59,10 @@ struct GeExecution {
     std::uint32_t signal_argument{};
 };
 
-// Runs a list from `start` up to `stall` (0 meaning "to the end").
-GeExecution ge_execute_list(psprecomp::Runtime &runtime, std::uint32_t start, std::uint32_t stall);
+// Runs a list from `state.resume` up to `stall` (0 meaning "to the end"),
+// leaving `state` where interpretation stopped so a stall update continues
+// from exactly there, subroutines included.
+GeExecution ge_execute_list(psprecomp::Runtime &runtime, GeListState &state, std::uint32_t stall);
 
 void ge_reset();
 [[nodiscard]] GeStats ge_stats();
