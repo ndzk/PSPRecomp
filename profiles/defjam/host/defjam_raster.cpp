@@ -29,6 +29,7 @@ RasterStats g_stats;
 // Set for the duration of one draw, so the inner loop does not re-read the
 // register file per pixel.
 bool g_clearing = false;
+bool g_through_draw = false;
 
 // The frame buffer, kept host-side while a frame is drawn and pushed back to
 // guest memory afterwards. Reading and writing single pixels through the guest
@@ -110,7 +111,12 @@ bool depth_passes(std::uint16_t incoming, std::uint16_t stored) {
 std::uint16_t to_depth(float depth) {
     if (!(depth > 0.0f)) return 0u;
     if (depth > 65535.0f) return 65535u;
-    return static_cast<std::uint16_t>(depth);
+    // Rounded, not truncated. Interpolating depth across a triangle whose
+    // vertices share one value still lands a hair under it, and truncation
+    // turns that into a whole unit lower - enough for a GEQUAL test to reject
+    // a pixel that is at exactly the same depth as what is already there.
+    // Every draw after the first then loses a scattering of pixels.
+    return static_cast<std::uint16_t>(depth + 0.5f);
 }
 
 // Clear mode, measured rather than assumed: register 0xD3 is non-zero exactly
@@ -154,6 +160,7 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
         if (g_depth_test && at < g_depth.size()) {
             if (!depth_passes(depth, g_depth[at])) {
                 ++g_stats.depth_rejected;
+                if (g_through_draw) ++g_stats.depth_rejected_through;
                 return;
             }
         }
@@ -300,7 +307,9 @@ bool rasterise(psprecomp::Runtime &runtime, std::uint32_t primitive,
     bind_surface(runtime, target);
     const std::array<std::uint32_t, 256> &registers = ge_registers();
     g_clearing = clear_mode_active();
-    g_depth_test = (registers[kCmdDepthTestEnable] & 1u) != 0u;
+    g_through_draw = format.through;
+    static const bool depth_disabled = std::getenv("PSPRECOMP_DEFJAM_NO_DEPTH") != nullptr;
+    g_depth_test = !depth_disabled && (registers[kCmdDepthTestEnable] & 1u) != 0u;
     g_depth_write = (registers[kCmdDepthWriteDisable] & 1u) == 0u;
     g_depth_compare = registers[kCmdDepthTest] & 0x7u;
     // Bits 8 to 10 of the clear operand say which buffers it touches.
@@ -379,7 +388,8 @@ std::string raster_report() {
         << g_stats.primitives_skipped << " skipped, " << g_stats.no_target << " without a target\n"
         << "  raster pixels:      " << g_stats.pixels_written << " written, "
         << g_stats.textured_primitives << " textured draws, " << g_stats.depth_rejected
-        << " pixels failed the depth test\n";
+        << " pixels failed the depth test (" << g_stats.depth_rejected_through
+        << " of them screen-space)\n";
     return out.str();
 }
 
