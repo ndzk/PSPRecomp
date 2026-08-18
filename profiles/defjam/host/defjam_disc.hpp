@@ -32,6 +32,12 @@ public:
     [[nodiscard]] std::uint32_t file_count() const { return file_count_; }
     [[nodiscard]] std::uint32_t directory_count() const { return directory_count_; }
 
+    // Times a sector belonged to a staged file that could not be opened. Those
+    // sectors read as zeroes, which is indistinguishable from a file that is
+    // genuinely zeroed, so a non-zero count here is the only sign that the
+    // staged tree lost something after it was laid out.
+    [[nodiscard]] std::uint32_t unreadable_files() const { return unreadable_files_; }
+
     // Reads whole sectors. Returns how many bytes were produced, which is short
     // of the request past the end of the disc. Sectors that belong to no file
     // and no structure read as zeroes, exactly as the gaps on a real disc do.
@@ -46,6 +52,8 @@ private:
     };
 
     bool ready_{};
+    // read() is const, so this is the one thing it may still record.
+    mutable std::uint32_t unreadable_files_{};
     std::uint32_t total_sectors_{};
     std::uint32_t file_count_{};
     std::uint32_t directory_count_{};

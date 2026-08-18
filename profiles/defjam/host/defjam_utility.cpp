@@ -69,6 +69,16 @@ std::string read_fixed_string(Runtime &rt, std::uint32_t address, std::uint32_t 
     return text;
 }
 
+// These names come out of guest memory and then become a path, so they may
+// only ever name one directory directly under the savedata root. A separator
+// or a parent reference would put the save somewhere else entirely, and
+// Runtime::translate_path already refuses the same thing on the IO side; this
+// path was building the name without asking.
+bool is_safe_name(const std::string &text) {
+    if (text.empty() || text == "." || text == "..") return false;
+    return text.find('/') == std::string::npos && text.find('\\') == std::string::npos;
+}
+
 // PSP saves live in a directory named by the game and slot, holding one data
 // file. Only that data file is modelled; icons, PARAM.SFO and secure files are
 // not written, which is recorded rather than glossed over.
@@ -183,6 +193,14 @@ void install_utility_hle(Runtime &runtime, const std::string &savedata_root) {
         runtime_log_line("savedata dialog mode=" + std::to_string(mode) + " game=" + game_name +
                          " save=" + save_name + " file=" + file_name + " bufSize=" +
                          std::to_string(rt.memory().load32(param + kSavedataDataBufSizeOffset)));
+
+        if (!is_safe_name(game_name + save_name) || !is_safe_name(file_name)) {
+            runtime_log_line("savedata dialog: refusing a name that leaves the savedata root: game=" +
+                             game_name + " save=" + save_name + " file=" + file_name);
+            set_result(rt, param, kErrorSaveAccess);
+            set_return(ctx, 0u);
+            return;
+        }
 
         const std::filesystem::path directory = save_directory(game_name, save_name);
         switch (mode) {

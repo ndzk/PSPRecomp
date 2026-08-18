@@ -162,6 +162,12 @@ std::uint32_t SyntheticDisc::read(std::uint32_t sector, std::uint32_t count,
             if (input.is_open()) {
                 input.seekg(static_cast<std::streamoff>(offset));
                 input.read(reinterpret_cast<char *>(target), want);
+            } else {
+                // The sector still reads as zeroes, which is indistinguishable
+                // from a file that is genuinely zeroed. Counted so a staged
+                // tree that has lost a file says so instead of quietly
+                // serving nothing.
+                ++unreadable_files_;
             }
         }
         i += run;
@@ -171,6 +177,7 @@ std::uint32_t SyntheticDisc::read(std::uint32_t sector, std::uint32_t count,
 
 bool SyntheticDisc::build(const std::filesystem::path &root, std::string &error) {
     ready_ = false;
+    unreadable_files_ = 0u;
     structure_.clear();
     files_.clear();
     total_sectors_ = 0u;
@@ -236,6 +243,13 @@ bool SyntheticDisc::build(const std::filesystem::path &root, std::string &error)
     for (auto &node : nodes) {
         std::size_t used = record_size(1u) * 2u;  // "." and ".."
         for (const auto &entry : node.entries) {
+            // The identifier length is one byte in the record, so a longer
+            // name would be written whole but described as a fraction of
+            // itself, and every record after it in the extent misparsed.
+            if (entry.name.size() > 0xFFu) {
+                error = "directory entry name does not fit an ISO 9660 identifier: " + entry.name;
+                return false;
+            }
             const std::size_t size = record_size(entry.name.size());
             if (size > kSectorSize) {
                 error = "directory entry name is too long for a sector: " + entry.name;

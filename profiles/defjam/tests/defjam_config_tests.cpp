@@ -1206,6 +1206,62 @@ void test_atrac_surface() {
             "the statistics do not match what happened");
 }
 
+// A savedata name comes out of guest memory and then becomes a path, so it
+// must not be able to name anything outside the savedata root.
+void test_savedata_names_stay_put() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "defjam_savedata_test";
+    std::error_code ec;
+    std::filesystem::remove_all(root, ec);
+    std::filesystem::create_directories(root / "savedata", ec);
+
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_utility_hle(runtime, (root / "savedata").string());
+
+    constexpr std::uint32_t kSavedataInitStart = 0x50C4CD57u;
+    constexpr std::uint32_t kResultOffset = 28u, kModeOffset = 48u, kGameNameOffset = 60u,
+                            kSaveNameOffset = 76u, kFileNameOffset = 100u,
+                            kDataBufOffset = 116u, kDataBufSizeOffset = 120u,
+                            kDataSizeOffset = 124u;
+    constexpr std::uint32_t kModeSave = 3u;
+
+    const std::uint32_t param = kIoScratch;
+    const std::uint32_t payload = kIoScratch + 0x400u;
+    for (std::uint32_t i = 0; i < 256u; i += 4u) runtime.memory().store32(param + i, 0u);
+    runtime.memory().store32(param + kModeOffset, kModeSave);
+    runtime.memory().store32(param + kDataBufOffset, payload);
+    runtime.memory().store32(param + kDataBufSizeOffset, 16u);
+    runtime.memory().store32(param + kDataSizeOffset, 16u);
+    for (std::uint32_t i = 0; i < 16u; ++i) runtime.memory().store8(payload + i, 0x5Au);
+
+    // A name that climbs out of the root, which is what the guard is for.
+    write_guest_string(runtime, param + kGameNameOffset, "../escaped");
+    write_guest_string(runtime, param + kSaveNameOffset, "SLOT");
+    write_guest_string(runtime, param + kFileNameOffset, "DATA.BIN");
+
+    psprecomp::AllegrexContext ctx{};
+    ctx.set_gpr(4, param);
+    call_hle(runtime, "sceUtility", kSavedataInitStart, ctx);
+    require(runtime.memory().load32(param + kResultOffset) != 0u,
+            "a savedata name climbing out of the root was accepted");
+    require(!std::filesystem::exists(root / "escapedSLOT", ec) &&
+                !std::filesystem::exists(root / ".." / "escapedSLOT", ec),
+            "the save was written outside the savedata root");
+
+    // The ordinary case still works, so the guard is not simply refusing
+    // everything.
+    write_guest_string(runtime, param + kGameNameOffset, "ULUS10100");
+    runtime.memory().store32(param + kResultOffset, 0xFFFFFFFFu);
+    ctx.set_gpr(4, param);
+    call_hle(runtime, "sceUtility", kSavedataInitStart, ctx);
+    require(runtime.memory().load32(param + kResultOffset) == 0u,
+            "a well-formed save was refused");
+    require(std::filesystem::is_regular_file(root / "savedata" / "ULUS10100SLOT" / "DATA.BIN", ec),
+            "the save did not land where it should");
+
+    std::filesystem::remove_all(root, ec);
+}
+
 void test_synthetic_disc() {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "defjam_synthetic_disc_test";
@@ -1432,6 +1488,7 @@ int main() {
         test_a_terminated_waiter_does_not_eat_the_count();
         test_at3_container();
         test_atrac_surface();
+        test_savedata_names_stay_put();
         test_synthetic_disc();
         test_frame_conversion();
         std::cout << "All defjam config tests passed.\n";
