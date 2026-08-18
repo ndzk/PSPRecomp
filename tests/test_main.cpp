@@ -784,6 +784,91 @@ static void test_vfpu_source_prefix() {
     }
 }
 
+// binary32 <-> binary16 in both directions. Every interesting value here sits
+// on a boundary the integer-only conversion has to get right by construction:
+// the subnormal range, the tie that rounds up, the carry out of the subnormal
+// range into the smallest normal, and the overflow to infinity.
+static void test_vfpu_half_float() {
+    struct Shrink {
+        const char *name;
+        float value;
+        std::uint16_t expected;
+    };
+    const Shrink shrinks[] = {
+        {"zero", 0.0f, 0x0000u},
+        {"negative zero", -0.0f, 0x8000u},
+        {"one", 1.0f, 0x3C00u},
+        {"minus two", -2.0f, 0xC000u},
+        // 2^-24 is the smallest binary16 subnormal.
+        {"smallest subnormal", 0x1p-24f, 0x0001u},
+        // 2^-25 is exactly half of it and the VFPU rounds a tie upward.
+        {"a tie rounds up", 0x1p-25f, 0x0001u},
+        // Below the tie there is nothing left to round to.
+        {"under the tie", 0x1p-26f, 0x0000u},
+        {"largest subnormal", 0x1.ff8p-15f, 0x03FFu},
+        // Rounding a subnormal can carry into the smallest normal.
+        {"subnormal carries into normal", 0x1.ffcp-15f, 0x0400u},
+        {"smallest normal", 0x1p-14f, 0x0400u},
+        {"largest finite", 65504.0f, 0x7BFFu},
+        // Halfway between the largest finite and 65536 rounds away to infinity.
+        {"overflow rounds to infinity", 65520.0f, 0x7C00u},
+        {"beyond the range", 131072.0f, 0x7C00u},
+        {"binary32 subnormals vanish", 0x1p-140f, 0x0000u},
+    };
+    for (const Shrink &test : shrinks) {
+        const std::uint16_t got = psprecomp::AllegrexContext::vfpu_shrink_to_half_bits(test.value);
+        if (got == test.expected) continue;
+        throw std::runtime_error(std::string("vf2h ") + test.name + ": wanted 0x" +
+                                 std::to_string(test.expected) + " got 0x" + std::to_string(got));
+    }
+
+    // Infinities keep their sign; a NaN stays a NaN rather than becoming one.
+    require(psprecomp::AllegrexContext::vfpu_shrink_to_half_bits(
+                std::bit_cast<float>(0x7F800000u)) == 0x7C00u, "vf2h lost positive infinity");
+    require(psprecomp::AllegrexContext::vfpu_shrink_to_half_bits(
+                std::bit_cast<float>(0xFF800000u)) == 0xFC00u, "vf2h lost negative infinity");
+    const std::uint16_t nan_half = psprecomp::AllegrexContext::vfpu_shrink_to_half_bits(
+        std::bit_cast<float>(0x7FC00123u));
+    require((nan_half & 0x7C00u) == 0x7C00u && (nan_half & 0x03FFu) != 0u,
+            "vf2h turned a NaN into an infinity");
+
+    struct Expand {
+        const char *name;
+        std::uint16_t half;
+        std::uint32_t expected;
+    };
+    const Expand expands[] = {
+        {"zero", 0x0000u, 0x00000000u},
+        {"negative zero", 0x8000u, 0x80000000u},
+        {"one", 0x3C00u, 0x3F800000u},
+        {"smallest subnormal", 0x0001u, 0x33800000u},   // 2^-24
+        {"largest subnormal", 0x03FFu, 0x387FC000u},
+        {"smallest normal", 0x0400u, 0x38800000u},      // 2^-14
+        {"largest finite", 0x7BFFu, 0x477FE000u},       // 65504
+        {"infinity", 0x7C00u, 0x7F800000u},
+        {"negative infinity", 0xFC00u, 0xFF800000u},
+    };
+    for (const Expand &test : expands) {
+        const std::uint32_t got = psprecomp::AllegrexContext::vfpu_expand_half_bits(test.half);
+        if (got == test.expected) continue;
+        throw std::runtime_error(std::string("vh2f ") + test.name + ": wanted " +
+                                 std::to_string(test.expected) + " got " + std::to_string(got));
+    }
+
+    // Every finite binary16 survives a trip out to binary32 and back, which is
+    // the property the pair has to hold whatever the rounding rule is.
+    for (std::uint32_t pattern = 0u; pattern < 0x10000u; ++pattern) {
+        const auto half = static_cast<std::uint16_t>(pattern);
+        if ((half & 0x7C00u) == 0x7C00u) continue;   // infinities and NaNs
+        const float wide = std::bit_cast<float>(
+            psprecomp::AllegrexContext::vfpu_expand_half_bits(half));
+        const std::uint16_t back = psprecomp::AllegrexContext::vfpu_shrink_to_half_bits(wide);
+        if (back == half) continue;
+        throw std::runtime_error("half round trip lost 0x" + std::to_string(pattern) +
+                                 ", came back 0x" + std::to_string(back));
+    }
+}
+
 // The signed pack and unpack are exact inverses and are held to that. The
 // unsigned pair is not, and that is recorded here rather than left for the next
 // person to discover: vus2i scales by 15 bits and vuc2i by a byte replication
@@ -2054,6 +2139,7 @@ int main() {
         test_nid_registry_csv_crlf();
         test_scratchpad_memory();
         test_vfpu_source_prefix();
+        test_vfpu_half_float();
         test_vfpu_pack_unpack_round_trip();
         test_vfpu_integer_pack();
 
