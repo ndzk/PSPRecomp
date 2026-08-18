@@ -246,10 +246,15 @@ std::uint64_t g_starvation_tick_us = 0;
 // ---------------------------------------------------------------------------
 // The title loads Sony system PRXs from USRDIR/assets/module -- audiocodec,
 // mpeg, sc_sascore, libatrac3plus and friends. Their code is deliberately not
-// recompiled or executed: what those modules provide is exactly the sceMpeg,
-// sceSasCore, sceAtrac3plus and sceAudio surfaces this profile already
-// implements, so loading one registers nothing and the guest's imports resolve
-// to the HLE either way.
+// recompiled or executed: what those modules provide is a set of library
+// surfaces this profile implements itself, so loading one registers nothing
+// and the guest's imports resolve to the HLE either way.
+//
+// That holds only for the surfaces actually implemented. sceMpeg, sceSasCore
+// and sceAudio are; sceAtrac3plus is not, and the title imports eight of its
+// entry points and calls them from twenty-six sites, so the first one reached
+// stops the run under this profile's missing_function policy. Loading the PRX
+// succeeds and then nothing satisfies what it was loaded for.
 //
 // The load is still verified against the staged disc rather than blindly
 // accepted, so a path the title expects and the user has not staged fails
