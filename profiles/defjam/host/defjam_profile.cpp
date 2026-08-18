@@ -1481,15 +1481,6 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             if (text == nullptr || *text == '\0') return 0u;
             return static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
         }();
-        const std::uint32_t buffer = ctx.gpr[4];
-        const std::uint32_t count = std::max(1u, ctx.gpr[5]);
-        for (std::uint32_t i = 0; i < count; ++i) {
-            const std::uint32_t entry = buffer + i * 16u;
-            rt.memory().store32(entry, static_cast<std::uint32_t>(g_virtual_time_us));
-            rt.memory().store32(entry + 4u, held);    // buttons
-            rt.memory().store8(entry + 8u, 128u);     // analog x
-            rt.memory().store8(entry + 9u, 128u);     // analog y
-        }
 
         // This is the blocking read: controller data is sampled once per cycle,
         // and asking again inside the same cycle waits for the next one. The
@@ -1502,6 +1493,22 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         constexpr std::uint64_t kSamplePeriodUs = 16683u;
         const auto remainder =
             static_cast<std::uint32_t>(kSamplePeriodUs - (g_virtual_time_us % kSamplePeriodUs));
+
+        // The caller resumes at the next sample, so that is the sample it is
+        // being handed. Stamping it with the time of the call instead dates
+        // every reading a cycle into the past, and a title deriving its frame
+        // interval from consecutive readings measures the wrong one.
+        const auto sample_time = static_cast<std::uint32_t>(g_virtual_time_us + remainder);
+        const std::uint32_t buffer = ctx.gpr[4];
+        const std::uint32_t count = std::max(1u, ctx.gpr[5]);
+        for (std::uint32_t i = 0; i < count; ++i) {
+            const std::uint32_t entry = buffer + i * 16u;
+            rt.memory().store32(entry, sample_time);
+            rt.memory().store32(entry + 4u, held);    // buttons
+            rt.memory().store8(entry + 8u, 128u);     // analog x
+            rt.memory().store8(entry + 9u, 128u);     // analog y
+        }
+
         delay_current_thread(rt, ctx, remainder, count);
     });
 
@@ -1659,18 +1666,23 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         AudioChannel &slot = g_audio_channels[channel];
         const std::uint32_t samples = slot.sample_count;
         const std::uint64_t duration = audio_buffer_duration_us(samples);
-        ++g_audio_buffers;
-        g_audio_samples += samples;
 
         // One buffer may be in flight; a second has to wait for the first.
         if (slot.busy_until_us > g_virtual_time_us) {
             const std::uint64_t wait = slot.busy_until_us - g_virtual_time_us;
+            // The non-blocking form refused this buffer, so nothing was queued
+            // and nothing should be counted: a refusal that still bumps the
+            // totals reads afterwards as audio that played.
             if (!blocking) { set_return(ctx, 0u); return; }
             slot.busy_until_us += duration;
+            ++g_audio_buffers;
+            g_audio_samples += samples;
             delay_current_thread(rt, ctx, static_cast<std::uint32_t>(wait), samples);
             return;
         }
         slot.busy_until_us = g_virtual_time_us + duration;
+        ++g_audio_buffers;
+        g_audio_samples += samples;
         set_return(ctx, samples);
     };
 
