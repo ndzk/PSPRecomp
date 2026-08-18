@@ -1354,6 +1354,147 @@ void test_mpeg_surface() {
     require(stats.video_units_refused == 1u, "the refusal was not recorded");
 }
 
+// ---------------------------------------------------------------------------
+// sceGe_user, sceSasCore and sceAudio through find_hle
+// ---------------------------------------------------------------------------
+void test_ge_user_surface() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+    defjam::ge_reset();
+
+    constexpr std::uint32_t kEdramAddr = 0xE47E40E4u, kEdramSize = 0x1F6752ADu,
+                            kSetTranslation = 0xB77905EAu, kListEnQueue = 0xAB49E76Au;
+
+    psprecomp::AllegrexContext ctx{};
+    call_hle(runtime, "sceGe_user", kEdramAddr, ctx);
+    require(ctx.gpr[2] == 0x04000000u, "edram does not start where VRAM does");
+    call_hle(runtime, "sceGe_user", kEdramSize, ctx);
+    require(ctx.gpr[2] == 2u * 1024u * 1024u, "edram is not two megabytes");
+
+    // The translation setter answers with what it replaced, which is how a
+    // title restores the previous value.
+    ctx.set_gpr(4, 0x10u);
+    call_hle(runtime, "sceGe_user", kSetTranslation, ctx);
+    const std::uint32_t first = ctx.gpr[2];
+    ctx.set_gpr(4, 0x20u);
+    call_hle(runtime, "sceGe_user", kSetTranslation, ctx);
+    require(ctx.gpr[2] == 0x10u && first != 0x10u,
+            "the translation setter did not report the previous value");
+
+    // A list the interpreter can walk: two draws and an END.
+    const std::uint32_t list = kListBase;
+    ge_write(runtime, list, {
+        ge_cmd(kGePrim, (3u << 16u) | 12u),
+        ge_cmd(kGePrim, (3u << 16u) | 6u),
+        ge_cmd(kGeEnd, 0u),
+    });
+    ctx.set_gpr(4, list);
+    ctx.set_gpr(5, 0u);      // no stall: run to the end
+    ctx.set_gpr(6, static_cast<std::uint32_t>(-1));   // no callback set
+    ctx.set_gpr(7, 0u);
+    call_hle(runtime, "sceGe_user", kListEnQueue, ctx);
+
+    const defjam::GeStats stats = defjam::ge_stats();
+    require(stats.draws == 2u && stats.vertices == 18u,
+            "the enqueued list was not interpreted");
+    require(defjam::headless_stats().display_list_submissions == 1u,
+            "the submission was not counted");
+}
+
+void test_sas_voice_length() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+
+    constexpr std::uint32_t kSasInit = 0x42778A9Fu, kSetVoice = 0x99944089u,
+                            kKeyOn = 0x76F01ACAu, kSasCore = 0xA3589D81u,
+                            kGetEndFlag = 0x68A46B95u;
+    constexpr std::uint32_t kGrain = 256u;
+    // VAG packs 28 samples into every 16-byte block, so this is 64 blocks.
+    constexpr std::uint32_t kVagBytes = 64u * 16u;
+    constexpr std::uint32_t kVoiceSamples = 64u * 28u;      // 1792
+    const std::uint32_t grains_to_finish = (kVoiceSamples + kGrain - 1u) / kGrain;
+
+    const auto play = [&](std::uint32_t loop_mode, std::uint32_t grains) {
+        psprecomp::AllegrexContext ctx{};
+        ctx.set_gpr(4, 0u);
+        ctx.set_gpr(5, kGrain);
+        ctx.set_gpr(6, 32u);
+        ctx.set_gpr(7, 0u);
+        call_hle(runtime, "sceSasCore", kSasInit, ctx);
+
+        // (core, voice, vagAddr, size, loopMode). The fifth argument is in $t0,
+        // as every five-argument import in this title is; reading it off the
+        // stack gave back whatever happened to be there.
+        ctx.set_gpr(4, 0u);
+        ctx.set_gpr(5, 0u);
+        ctx.set_gpr(6, kIoScratch);
+        ctx.set_gpr(7, kVagBytes);
+        ctx.set_gpr(8, loop_mode);
+        call_hle(runtime, "sceSasCore", kSetVoice, ctx);
+
+        ctx.set_gpr(4, 0u);
+        ctx.set_gpr(5, 0u);
+        call_hle(runtime, "sceSasCore", kKeyOn, ctx);
+
+        for (std::uint32_t i = 0; i < grains; ++i) {
+            ctx.set_gpr(4, 0u);
+            ctx.set_gpr(5, 0u);   // no output buffer
+            call_hle(runtime, "sceSasCore", kSasCore, ctx);
+        }
+        ctx.set_gpr(4, 0u);
+        call_hle(runtime, "sceSasCore", kGetEndFlag, ctx);
+        return (ctx.gpr[2] & 1u) != 0u;   // set means the voice has ended
+    };
+
+    require(!play(0u, grains_to_finish - 1u), "the voice ended before its data ran out");
+    require(play(0u, grains_to_finish), "the voice did not end when its data ran out");
+    // A looping voice restarts instead of retiring, which is only visible if
+    // the loop mode reached the library at all.
+    require(!play(1u, grains_to_finish * 3u), "a looping voice retired anyway");
+}
+
+void test_audio_counts_only_accepted_buffers() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+
+    constexpr std::uint32_t kChReserve = 0x5EC81C55u, kOutputPanned = 0xE2D56B2Du,
+                            kOutputBlocking = 0x136CAF51u;
+    const std::uint32_t buffer = kIoScratch;
+
+    psprecomp::AllegrexContext ctx{};
+    ctx.set_gpr(4, 0u);        // channel 0
+    ctx.set_gpr(5, 1024u);     // samples
+    ctx.set_gpr(6, 0u);        // stereo
+    call_hle(runtime, "sceAudio", kChReserve, ctx);
+    require(static_cast<std::int32_t>(ctx.gpr[2]) == 0, "reserving channel 0 failed");
+
+    // The first buffer is taken.
+    ctx.set_gpr(4, 0u);
+    ctx.set_gpr(5, buffer);
+    call_hle(runtime, "sceAudio", kOutputPanned, ctx);
+    require(ctx.gpr[2] == 1024u, "the first buffer was not accepted");
+
+    // The second arrives while the first is still draining, and the
+    // non-blocking form refuses it. A refusal that still bumps the totals reads
+    // afterwards as audio that played.
+    ctx.set_gpr(4, 0u);
+    ctx.set_gpr(5, buffer);
+    call_hle(runtime, "sceAudio", kOutputPanned, ctx);
+    require(ctx.gpr[2] == 0u, "a busy channel accepted a second buffer");
+
+    const defjam::HeadlessStats stats = defjam::headless_stats();
+    require(stats.audio_buffers == 1u,
+            "a refused buffer was counted as played");
+    require(stats.audio_samples == 1024u, "refused samples were counted too");
+
+    // The blocking form waits instead, and does count.
+    ctx.set_gpr(4, 0u);
+    ctx.set_gpr(5, buffer);
+    call_hle(runtime, "sceAudio", kOutputBlocking, ctx);
+    require(defjam::headless_stats().audio_buffers == 2u,
+            "a buffer that was waited for was not counted");
+}
+
 void test_synthetic_disc() {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "defjam_synthetic_disc_test";
@@ -1582,6 +1723,9 @@ int main() {
         test_atrac_surface();
         test_savedata_names_stay_put();
         test_mpeg_surface();
+        test_ge_user_surface();
+        test_sas_voice_length();
+        test_audio_counts_only_accepted_buffers();
         test_synthetic_disc();
         test_frame_conversion();
         std::cout << "All defjam config tests passed.\n";
