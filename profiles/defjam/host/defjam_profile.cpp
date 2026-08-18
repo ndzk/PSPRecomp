@@ -689,6 +689,17 @@ std::uint32_t allocate_thread_stack(std::uint32_t size) {
 // Guest trampolines
 // ---------------------------------------------------------------------------
 void thread_return_trampoline(Runtime &rt, AllegrexContext &ctx) {
+    // Address zero is where a thread body returns to, and it is also where a
+    // call through a null or clobbered function pointer lands. The two are
+    // told apart by $ra: a thread body arrives here by jr $ra with $ra still
+    // holding this address, while jalr through a bad pointer leaves $ra
+    // pointing at the caller. Without this the second reads as an ordinary
+    // thread exit in the log, which is a poor way to learn about it.
+    if (ctx.gpr[31] != kThreadReturnAddress) {
+        rt.stop("guest called through a null or invalid function pointer; $ra=" +
+                psprecomp::hex32(ctx.gpr[31]));
+        return;
+    }
     ThreadRecord *thread = current_thread();
     if (thread != nullptr) {
         thread->exit_status = ctx.gpr[2];
