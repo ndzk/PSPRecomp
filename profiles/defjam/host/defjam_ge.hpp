@@ -68,6 +68,24 @@ void ge_reset();
 [[nodiscard]] GeStats ge_stats();
 [[nodiscard]] std::string ge_report();
 
+// The transform matrices, as the guest streamed them in.
+//
+// Which command carries which matrix was settled by measurement rather than by
+// trusting a constant list: over one run the three busiest commands are 0x3F
+// with 6,126,561 operands and 0x3D and 0x3B with 4,594,921 each. The ratio is
+// exactly 16 to 12, and the two 12-element streams are equal, which is a 4x4
+// projection matrix alongside a 4x3 world and a 4x3 view.
+//
+// Each operand carries the top 24 bits of a float, so an element is the operand
+// shifted up by eight.
+struct GeMatrices {
+    float world[12]{};        // four columns of three
+    float view[12]{};
+    float projection[16]{};   // four columns of four
+    bool world_seen{}, view_seen{}, projection_seen{};
+};
+[[nodiscard]] const GeMatrices &ge_matrices();
+
 // The latched GE register file, for a backend to read draw state from.
 [[nodiscard]] const std::array<std::uint32_t, 256> &ge_registers();
 

@@ -93,8 +93,14 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color) {
 // Nearest-neighbour sampling, with the coordinate wrapped rather than clamped,
 // which is what the hardware does by default.
 std::uint32_t sample(const std::vector<std::uint32_t> &texels, const TextureState &texture, float u,
-                     float v) {
+                     float v, bool uv_in_texels) {
     if (texels.empty() || texture.width == 0u || texture.height == 0u) return 0xFFFFFFFFu;
+    if (!uv_in_texels) {
+        // A transformed draw carries normalised coordinates; they only become
+        // texels once scaled by the texture size.
+        u *= static_cast<float>(texture.width);
+        v *= static_cast<float>(texture.height);
+    }
     auto wrap = [](float value, std::uint32_t size) {
         auto index = static_cast<std::int64_t>(value);
         index %= static_cast<std::int64_t>(size);
@@ -109,7 +115,7 @@ std::uint32_t sample(const std::vector<std::uint32_t> &texels, const TextureStat
 // A sprite is two vertices: the corners of an axis-aligned rectangle. The
 // second carries the colour the hardware uses for the whole thing.
 void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<std::uint32_t> &texels,
-                 const TextureState &texture, bool textured) {
+                 const TextureState &texture, bool textured, bool uv_in_texels) {
     const auto x0 = static_cast<std::int32_t>(std::min(first.x, second.x));
     const auto x1 = static_cast<std::int32_t>(std::max(first.x, second.x));
     const auto y0 = static_cast<std::int32_t>(std::min(first.y, second.y));
@@ -124,7 +130,7 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
                 const float t = (static_cast<float>(x) - first.x) / span_x;
                 const float s = (static_cast<float>(y) - first.y) / span_y;
                 color = sample(texels, texture, first.u + t * (second.u - first.u),
-                               first.v + s * (second.v - first.v));
+                               first.v + s * (second.v - first.v), uv_in_texels);
             }
             put_pixel(x, y, color);
         }
@@ -134,7 +140,7 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
 // Flat-filled triangle with barycentric interpolation for colour and texture.
 void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
                    const std::vector<std::uint32_t> &texels, const TextureState &texture,
-                   bool textured) {
+                   bool textured, bool uv_in_texels) {
     const auto min_x = static_cast<std::int32_t>(std::floor(std::min({a.x, b.x, c.x})));
     const auto max_x = static_cast<std::int32_t>(std::ceil(std::max({a.x, b.x, c.x})));
     const auto min_y = static_cast<std::int32_t>(std::floor(std::min({a.y, b.y, c.y})));
@@ -162,7 +168,7 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
                 if (total == 0.0f) continue;
                 const float ba = w1 / total, bb = w2 / total, bc = w0 / total;
                 color = sample(texels, texture, a.u * ba + b.u * bb + c.u * bc,
-                               a.v * ba + b.v * bb + c.v * bc);
+                               a.v * ba + b.v * bb + c.v * bc, uv_in_texels);
             }
             put_pixel(x, y, color);
         }
@@ -200,11 +206,11 @@ RenderTarget current_render_target() {
 
 bool rasterise(psprecomp::Runtime &runtime, std::uint32_t primitive,
                const std::vector<Vertex> &vertices, const VertexFormat &format,
-               const TextureState &texture) {
+               const TextureState &texture, bool positions_are_screen) {
     // Only screen-space draws. A transformed one needs the matrix pipeline,
     // and drawing it with its raw coordinates would put geometry in the wrong
     // place while looking like a rendering fault.
-    if (!format.through || vertices.size() < 2u) {
+    if (!positions_are_screen || vertices.size() < 2u) {
         ++g_stats.primitives_skipped;
         return false;
     }
@@ -237,27 +243,28 @@ bool rasterise(psprecomp::Runtime &runtime, std::uint32_t primitive,
     switch (primitive) {
     case 6:   // sprites, in pairs
         for (std::size_t i = 0; i + 1u < vertices.size(); i += 2u) {
-            draw_sprite(vertices[i], vertices[i + 1u], texels, texture, textured);
+            draw_sprite(vertices[i], vertices[i + 1u], texels, texture, textured, format.through);
             ++drawn;
         }
         break;
     case 3:   // independent triangles
         for (std::size_t i = 0; i + 2u < vertices.size(); i += 3u) {
             draw_triangle(vertices[i], vertices[i + 1u], vertices[i + 2u], texels, texture,
-                          textured);
+                          textured, format.through);
             ++drawn;
         }
         break;
     case 4:   // triangle strip
         for (std::size_t i = 0; i + 2u < vertices.size(); ++i) {
             draw_triangle(vertices[i], vertices[i + 1u], vertices[i + 2u], texels, texture,
-                          textured);
+                          textured, format.through);
             ++drawn;
         }
         break;
     case 5:   // triangle fan
         for (std::size_t i = 1; i + 1u < vertices.size(); ++i) {
-            draw_triangle(vertices[0], vertices[i], vertices[i + 1u], texels, texture, textured);
+            draw_triangle(vertices[0], vertices[i], vertices[i + 1u], texels, texture, textured,
+                          format.through);
             ++drawn;
         }
         break;

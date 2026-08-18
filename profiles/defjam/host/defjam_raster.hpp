@@ -43,9 +43,14 @@ void flush_surface(psprecomp::Runtime &runtime);
 // 2 line strip, 3 triangles, 4 triangle strip, 5 triangle fan, 6 sprites.
 // Returns false when the primitive is not one this draws, which is not an
 // error and is counted rather than reported.
+//  says the coordinates are already pixels, either
+// because the draw was through-mode or because the transform pipeline has
+// already run. The format keeps its own through flag, which is what decides
+// whether texture coordinates are texels or normalised - the two conventions
+// are independent and conflating them samples texel zero for every pixel.
 bool rasterise(psprecomp::Runtime &runtime, std::uint32_t primitive,
                const std::vector<Vertex> &vertices, const VertexFormat &format,
-               const TextureState &texture);
+               const TextureState &texture, bool positions_are_screen);
 
 struct RasterStats {
     std::uint64_t primitives_drawn{};

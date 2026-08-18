@@ -318,6 +318,69 @@ void VertexStats::Extent::add(float x, float y, float z) {
     max_z = std::max(max_z, z);
 }
 
+namespace {
+
+// World and view are four columns of three, with an implicit fourth row of
+// (0,0,0,1). Projection is a full four by four, also column-major.
+void apply_4x3(const float *m, float x, float y, float z, float &ox, float &oy, float &oz) {
+    ox = m[0] * x + m[3] * y + m[6] * z + m[9];
+    oy = m[1] * x + m[4] * y + m[7] * z + m[10];
+    oz = m[2] * x + m[5] * y + m[8] * z + m[11];
+}
+
+// Transforms one position all the way to screen pixels. Returns false when the
+// vertex is behind the eye, where the perspective divide has no meaning.
+bool to_screen(const GeMatrices &matrices, float x, float y, float z, std::uint32_t width,
+               std::uint32_t height, float &sx, float &sy, float &sz) {
+    float wx = x, wy = y, wz = z;
+    if (matrices.world_seen) apply_4x3(matrices.world, x, y, z, wx, wy, wz);
+    float vx = wx, vy = wy, vz = wz;
+    if (matrices.view_seen) apply_4x3(matrices.view, wx, wy, wz, vx, vy, vz);
+
+    const float *p = matrices.projection;
+    float cx = vx, cy = vy, cz = vz, cw = 1.0f;
+    if (matrices.projection_seen) {
+        cx = p[0] * vx + p[4] * vy + p[8] * vz + p[12];
+        cy = p[1] * vx + p[5] * vy + p[9] * vz + p[13];
+        cz = p[2] * vx + p[6] * vy + p[10] * vz + p[14];
+        cw = p[3] * vx + p[7] * vy + p[11] * vz + p[15];
+    }
+    // A w at or below zero is behind the near plane. Proper clipping would cut
+    // the primitive against it; dropping the vertex is the honest short version
+    // and loses geometry rather than smearing it across the screen.
+    if (!(cw > 0.0001f)) return false;
+
+    const float ndc_x = cx / cw;
+    const float ndc_y = cy / cw;
+    sz = cz / cw;
+    // The viewport registers are not read yet, so this maps the whole clip cube
+    // onto the display. That is right for a title drawing full-screen and wrong
+    // for one that sets a smaller viewport.
+    sx = (ndc_x * 0.5f + 0.5f) * static_cast<float>(width);
+    sy = (1.0f - (ndc_y * 0.5f + 0.5f)) * static_cast<float>(height);
+    return true;
+}
+
+} // namespace
+
+bool transform_to_screen(std::vector<Vertex> &vertices, std::uint32_t width, std::uint32_t height) {
+    const GeMatrices &matrices = ge_matrices();
+    if (!matrices.projection_seen) return false;   // nothing to transform with
+
+    for (Vertex &vertex : vertices) {
+        float sx{}, sy{}, sz{};
+        if (!to_screen(matrices, vertex.x, vertex.y, vertex.z, width, height, sx, sy, sz)) {
+            ++g_stats.behind_eye;
+            return false;   // drop the whole primitive rather than part of it
+        }
+        vertex.x = sx;
+        vertex.y = sy;
+        vertex.z = sz;
+    }
+    ++g_stats.transformed;
+    return true;
+}
+
 void vertex_reset() {
     g_stats = VertexStats{};
     g_types.clear();
@@ -355,9 +418,16 @@ void note_draw(Runtime &runtime, std::uint32_t primitive, std::uint32_t vtype,
     if (indexed) ++g_stats.indexed_decoded;
     ++g_stats.draws_decoded;
     g_stats.vertices_decoded += vertices.size();
-    // Hand the decoded vertices to the rasteriser. It draws the screen-space
-    // ones and counts the rest.
-    (void)rasterise(runtime, primitive, vertices, format, current_texture_state());
+    // Transformed draws are put through the matrix pipeline first, which leaves
+    // them in the same screen space a through-mode draw already occupies, so
+    // the rasteriser needs no second path.
+    bool drawable = true;
+    if (!format.through) {
+        const RenderTarget target = current_render_target();
+        drawable = transform_to_screen(vertices, target.width, target.height);
+    }
+    if (drawable)
+        (void)rasterise(runtime, primitive, vertices, format, current_texture_state(), true);
 
     VertexStats::Extent &extent = format.through ? g_stats.screen : g_stats.model;
     for (const Vertex &vertex : vertices) extent.add(vertex.x, vertex.y, vertex.z);
@@ -371,7 +441,9 @@ std::string vertex_report() {
         << "  vertex content:     " << stats.with_uv << " textured, " << stats.with_color
         << " coloured, " << stats.with_normal << " with normals, " << stats.indexed_draws
         << " indexed (" << stats.indexed_decoded << " walked, highest index "
-        << stats.max_index << "), " << stats.through_draws << " through\n";
+        << stats.max_index << "), " << stats.through_draws << " through\n"
+        << "  vertex transform:   " << stats.transformed << " transformed, " << stats.behind_eye
+        << " dropped behind the eye\n";
     const auto extent_line = [&out](const char *label, const VertexStats::Extent &extent) {
         if (!extent.any) return;
         out << label << " x " << extent.min_x << ".." << extent.max_x << "  y " << extent.min_y

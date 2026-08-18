@@ -7,6 +7,7 @@
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <map>
 #include <sstream>
 #include <utility>
@@ -57,6 +58,37 @@ std::uint32_t g_offset_address = 0u;
 std::uint32_t g_vertex_address = 0u;
 std::uint32_t g_index_address = 0u;
 
+// Matrix upload. Each pair is a number command that sets the write cursor and a
+// data command that streams elements from it.
+constexpr std::uint8_t kCmdWorldNumber = 0x3Au;
+constexpr std::uint8_t kCmdWorldData = 0x3Bu;
+constexpr std::uint8_t kCmdViewNumber = 0x3Cu;
+constexpr std::uint8_t kCmdViewData = 0x3Du;
+constexpr std::uint8_t kCmdProjectionNumber = 0x3Eu;
+constexpr std::uint8_t kCmdProjectionData = 0x3Fu;
+
+GeMatrices g_matrices;
+std::uint32_t g_world_cursor = 0u;
+std::uint32_t g_view_cursor = 0u;
+std::uint32_t g_projection_cursor = 0u;
+
+// An operand carries the top 24 bits of the float; the low eight are zero.
+float matrix_element(std::uint32_t data) {
+    const std::uint32_t bits = data << 8u;
+    float value{};
+    std::memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+void write_matrix(float *matrix, std::uint32_t size, std::uint32_t &cursor, std::uint32_t data,
+                  bool &seen) {
+    if (cursor < size) {
+        matrix[cursor] = matrix_element(data);
+        seen = true;
+    }
+    ++cursor;
+}
+
 // BASE supplies four high bits a 24-bit operand cannot hold, the offset
 // register is added whole, and the result is a 28-bit address.
 std::uint32_t resolve_address(std::uint32_t data24) {
@@ -67,6 +99,8 @@ std::uint32_t resolve_address(std::uint32_t data24) {
 } // namespace
 
 void ge_reset() {
+    g_matrices = GeMatrices{};
+    g_world_cursor = g_view_cursor = g_projection_cursor = 0u;
     vertex_reset();
     texture_reset();
     raster_reset();
@@ -79,6 +113,7 @@ void ge_reset() {
 }
 
 const std::array<std::uint32_t, 256> &ge_registers() { return g_registers; }
+const GeMatrices &ge_matrices() { return g_matrices; }
 GeStats ge_stats() { return g_stats; }
 
 GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t stall) {
@@ -125,6 +160,20 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
         switch (command) {
         case kCmdNop:
         case kCmdBase:
+            break;
+
+        case kCmdWorldNumber: g_world_cursor = data & 0xFu; break;
+        case kCmdViewNumber: g_view_cursor = data & 0xFu; break;
+        case kCmdProjectionNumber: g_projection_cursor = data & 0x1Fu; break;
+        case kCmdWorldData:
+            write_matrix(g_matrices.world, 12u, g_world_cursor, data, g_matrices.world_seen);
+            break;
+        case kCmdViewData:
+            write_matrix(g_matrices.view, 12u, g_view_cursor, data, g_matrices.view_seen);
+            break;
+        case kCmdProjectionData:
+            write_matrix(g_matrices.projection, 16u, g_projection_cursor, data,
+                         g_matrices.projection_seen);
             break;
 
         case kCmdVaddr:

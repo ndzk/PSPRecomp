@@ -89,6 +89,8 @@ struct VertexStats {
     std::uint64_t indexed_draws{};
     std::uint64_t indexed_decoded{};
     std::uint32_t max_index{};      // the largest index any draw referenced
+    std::uint64_t transformed{};    // primitives put through the matrix pipeline
+    std::uint64_t behind_eye{};     // dropped: a vertex behind the near plane
     std::uint64_t through_draws{};
     std::uint64_t with_uv{}, with_color{}, with_normal{};
     // The extent of decoded positions, kept apart for the two kinds of draw.
@@ -110,6 +112,12 @@ void vertex_reset();
 [[nodiscard]] std::string vertex_report();
 
 // Called by the display-list interpreter for each PRIM.
+// Puts vertices through world, view and projection, leaving them in screen
+// pixels. Returns false when the primitive cannot be drawn - currently when any
+// vertex falls behind the near plane, since nothing clips against it yet.
+[[nodiscard]] bool transform_to_screen(std::vector<Vertex> &vertices, std::uint32_t width,
+                                       std::uint32_t height);
+
 void note_draw(psprecomp::Runtime &runtime, std::uint32_t primitive, std::uint32_t vtype,
                std::uint32_t vertex_address,
                std::uint32_t index_address, std::uint32_t count);
