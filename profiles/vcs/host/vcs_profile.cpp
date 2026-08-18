@@ -6,6 +6,7 @@
 #include "vcs_vehicle_input.hpp"
 #include "vcs_media_decoder.hpp"
 #include "vcs_config.hpp"
+#include "vcs_diagnostics.hpp"
 #include "framebuffer_capture.hpp"
 #include "ge_renderer.hpp"
 #include "ge_gpu_backend.hpp"
@@ -3587,7 +3588,11 @@ bool collision_point_trace_enabled() {
 }
 
 bool dispatch_collision_diagnostics_enabled() {
-    return collision_root_probe_enabled() || collision_chain_trace_enabled();
+    // The address diagnostics that used to sit inside Runtime::run observe the
+    // same dispatch boundaries, so asking for one of them is also a reason to
+    // install the hooks.
+    return collision_root_probe_enabled() || collision_chain_trace_enabled() ||
+           vcs_diagnostics_enabled();
 }
 
 bool chained_call_collision_diagnostics_enabled() {
@@ -3698,6 +3703,8 @@ void vcs_pre_chained_call_hook(psprecomp::Runtime &rt, psprecomp::AllegrexContex
 
 void vcs_pre_dispatch_hook(psprecomp::Runtime &rt, psprecomp::AllegrexContext &ctx,
                            std::uint32_t dispatch_pc, std::int32_t dispatch_thread_uid) {
+    if (vcs_diagnostics_enabled())
+        vcs_diagnostics_pre_dispatch(rt, ctx, dispatch_pc, dispatch_thread_uid);
     if (collision_root_probe_can_emit() && collision_root_probe_matches(dispatch_pc) && collision_probe_a0_matches(ctx.gpr[4])) {
         ++collision_root_probe_state.emitted;
         std::cerr << "[collision-root-outer-enter] vblank=" << display_vblank_index
@@ -3782,6 +3789,8 @@ void vcs_post_chained_call_hook(psprecomp::Runtime &rt, psprecomp::AllegrexConte
 
 void vcs_post_dispatch_hook(psprecomp::Runtime &rt, psprecomp::AllegrexContext &ctx,
                             std::uint32_t dispatch_pc, std::int32_t dispatch_thread_uid) {
+    if (vcs_diagnostics_enabled())
+        vcs_diagnostics_post_dispatch(rt, ctx, dispatch_pc, dispatch_thread_uid);
 
     if (collision_root_probe_in_window() && collision_root_probe_matches(dispatch_pc)) {
         std::cerr << "[collision-root-outer-exit] vblank=" << display_vblank_index
@@ -5335,6 +5344,7 @@ void install_profile(psprecomp::Runtime &runtime, std::uint32_t user_arena_start
     savedata_utility = SavedataUtilityState{};
     deflate_fast_pending.clear();
     collision_chain_trace_stack.clear();
+    (void)install_vcs_diagnostics();
     psprecomp::set_runtime_post_import_hook(&vcs_post_import_hook);
     // Pre-dispatch and chained-call hooks are diagnostic-only. Do not put them
     // on the gameplay hot path unless their trace was explicitly requested.

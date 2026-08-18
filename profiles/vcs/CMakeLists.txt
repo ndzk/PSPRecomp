@@ -120,6 +120,7 @@ set(VCS_GPU_BACKEND_SOURCE host/ge_gpu_backend_dx12.cpp)
 set(VCS_HDR_POST_SOURCE host/vcs_hdr_post_dx12_stub.cpp)
 set(VCS_HOST_SOURCES
     host/vcs_bootstrap_paths.cpp
+    host/vcs_diagnostics.cpp
     host/vcs_profile.cpp
     host/vcs_native_fast_paths.cpp
     host/framebuffer_capture.cpp
