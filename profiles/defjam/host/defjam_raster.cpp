@@ -36,6 +36,9 @@ bool g_clearing = false;
 std::vector<std::uint32_t> g_surface;
 RenderTarget g_surface_target;
 
+// The depth buffer is 16 bits per pixel.
+std::vector<std::uint16_t> g_depth;
+
 // Makes the host copy match the target, growing it if the target changed.
 void bind_surface(psprecomp::Runtime &runtime, const RenderTarget &target) {
     if (g_surface_target.address == target.address && g_surface_target.stride == target.stride &&
@@ -45,12 +48,69 @@ void bind_surface(psprecomp::Runtime &runtime, const RenderTarget &target) {
     flush_surface(runtime);
     g_surface_target = target;
     g_surface.assign(static_cast<std::size_t>(target.stride) * target.height, 0u);
+    g_depth.assign(g_surface.size(), 0u);
     const std::uint32_t bytes = target.stride * target.height * 4u;
     if (runtime.memory().contains(target.address, bytes)) {
         std::vector<std::uint8_t> staging(bytes);
         runtime.memory().copy_out(target.address, staging);
         std::memcpy(g_surface.data(), staging.data(), bytes);
     }
+}
+
+// Depth state. Register numbers are the published GE commands; 0xD3 among them
+// is the clear-mode register this profile had already identified by correlating
+// it with the title's screen-clearing draws, which is a useful cross-check.
+constexpr std::uint8_t kCmdDepthTestEnable = 0x23u;
+constexpr std::uint8_t kCmdDepthTest = 0xDEu;
+constexpr std::uint8_t kCmdDepthWriteDisable = 0xE7u;
+
+// Comparison codes, in the order the hardware numbers them.
+enum : std::uint32_t {
+    kCompareNever = 0u,
+    kCompareAlways = 1u,
+    kCompareEqual = 2u,
+    kCompareNotEqual = 3u,
+    kCompareLess = 4u,
+    kCompareLessEqual = 5u,
+    kCompareGreater = 6u,
+    kCompareGreaterEqual = 7u,
+};
+
+
+// Latched once per draw rather than read per pixel.
+bool g_depth_test = false;
+bool g_depth_write = true;
+std::uint32_t g_depth_compare = kCompareGreaterEqual;
+// Which buffers a clear writes, from bits 8 to 10 of the clear-mode operand.
+bool g_clear_color = true;
+bool g_clear_depth = false;
+
+bool depth_passes(std::uint16_t incoming, std::uint16_t stored) {
+    switch (g_depth_compare) {
+    case kCompareNever: return false;
+    case kCompareAlways: return true;
+    case kCompareEqual: return incoming == stored;
+    case kCompareNotEqual: return incoming != stored;
+    case kCompareLess: return incoming < stored;
+    case kCompareLessEqual: return incoming <= stored;
+    case kCompareGreater: return incoming > stored;
+    default: return incoming >= stored;
+    }
+}
+
+// Vertices arrive carrying depth already in the buffer range: a through-mode
+// draw states it directly and the transform maps its clip depth into the same
+// range before handing it over. Only clamping is left to do here.
+//
+// Conflating the two conventions is what broke this the first time. A clear
+// sprite states depth 0, but run through a normalised-device mapping that
+// becomes the middle of the range, so the clear filled the depth buffer with
+// 32767 and every transformed draw behind it failed the test. The screen went
+// black again with nothing in the colour path at fault.
+std::uint16_t to_depth(float depth) {
+    if (!(depth > 0.0f)) return 0u;
+    if (depth > 65535.0f) return 65535u;
+    return static_cast<std::uint16_t>(depth);
 }
 
 // Clear mode, measured rather than assumed: register 0xD3 is non-zero exactly
@@ -78,12 +138,29 @@ std::uint32_t blend_over(std::uint32_t source, std::uint32_t destination) {
            mix(source & 0xFFu, destination & 0xFFu);
 }
 
-void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color) {
+void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z) {
     if (x < 0 || y < 0) return;
     const auto ux = static_cast<std::uint32_t>(x);
     const auto uy = static_cast<std::uint32_t>(y);
     if (ux >= g_surface_target.width || uy >= g_surface_target.height) return;
-    std::uint32_t &target = g_surface[static_cast<std::size_t>(uy) * g_surface_target.stride + ux];
+    const std::size_t at = static_cast<std::size_t>(uy) * g_surface_target.stride + ux;
+
+    // A clear writes whichever buffers its operand names and skips the test.
+    const std::uint16_t depth = to_depth(ndc_z);
+    if (g_clearing) {
+        if (g_clear_depth && at < g_depth.size()) g_depth[at] = depth;
+        if (!g_clear_color) return;
+    } else {
+        if (g_depth_test && at < g_depth.size()) {
+            if (!depth_passes(depth, g_depth[at])) {
+                ++g_stats.depth_rejected;
+                return;
+            }
+        }
+        if (g_depth_write && at < g_depth.size()) g_depth[at] = depth;
+    }
+
+    std::uint32_t &target = g_surface[at];
     if ((color & 0xFF000000u) == 0u) ++g_stats.transparent_writes;
     if ((color & 0x00FFFFFFu) != 0u) ++g_stats.coloured_writes;
     target = g_clearing ? (color | 0xFF000000u) : blend_over(color, target);
@@ -132,7 +209,7 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
                 color = sample(texels, texture, first.u + t * (second.u - first.u),
                                first.v + s * (second.v - first.v), uv_in_texels);
             }
-            put_pixel(x, y, color);
+            put_pixel(x, y, color, second.z);
         }
     }
 }
@@ -162,15 +239,15 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
                                 (w0 <= 0.0f && w1 <= 0.0f && w2 <= 0.0f);
             if (!inside) continue;
 
+            const float total = w0 + w1 + w2;
+            if (total == 0.0f) continue;
+            const float ba = w1 / total, bb = w2 / total, bc = w0 / total;
             std::uint32_t color = a.color;
             if (textured) {
-                const float total = w0 + w1 + w2;
-                if (total == 0.0f) continue;
-                const float ba = w1 / total, bb = w2 / total, bc = w0 / total;
                 color = sample(texels, texture, a.u * ba + b.u * bb + c.u * bc,
                                a.v * ba + b.v * bb + c.v * bc, uv_in_texels);
             }
-            put_pixel(x, y, color);
+            put_pixel(x, y, color, a.z * ba + b.z * bb + c.z * bc);
         }
     }
 }
@@ -221,7 +298,15 @@ bool rasterise(psprecomp::Runtime &runtime, std::uint32_t primitive,
         return false;
     }
     bind_surface(runtime, target);
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
     g_clearing = clear_mode_active();
+    g_depth_test = (registers[kCmdDepthTestEnable] & 1u) != 0u;
+    g_depth_write = (registers[kCmdDepthWriteDisable] & 1u) == 0u;
+    g_depth_compare = registers[kCmdDepthTest] & 0x7u;
+    // Bits 8 to 10 of the clear operand say which buffers it touches.
+    const std::uint32_t clear_mask = (registers[kCmdClearMode] >> 8u) & 0x7u;
+    g_clear_color = (clear_mask & 1u) != 0u;
+    g_clear_depth = (clear_mask & 4u) != 0u;
 
     // The texture, if this draw samples one.
     static std::vector<std::uint32_t> texels;
@@ -293,7 +378,8 @@ std::string raster_report() {
     out << "  raster:             " << g_stats.primitives_drawn << " drawn, "
         << g_stats.primitives_skipped << " skipped, " << g_stats.no_target << " without a target\n"
         << "  raster pixels:      " << g_stats.pixels_written << " written, "
-        << g_stats.textured_primitives << " textured draws\n";
+        << g_stats.textured_primitives << " textured draws, " << g_stats.depth_rejected
+        << " pixels failed the depth test\n";
     return out.str();
 }
 

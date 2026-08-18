@@ -58,6 +58,7 @@ struct RasterStats {
     std::uint64_t pixels_written{};
     std::uint64_t textured_primitives{};
     std::uint64_t no_target{};
+    std::uint64_t depth_rejected{};       // pixels the depth test discarded
     std::uint64_t transparent_writes{};
     std::uint64_t coloured_writes{};            // nothing to draw into
 };

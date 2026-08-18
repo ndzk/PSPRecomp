@@ -358,6 +358,9 @@ bool to_screen(const GeMatrices &matrices, float x, float y, float z, std::uint3
     // for one that sets a smaller viewport.
     sx = (ndc_x * 0.5f + 0.5f) * static_cast<float>(width);
     sy = (1.0f - (ndc_y * 0.5f + 0.5f)) * static_cast<float>(height);
+    // Depth leaves here in the same range the buffer uses, so the rasteriser
+    // treats a transformed and a through-mode draw identically.
+    sz = (sz * 0.5f + 0.5f) * 65535.0f;
     return true;
 }
 

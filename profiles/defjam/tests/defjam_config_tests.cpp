@@ -2,6 +2,7 @@
 #include "defjam_decoder.hpp"
 #include "defjam_atrac.hpp"
 #include "defjam_disc.hpp"
+#include "defjam_raster.hpp"
 #include "defjam_texture.hpp"
 #include "defjam_vertex.hpp"
 #include "defjam_ge.hpp"
@@ -2269,6 +2270,75 @@ void test_texture_decode_clut8() {
     require(!error.empty(), "a refusal came back without a reason");
 }
 
+// The depth test decides which of two overlapping primitives survives. Getting
+// the comparison backwards still draws a picture, just with the wrong things in
+// front, so it is worth pinning down with two sprites at known depths.
+void test_depth_test() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::ge_reset();
+
+    constexpr std::uint32_t kListBase = 0x08900000u;
+    constexpr std::uint32_t kVertices = 0x08910000u;
+    constexpr std::uint32_t kFrameOffset = 0u;          // start of EDRAM
+    constexpr std::uint32_t kFrameAddress = 0x04000000u;
+
+    // Two through-mode sprites in the 0x0080011C layout: colour then a signed
+    // 16-bit position. The first is near, the second far and a different colour.
+    const auto put_sprite = [&runtime](std::uint32_t at, std::uint32_t color, std::int16_t z) {
+        const auto vertex = [&runtime, color, z](std::uint32_t base, std::int16_t x, std::int16_t y) {
+            runtime.memory().store32(base, color);
+            runtime.memory().store16(base + 4u, static_cast<std::uint16_t>(x));
+            runtime.memory().store16(base + 6u, static_cast<std::uint16_t>(y));
+            runtime.memory().store16(base + 8u, static_cast<std::uint16_t>(z));
+        };
+        vertex(at, 0, 0);
+        vertex(at + 12u, 8, 8);
+    };
+    put_sprite(kVertices, 0xFF000000u, 32767);          // the clear, at max depth
+    put_sprite(kVertices + 24u, 0xFF0000FFu, 100);      // near, red
+    put_sprite(kVertices + 48u, 0xFF00FF00u, 20000);    // far, green
+
+    std::vector<std::uint32_t> list;
+    const auto cmd = [&list](std::uint8_t command, std::uint32_t data) {
+        list.push_back((static_cast<std::uint32_t>(command) << 24u) | (data & 0x00FFFFFFu));
+    };
+    // BASE supplies the high address bits a 24-bit vertex operand cannot hold,
+    // and is read when VADDR is issued rather than when the draw happens.
+    cmd(0x10u, 0x00080000u);
+    cmd(0x9Cu, kFrameOffset);          // frame buffer pointer, an EDRAM offset
+    cmd(0x9Du, 512u);                  // row width
+    cmd(0x12u, 0x0080011Cu);           // vertex type
+    cmd(0x23u, 1u);                    // depth test on
+    cmd(0xE7u, 0u);                    // depth writes enabled
+    cmd(0xDEu, 4u);                    // compare LESS: nearer wins
+    // A real frame clears depth before drawing; without that the buffer starts
+    // at zero and a LESS test rejects everything, near geometry included.
+    cmd(0xD3u, 0x0501u);               // clear mode on, colour and depth
+    cmd(0x01u, kVertices & 0x00FFFFFFu);
+    cmd(0x04u, (6u << 16u) | 2u);
+    cmd(0xD3u, 0u);                    // clear mode off
+    cmd(0x01u, (kVertices + 24u) & 0x00FFFFFFu);
+    cmd(0x04u, (6u << 16u) | 2u);      // the near sprite
+    cmd(0x01u, (kVertices + 48u) & 0x00FFFFFFu);
+    cmd(0x04u, (6u << 16u) | 2u);      // the far sprite, drawn second
+    cmd(0x0Cu, 0u);                    // END
+
+    for (std::size_t i = 0; i < list.size(); ++i)
+        runtime.memory().store32(kListBase + static_cast<std::uint32_t>(i) * 4u, list[i]);
+    defjam::GeListState state{kListBase, {}, 0u};
+    (void)defjam::ge_execute_list(runtime, state, 0u);
+    defjam::flush_surface(runtime);
+
+    // The near sprite was drawn first and must still be there: a LESS test
+    // rejects the farther one that followed.
+    const std::uint32_t pixel = runtime.memory().load32(kFrameAddress + 4u * 512u + 4u * 4u);
+    require(pixel == 0xFF0000FFu, "the depth test let a farther primitive overwrite a nearer one");
+
+    const defjam::RasterStats stats = defjam::raster_stats();
+    require(stats.depth_rejected > 0u, "no pixel was reported as failing the depth test");
+    require(stats.primitives_drawn == 3u, "the clear and both sprites should have been rasterised");
+}
+
 } // namespace
 
 int main() {
@@ -2318,6 +2388,7 @@ int main() {
         test_texture_state();
         test_texture_unswizzle();
         test_texture_decode_clut8();
+        test_depth_test();
         std::cout << "All defjam config tests passed.\n";
         return 0;
     } catch (const std::exception &exception) {
