@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <deque>
@@ -453,8 +454,82 @@ void check_watches(Runtime &rt, std::uint32_t dispatch_pc, std::int32_t thread_u
     }
 }
 
+// Watching for the guest to stop drawing.
+//
+// A title that hangs looks exactly like one that is working hard: the process
+// saturates a core either way. The difference is that a working one keeps
+// handing frames to the display, so the wall clock since the last flip is the
+// thing worth measuring - and when it grows without bound the run can say what
+// every thread was doing instead of leaving that to be guessed at later.
+std::uint64_t g_stall_seconds = 0u;
+// A dispatch count says nothing about where a run will get to: the same number
+// covers eighteen seconds of a loading screen or twenty-seven minutes of a
+// title spinning in a dialog. Guest time is the budget worth stating.
+std::uint64_t g_stop_at_guest_us = 0u;
+// Snapshots along the way, so a headless run can be looked at without waiting
+// for it to end and without a window.
+std::uint64_t g_frame_dump_interval_us = 0u;
+std::uint64_t g_next_frame_dump_us = 0u;
+std::uint64_t g_frame_dumps_written = 0u;
+std::uint64_t g_heartbeat_seconds = 0u;
+std::uint64_t g_hook_dispatches = 0u;
+std::chrono::steady_clock::time_point g_last_flip{};
+std::chrono::steady_clock::time_point g_last_heartbeat{};
+bool g_stall_reported = false;
+
+void note_frame_flip() { g_last_flip = std::chrono::steady_clock::now(); }
+
+void check_progress(Runtime &rt, std::int32_t dispatch_thread_uid) {
+    const auto now = std::chrono::steady_clock::now();
+    const auto since = [&now](std::chrono::steady_clock::time_point point) {
+        return static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::seconds>(now - point).count());
+    };
+
+    if (g_heartbeat_seconds != 0u && since(g_last_heartbeat) >= g_heartbeat_seconds) {
+        g_last_heartbeat = now;
+        runtime_log_line("heartbeat: guest " + std::to_string(g_virtual_time_us) + "us, " +
+                         std::to_string(g_hook_dispatches) + " dispatches, thread " +
+                         std::to_string(dispatch_thread_uid) + ", " +
+                         std::to_string(since(g_last_flip)) + "s since the last frame");
+    }
+
+    if (g_stop_at_guest_us != 0u && g_virtual_time_us >= g_stop_at_guest_us) {
+        rt.stop("the guest time budget of " + std::to_string(g_stop_at_guest_us) + "us ran out");
+        return;
+    }
+
+    if (g_frame_dump_interval_us != 0u && g_virtual_time_us >= g_next_frame_dump_us) {
+        g_next_frame_dump_us = g_virtual_time_us + g_frame_dump_interval_us;
+        const std::string path = "frame_" + std::to_string(g_virtual_time_us / 1000u) + "ms.bmp";
+        std::string error;
+        if (dump_display(rt, path, error)) {
+            ++g_frame_dumps_written;
+            runtime_log_line("frame written: " + path);
+        } else {
+            runtime_log_line("frame not written: " + error);
+        }
+    }
+
+    if (g_stall_seconds == 0u || g_stall_reported || since(g_last_flip) < g_stall_seconds) return;
+    g_stall_reported = true;
+    const std::string headline = "the guest stopped drawing for " +
+                                 std::to_string(since(g_last_flip)) + " seconds";
+    runtime_log_line("STALL: " + headline);
+    std::cerr << "" << headline << " - dumping state" << "" << std::endl;
+    std::cerr << thread_report();
+    dump_dispatch_trace(120u);
+    rt.stop(headline);
+}
+
 void pre_dispatch_hook(Runtime &rt, AllegrexContext &, std::uint32_t dispatch_pc,
                        std::int32_t dispatch_thread_uid) {
+    // Reading a clock on every dispatch would cost more than the thing it is
+    // watching for, so this samples.
+    if ((++g_hook_dispatches & 0xFFFFFu) == 0u &&
+        (g_stall_seconds != 0u || g_heartbeat_seconds != 0u)) {
+        check_progress(rt, dispatch_thread_uid);
+    }
     if (!g_watches.empty()) check_watches(rt, dispatch_pc, dispatch_thread_uid);
     if (g_trace.empty()) return;
     if (g_trace_thread >= 0 && dispatch_thread_uid != g_trace_thread) return;
@@ -987,6 +1062,42 @@ void install_memory_watch() {
     std::string summary;
     for (const MemoryWatch &watch : g_watches) summary += " " + psprecomp::hex32(watch.address);
     runtime_log_line("watching" + summary);
+    psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
+}
+
+void install_progress_watchdog() {
+    const auto number = [](const char *name) -> std::uint64_t {
+        const char *text = std::getenv(name);
+        if (text == nullptr || *text == 0) return 0u;
+        return std::strtoull(text, nullptr, 0);
+    };
+    g_stall_seconds = number("PSPRECOMP_DEFJAM_STALL_SECONDS");
+    g_heartbeat_seconds = number("PSPRECOMP_DEFJAM_HEARTBEAT_SECONDS");
+    g_stop_at_guest_us = number("PSPRECOMP_DEFJAM_STOP_AT_GUEST_US");
+    g_frame_dump_interval_us = number("PSPRECOMP_DEFJAM_FRAME_EVERY_US");
+    g_next_frame_dump_us = g_frame_dump_interval_us;
+    if (g_stall_seconds == 0u && g_heartbeat_seconds == 0u && g_stop_at_guest_us == 0u &&
+        g_frame_dump_interval_us == 0u) {
+        return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    g_last_flip = now;
+    g_last_heartbeat = now;
+    if (g_stall_seconds != 0u) {
+        runtime_log_line("watchdog: stop after " + std::to_string(g_stall_seconds) +
+                         "s without a frame");
+    }
+    if (g_heartbeat_seconds != 0u) {
+        runtime_log_line("watchdog: heartbeat every " + std::to_string(g_heartbeat_seconds) + "s");
+    }
+    if (g_stop_at_guest_us != 0u) {
+        runtime_log_line("watchdog: stop at guest " + std::to_string(g_stop_at_guest_us) + "us");
+    }
+    if (g_frame_dump_interval_us != 0u) {
+        runtime_log_line("watchdog: a frame every " + std::to_string(g_frame_dump_interval_us) +
+                         "us of guest time");
+    }
     psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
 }
 
@@ -1687,6 +1798,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         g_display_stride = ctx.gpr[5];
         g_display_format = ctx.gpr[6];
         ++g_framebuffer_sets;
+        note_frame_flip();
         // The flip is the moment a buffer becomes the one being shown, so it is
         // where the window takes it. The rasteriser works on a host copy, so
         // that has to be pushed back into guest memory first - otherwise the
@@ -1813,6 +1925,40 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             if (text == nullptr || *text == '\0') return 0u;
             return static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
         }();
+        // A timeline says what is pressed and when, which a mask held forever
+        // cannot: pulsing Cross gets past a confirmation and then keeps
+        // pressing it through whatever menu comes next.
+        // PSPRECOMP_DEFJAM_INPUT="2000:0x4000,2100:0,9000:0x8,9100:0" reads as
+        // guest milliseconds and the mask to hold from then on.
+        static const std::vector<std::pair<std::uint64_t, std::uint32_t>> timeline = [] {
+            std::vector<std::pair<std::uint64_t, std::uint32_t>> entries;
+            const char *text = std::getenv("PSPRECOMP_DEFJAM_INPUT");
+            if (text == nullptr || *text == 0) return entries;
+            const std::string script(text);
+            std::size_t cursor = 0u;
+            while (cursor < script.size()) {
+                const std::size_t comma = script.find(',', cursor);
+                const std::string item = script.substr(
+                    cursor, comma == std::string::npos ? std::string::npos : comma - cursor);
+                const std::size_t colon = item.find(':');
+                if (colon != std::string::npos) {
+                    entries.emplace_back(
+                        std::strtoull(item.substr(0, colon).c_str(), nullptr, 0) * 1000u,
+                        static_cast<std::uint32_t>(
+                            std::strtoul(item.substr(colon + 1).c_str(), nullptr, 0)));
+                }
+                if (comma == std::string::npos) break;
+                cursor = comma + 1u;
+            }
+            std::sort(entries.begin(), entries.end());
+            return entries;
+        }();
+        std::uint32_t scripted = 0u;
+        for (const auto &entry : timeline) {
+            if (g_virtual_time_us < entry.first) break;
+            scripted = entry.second;
+        }
+
         constexpr std::uint64_t kPulseHalfUs = 250000u;
         const bool pulse_down = (g_virtual_time_us / kPulseHalfUs) % 2u == 1u;
         // A real key press is ORed onto the scripted masks rather than
@@ -1821,7 +1967,8 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         std::uint8_t analog_x = 128u;
         std::uint8_t analog_y = 128u;
         window_analog(analog_x, analog_y);
-        const std::uint32_t buttons = held | (pulse_down ? pulsed : 0u) | window_buttons();
+        const std::uint32_t buttons =
+            held | scripted | (pulse_down ? pulsed : 0u) | window_buttons();
 
         // This is the blocking read. Controller data is sampled once per
         // cycle: the first read in a cycle takes the sample already waiting and

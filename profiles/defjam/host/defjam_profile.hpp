@@ -78,6 +78,11 @@ void install_dispatch_trace();
 // Reports when a watched guest word changes, naming the unit and thread that
 // changed it. Set PSPRECOMP_DEFJAM_WATCH to a comma-separated list of
 // addresses. Answers "who writes this?" without disassembling every writer.
+// Stops the run when the guest goes quiet, and optionally reports progress
+// while it has not. PSPRECOMP_DEFJAM_STALL_SECONDS and
+// PSPRECOMP_DEFJAM_HEARTBEAT_SECONDS; both off by default.
+void install_progress_watchdog();
+
 void install_memory_watch();
 void dump_dispatch_trace(std::size_t limit = 64u);
 [[nodiscard]] bool dispatch_trace_enabled();

@@ -7,6 +7,7 @@
 #include "defjam_raster.hpp"
 #include "defjam_texture.hpp"
 #include "defjam_vertex.hpp"
+#include "defjam_banks.hpp"
 #include "defjam_window.hpp"
 #include "defjam_profile.hpp"
 
@@ -219,6 +220,7 @@ int main(int argc, char **argv) {
 
         defjam::install_profile(runtime, user_arena_start);
         defjam::install_starvation_preemption();
+        defjam::install_progress_watchdog();
         defjam::install_memory_watch();
         defjam::install_dispatch_trace();
 
@@ -266,6 +268,7 @@ int main(int argc, char **argv) {
         std::cout << defjam::texture_report();
         std::cout << defjam::raster_report();
         std::cout << defjam::window_report();
+        std::cout << defjam::bank_report();
         if (const std::string dump = defjam::frame_dump_path(); !dump.empty()) {
             std::string dump_error;
             if (defjam::dump_display(runtime, dump, dump_error)) {
