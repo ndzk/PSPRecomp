@@ -251,11 +251,10 @@ std::uint64_t g_starvation_tick_us = 0;
 // surfaces this profile implements itself, so loading one registers nothing
 // and the guest's imports resolve to the HLE either way.
 //
-// That holds only for the surfaces actually implemented. sceMpeg, sceSasCore
-// and sceAudio are; sceAtrac3plus is not, and the title imports eight of its
-// entry points and calls them from twenty-six sites, so the first one reached
-// stops the run under this profile's missing_function policy. Loading the PRX
-// succeeds and then nothing satisfies what it was loaded for.
+// That holds only for the surfaces actually implemented. sceMpeg, sceSasCore,
+// sceAtrac3plus and sceAudio are; the networking libraries deliberately are
+// not, so a title that reaches one stops under the missing_function policy
+// rather than being told a wireless call succeeded.
 //
 // The load is still verified against the staged disc rather than blindly
 // accepted, so a path the title expects and the user has not staged fails
@@ -450,10 +449,6 @@ std::int32_t allocate_kernel_uid() { return g_next_kernel_uid++; }
 
 // o32 passes the first four arguments in a0-a3 and spills the rest to the
 // caller's frame, starting at sp+16 above the argument save area.
-std::uint32_t stack_arg(Runtime &rt, const AllegrexContext &ctx, std::uint32_t offset) {
-    return rt.memory().load32(ctx.gpr[29] + offset);
-}
-
 // The context a blocked thread resumes with: the HLE call has "returned"
 // already, so its saved pc is the caller's return address and v0 is the result.
 AllegrexContext make_wait_context(const AllegrexContext &ctx, std::uint32_t result = 0u) {
@@ -679,8 +674,11 @@ void preempt_if_higher_priority(Runtime &rt, AllegrexContext &ctx) {
 constexpr std::uint32_t kKernelContextSize = 0x100u;
 
 std::uint32_t allocate_thread_stack(std::uint32_t size) {
-    const std::uint32_t aligned = (size + 0xFFu) & ~0xFFu;
-    if (g_threads.next_stack_top < aligned) return 0u;
+    // In 64 bits for the same reason as the heap side: rounding a near-4 GB
+    // request up wraps to a tiny value, and a stack of no length puts the
+    // thread control block below its own allocation.
+    const std::uint64_t aligned = (static_cast<std::uint64_t>(size) + 0xFFull) & ~0xFFull;
+    if (aligned == 0ull || aligned > g_threads.next_stack_top) return 0u;
     const std::uint32_t bottom = g_threads.next_stack_top - aligned;
     if (bottom < g_partitions.next_address) return 0u;  // heap and stacks met
     g_threads.next_stack_top = bottom;
@@ -1058,25 +1056,30 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             }
             alignment = std::max(0x100u, requested_addr);
         }
-        const std::uint32_t aligned_size = (size + 0xFFu) & ~0xFFu;
+        // Rounded in 64 bits: `size` is the guest's, and near 4 GB the round
+        // up wraps, which then makes address + size wrap back under the stack
+        // top and pass a check it should fail.
+        const std::uint64_t aligned_size = (static_cast<std::uint64_t>(size) + 0xFFull) & ~0xFFull;
         const std::uint32_t address =
             (g_partitions.next_address + alignment - 1u) & ~(alignment - 1u);
-        if (aligned_size == 0u || address + aligned_size > g_threads.next_stack_top) {
+        if (aligned_size == 0u ||
+            static_cast<std::uint64_t>(address) + aligned_size > g_threads.next_stack_top) {
             runtime_log_line("AllocPartitionMemory FAILED name=" + name +
                              " size=" + std::to_string(size) + " free=" +
                              std::to_string(g_threads.next_stack_top - g_partitions.next_address));
             set_return(ctx, static_cast<std::uint32_t>(-1));
             return;
         }
-        g_partitions.next_address = address + aligned_size;
-        rt.memory().zero(address, aligned_size);
+        const auto block_size = static_cast<std::uint32_t>(aligned_size);
+        g_partitions.next_address = address + block_size;
+        rt.memory().zero(address, block_size);
         const std::int32_t uid = g_partitions.next_uid++;
-        g_partitions.blocks.emplace(uid, PartitionBlock{name, address, aligned_size});
+        g_partitions.blocks.emplace(uid, PartitionBlock{name, address, block_size});
         runtime_log_line("AllocPartitionMemory partition=" + std::to_string(partition) +
                          " name=" + name + " type=" + std::to_string(type) +
                          " size=" + std::to_string(size) + " -> uid=" + std::to_string(uid) +
                          " addr=" + psprecomp::hex32(address) + " end=" +
-                         psprecomp::hex32(address + aligned_size) + " free_after=" +
+                         psprecomp::hex32(address + block_size) + " free_after=" +
                          std::to_string(g_threads.next_stack_top - g_partitions.next_address));
         set_return(ctx, static_cast<std::uint32_t>(uid));
     });
@@ -1925,13 +1928,13 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     });
 
     runtime.register_hle("sceSasCore", 0x99944089u,
-        [sas_voice](Runtime &rt, AllegrexContext &ctx) {
+        [sas_voice](Runtime &, AllegrexContext &ctx) {
             // (core, voice, vagAddr, size, loopMode)
             SasVoice *voice = sas_voice(ctx);
             if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
             voice->vag_address = ctx.gpr[6];
             voice->vag_size = ctx.gpr[7];
-            voice->loop_mode = stack_arg(rt, ctx, 16u);
+            voice->loop_mode = ctx.gpr[8];   // $t0
             voice->total_samples = sas_voice_length_samples(voice->vag_size);
             voice->samples_played = 0u;
             voice->noise = false;
@@ -1961,14 +1964,18 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             set_success(ctx);
         });
     runtime.register_hle("sceSasCore", 0x019B25EBu,
-        [sas_voice](Runtime &rt, AllegrexContext &ctx) {
+        [sas_voice](Runtime &, AllegrexContext &ctx) {
             // (core, voice, flags, attack, decay, sustain, release)
             SasVoice *voice = sas_voice(ctx);
             if (voice == nullptr) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+            // Arguments five and up arrive in $t0-$t3, as they do everywhere
+            // else this title calls a five-argument import: at both call sites
+            // the caller loads those registers and writes nothing to the o32
+            // save area, so reading sp+16 gave back whatever was there.
             voice->attack = ctx.gpr[7];
-            voice->decay = stack_arg(rt, ctx, 16u);
-            voice->sustain = stack_arg(rt, ctx, 20u);
-            voice->release = stack_arg(rt, ctx, 24u);
+            voice->decay = ctx.gpr[8];
+            voice->sustain = ctx.gpr[9];
+            voice->release = ctx.gpr[10];
             set_success(ctx);
         });
     runtime.register_hle("sceSasCore", 0x9EC3676Au,
