@@ -1011,6 +1011,60 @@ std::uint32_t block_thread_zero(psprecomp::Runtime &runtime, psprecomp::Allegrex
     return sema;
 }
 
+// The vblank is a clock, not a service the guest asks for.
+//
+// This title spends the whole length of a movie inside sceKernelDelayThread
+// and never calls sceDisplayWaitVblankStart, while its movie player waits on
+// an event flag that only the registered vblank handler ever sets. Counting
+// vblanks solely where the guest asks for one leaves that flag dark: the
+// display thread never consumes a frame, the player's ring of four frame
+// buffers fills, and the decoder stops at exactly four frames.
+void test_vblank_advances_without_being_asked() {
+    constexpr std::uint32_t kGetVcount = 0x9C6EAAD7u;
+    constexpr std::uint32_t kDelayThread = 0xCEADEB47u;
+    constexpr std::uint32_t kRegisterSubIntr = 0xCA04A2B9u;
+    constexpr std::uint32_t kEnableSubIntr = 0xFB8E22ECu;
+    constexpr std::uint32_t kVblankPeriodUs = 16683u;   // 59.94 Hz
+
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+    psprecomp::AllegrexContext ctx{};
+
+    call_hle(runtime, "sceDisplay", kGetVcount, ctx);
+    require(ctx.gpr[2] == 0u, "the vblank count did not start at zero");
+
+    // Thread 0 is the only thread, so the scheduler jumps virtual time to the
+    // deadline rather than spinning. Nothing here asks for a vblank.
+    ctx.set_gpr(4, 10u * kVblankPeriodUs);
+    call_hle(runtime, "ThreadManForUser", kDelayThread, ctx);
+    require(!runtime.stopped(),
+            ("delaying the only thread was reported as a deadlock: " + runtime.stop_reason()).c_str());
+
+    call_hle(runtime, "sceDisplay", kGetVcount, ctx);
+    require(ctx.gpr[2] >= 10u, "the vblank clock stood still while the guest slept");
+
+    // Registering a handler and enabling it has to be recorded rather than
+    // answered with a bare success, which is what left the flag dark.
+    ctx.set_gpr(4, 30u);            // PSP_VBLANK_INT
+    ctx.set_gpr(5, 0u);
+    ctx.set_gpr(6, 0x08805A28u);    // any address; nothing runs it here
+    ctx.set_gpr(7, 0x1234u);
+    call_hle(runtime, "InterruptManager", kRegisterSubIntr, ctx);
+    require(ctx.gpr[2] == 0u, "registering a vblank handler failed");
+
+    ctx.set_gpr(4, 30u);
+    ctx.set_gpr(5, 0u);
+    call_hle(runtime, "InterruptManager", kEnableSubIntr, ctx);
+    require(ctx.gpr[2] == 0u, "enabling a registered vblank handler failed");
+
+    // Enabling a pair nobody registered is an error, not a quiet success.
+    ctx.set_gpr(4, 30u);
+    ctx.set_gpr(5, 3u);
+    call_hle(runtime, "InterruptManager", kEnableSubIntr, ctx);
+    require(static_cast<std::int32_t>(ctx.gpr[2]) < 0,
+            "enabling a sub interrupt nobody registered reported success");
+}
+
 void test_deleting_a_semaphore_releases_its_waiters() {
     psprecomp::Runtime runtime(32u * 1024u * 1024u);
     defjam::install_profile(runtime, 0x08900000u);
@@ -1842,6 +1896,7 @@ int main() {
         test_kernel_wait_timeout();
         test_kernel_wait_satisfied();
         test_event_flag_poll_code();
+        test_vblank_advances_without_being_asked();
         test_deleting_a_semaphore_releases_its_waiters();
         test_terminating_a_thread_wakes_its_joiners();
         test_wakeup_does_not_break_a_semaphore_wait();

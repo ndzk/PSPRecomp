@@ -197,6 +197,34 @@ struct PendingGuestCall {
     std::uint32_t arg2{};
 };
 
+// A sub-interrupt handler the title registered. Hardware runs it on whichever
+// thread it interrupted, on that thread's stack, which is exactly the shape
+// enter_guest_call already models for GE callbacks.
+struct SubInterruptHandler {
+    std::uint32_t function{};
+    std::uint32_t argument{};
+    bool enabled{};
+};
+
+// Keyed by interrupt code and sub code together.
+std::map<std::uint32_t, SubInterruptHandler> g_sub_interrupts;
+constexpr std::uint32_t kVblankInterrupt = 30u;   // PSP_VBLANK_INT
+
+std::uint32_t sub_interrupt_key(std::uint32_t interrupt, std::uint32_t sub) {
+    return (interrupt << 8u) | (sub & 0xFFu);
+}
+
+// 59.94 Hz. The vblank is a clock, not a service the guest asks for: hardware
+// raises it whether or not anybody is waiting. Deriving it from
+// sceDisplayWaitVblankStart instead stops it dead for the whole length of a
+// movie, because this title spends that time in sceKernelDelayThread and never
+// asks - and its movie player waits on an event flag that only the vblank
+// handler ever sets.
+constexpr std::uint64_t kVblankPeriodUs = 16683u;
+std::uint64_t g_vblank_next_us = kVblankPeriodUs;
+bool g_vblank_pending = false;
+bool g_vblank_in_flight = false;
+
 PartitionTable g_partitions;
 ThreadTable g_threads;
 std::map<std::int32_t, SemaphoreRecord> g_semaphores;
@@ -575,6 +603,20 @@ std::int32_t best_ready_thread() {
     return best;
 }
 
+// Advances the vblank clock to the current virtual time. A single scheduler
+// jump can cross several periods when every thread is asleep; hardware would
+// have raised each one, but a backlog of handler calls helps nobody, so they
+// coalesce into one pending interrupt the way a masked one does.
+void pump_vblank_clock() {
+    while (g_virtual_time_us >= g_vblank_next_us) {
+        ++g_vblanks;
+        g_vblank_next_us += kVblankPeriodUs;
+        g_vblank_pending = true;
+    }
+}
+
+void deliver_vblank_interrupt(AllegrexContext &ctx);
+
 // Switches to the next runnable thread. Returns false when nothing can run,
 // which the caller reports as a deadlock rather than spinning.
 bool activate_next_thread(Runtime &rt, AllegrexContext &ctx, const char *reason) {
@@ -609,6 +651,10 @@ bool activate_next_thread(Runtime &rt, AllegrexContext &ctx, const char *reason)
     ++g_threads.switches;
     ctx = thread.suspended;
     psprecomp::set_runtime_thread_identity(next, thread.name);
+    // The interrupt lands on whoever was about to run, which is the thread
+    // hardware would have interrupted.
+    pump_vblank_clock();
+    deliver_vblank_interrupt(ctx);
     (void)rt;
     (void)reason;
     return true;
@@ -728,6 +774,26 @@ void enter_guest_call(AllegrexContext &ctx, const PendingGuestCall &call,
     ctx.pc = call.function;
 }
 
+// Runs the registered vblank handler on the resuming thread and returns it to
+// exactly where it was. v0 is carried across by hand: the trampoline hands the
+// completion the handler's return value, and the interrupted thread must not
+// see it.
+void deliver_vblank_interrupt(AllegrexContext &ctx) {
+    if (!g_vblank_pending || g_vblank_in_flight) return;
+    const auto it = g_sub_interrupts.find(sub_interrupt_key(kVblankInterrupt, 0u));
+    if (it == g_sub_interrupts.end() || !it->second.enabled || it->second.function == 0u) return;
+
+    g_vblank_pending = false;
+    g_vblank_in_flight = true;
+    const std::uint32_t resume_v0 = ctx.gpr[2];
+    // The sub code arrives in a0 and the registered argument in a1.
+    enter_guest_call(ctx, PendingGuestCall{it->second.function, 0u, it->second.argument, 0u}, ctx,
+                     [resume_v0](Runtime &, std::uint32_t) {
+                         g_vblank_in_flight = false;
+                         return resume_v0;
+                     });
+}
+
 // Ends an HLE call that queued guest work. `result` is what the caller sees in
 // v0, once every queued callback has run. Returns true if execution was
 // redirected, in which case the caller must not touch ctx afterwards.
@@ -795,6 +861,7 @@ void queue_ge_callbacks(const GeExecution &execution, std::int32_t callback_id) 
 // ---------------------------------------------------------------------------
 void starvation_tick(Runtime &rt, AllegrexContext &ctx) {
     g_virtual_time_us += g_starvation_tick_us;
+    pump_vblank_clock();
     promote_expired_delays();
     ThreadRecord *running = current_thread();
     if (running == nullptr) return;
@@ -970,6 +1037,10 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     g_next_kernel_uid = 0x1000;
     g_virtual_time_us = 0;
     g_vblanks = 0;
+    g_sub_interrupts.clear();
+    g_vblank_next_us = kVblankPeriodUs;
+    g_vblank_pending = false;
+    g_vblank_in_flight = false;
     g_display_list_submissions = 0;
     g_framebuffer_sets = 0;
     g_ge_lists.clear();
@@ -1578,10 +1649,9 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         set_return(ctx, static_cast<std::uint32_t>(g_vblanks));
     });
     runtime.register_hle("sceDisplay", 0x984C27E7u, [](Runtime &rt, AllegrexContext &ctx) {
-        // 59.94 Hz. Delaying to the next boundary is the whole frame pacing
-        // model until a real presenter exists.
-        constexpr std::uint64_t kVblankPeriodUs = 16683u;
-        ++g_vblanks;
+        // Delaying to the next boundary is the whole frame pacing model until a
+        // real presenter exists. The count itself belongs to the clock, which
+        // runs whether or not anybody waits here.
         const std::uint32_t remainder =
             static_cast<std::uint32_t>(kVblankPeriodUs - (g_virtual_time_us % kVblankPeriodUs));
         delay_current_thread(rt, ctx, remainder);
@@ -2165,9 +2235,25 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         }
         set_success(ctx);
     });
-    runtime.register_hle("InterruptManager", 0xCA04A2B9u, ok);
-    runtime.register_hle("InterruptManager", 0xD61E6961u, ok);
-    runtime.register_hle("InterruptManager", 0xFB8E22ECu, ok);
+    // (interrupt, sub interrupt, handler, argument). Recording these is what
+    // lets the vblank reach the guest; answering a bare success leaves the
+    // title's movie player waiting on an event flag nobody ever sets.
+    runtime.register_hle("InterruptManager", 0xCA04A2B9u, [](Runtime &, AllegrexContext &ctx) {
+        SubInterruptHandler &handler = g_sub_interrupts[sub_interrupt_key(ctx.gpr[4], ctx.gpr[5])];
+        handler.function = ctx.gpr[6];
+        handler.argument = ctx.gpr[7];
+        set_success(ctx);
+    });
+    runtime.register_hle("InterruptManager", 0xD61E6961u, [](Runtime &, AllegrexContext &ctx) {
+        g_sub_interrupts.erase(sub_interrupt_key(ctx.gpr[4], ctx.gpr[5]));
+        set_success(ctx);
+    });
+    runtime.register_hle("InterruptManager", 0xFB8E22ECu, [](Runtime &, AllegrexContext &ctx) {
+        const auto it = g_sub_interrupts.find(sub_interrupt_key(ctx.gpr[4], ctx.gpr[5]));
+        if (it == g_sub_interrupts.end()) { set_return(ctx, static_cast<std::uint32_t>(-1)); return; }
+        it->second.enabled = true;
+        set_success(ctx);
+    });
 
     // -----------------------------------------------------------------------
     // sceRtc
