@@ -95,9 +95,26 @@ or point it at an executable explicitly:
 out\defjam\bin\Release\DefJamNative.exe path\to\BOOT.BIN
 ```
 
-Requires CMake ≥ 3.20 and a C++20 MSVC toolchain. Developed against Visual
-Studio 2026 (MSVC 19.51, toolset 14.51); the reference `vcs` profile targets
-Visual Studio 2022, and both should work.
+Requires CMake ≥ 3.20 and a C++20 toolchain. Developed against Visual Studio
+2026 (MSVC 19.51, toolset 14.51); the reference `vcs` profile targets Visual
+Studio 2022, and both should work.
+
+It also builds and runs on macOS with AppleClang, unmodified:
+
+```
+cmake -S . -B out/defjam -G Ninja -DPSPRECOMP_PROFILE=defjam \
+      -DCMAKE_BUILD_TYPE=Debug -DPSPRECOMP_GENERATED_OPT_LEVEL=0
+cmake --build out/defjam -j 8
+ctest --test-dir out/defjam --output-on-failure
+```
+
+Measured on an Apple silicon machine with 10 cores: 33 s wall for all 216
+targets, including the 174 generated units, and a 179 MB unoptimised binary.
+Without a staged disc `DefJamNative` reports its manifest, enforces the policy
+and exits 3, which is as far as this platform can go - the profile has no macOS
+presenter and staging still needs the PowerShell script. That is enough to keep
+the host layer honest: a change that compiles but does not link, or that breaks
+manifest handling, fails here rather than on the next Windows build.
 
 ## Regenerating the AOT corpus
 
