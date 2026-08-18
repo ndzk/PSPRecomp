@@ -342,47 +342,6 @@ void note_draw(Runtime &runtime, std::uint32_t primitive, std::uint32_t vtype,
     if (format.color != 0u) ++g_stats.with_color;
     if (format.normal != 0u) ++g_stats.with_normal;
 
-    {
-        // One-off: dump the raw bytes of a textured through-mode vertex and
-        // lay them out by the offsets the format parser computed, so the two
-        // can be compared side by side.
-        static int reported = 0;
-        if (vtype == 0x0080111Eu && reported++ < 2 && vertex_address != 0u &&
-            runtime.memory().contains(vertex_address, 32u)) {
-            std::vector<std::uint8_t> bytes(32u);
-            runtime.memory().copy_out(vertex_address, bytes);
-            std::string hex;
-            for (std::size_t i = 0; i < bytes.size(); ++i) {
-                if (i == format.stride) hex += " |";
-                const char digits[] = "0123456789abcdef";
-                hex += " ";
-                hex += digits[bytes[i] >> 4u];
-                hex += digits[bytes[i] & 0xFu];
-            }
-            runtime_log_line("vertex bytes at " + psprecomp::hex32(vertex_address) + hex);
-            runtime_log_line("  offsets: texture=" + std::to_string(format.texture_offset) +
-                             " color=" + std::to_string(format.color_offset) +
-                             " normal=" + std::to_string(format.normal_offset) +
-                             " position=" + std::to_string(format.position_offset) +
-                             " stride=" + std::to_string(format.stride) +
-                             " texfmt=" + std::to_string(format.texture) +
-                             " through=" + std::to_string(format.through ? 1 : 0));
-            const auto u16at = [&bytes](std::size_t at) {
-                return static_cast<std::uint32_t>(bytes[at]) |
-                       (static_cast<std::uint32_t>(bytes[at + 1u]) << 8u);
-            };
-            const auto s16at = [&bytes](std::size_t at) {
-                return static_cast<std::int32_t>(
-                    static_cast<std::int16_t>(bytes[at] | (bytes[at + 1u] << 8u)));
-            };
-            runtime_log_line("  as fields: uv=" + std::to_string(u16at(0)) + "," +
-                             std::to_string(u16at(2)) + " color=" +
-                             psprecomp::hex32(u16at(4) | (u16at(6) << 16u)) + " pos=" +
-                             std::to_string(s16at(8)) + "," + std::to_string(s16at(10)) + "," +
-                             std::to_string(s16at(12)));
-        }
-    }
-
     static std::vector<Vertex> vertices;
     const bool indexed = format.index != 0u;
     const bool decoded =
