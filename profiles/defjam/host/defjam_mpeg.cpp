@@ -84,15 +84,19 @@ constexpr std::uint32_t kNoTimestamp = 0xFFFFFFFFu;
 
 // "Nothing to hand out yet, put more packets in and ask again."
 //
-// This title does not read the value: nothing in its corpus materialises a
-// constant in the 0x8061 block, so it can only be testing the sign, and the
-// generic -1 this replaced was equally negative. The change is correctness
-// for its own sake rather than a fix for anything observed here - a title
-// that does compare would need this, and reporting a shortage as a hard
-// failure is wrong regardless of who is looking.
+// This title compares against this exact value, at both access unit getters.
+// Read out of its own corpus: after calling sceMpegGetAvcAu it tests the sign
+// of the result, and on the negative side compares it with 0x80618001 built as
+// lui 0x8062 followed by addiu -32767. Equal takes the benign path; anything
+// else falls through to a store of 4 into the player state at +332. The same
+// pair sits after sceMpegGetAtracAu.
 //
-// Not in pspsdk, so unlike the kernel codes this one is not checked against a
-// source this tree may take values from. Treat it as unverified.
+// So answering a shortage with a generic -1 does not merely lose information:
+// it fails the equality test and marks the movie as broken on the first frame
+// the demultiplexer is not ready for.
+//
+// pspsdk does not define it, so the name is not confirmed against an SDK - but
+// the value is confirmed against the only thing that has to agree with it.
 constexpr std::uint32_t kErrorMpegNoData = 0x80618001u;
 
 void set_return(AllegrexContext &ctx, std::uint32_t value) { ctx.set_gpr(2, value); }
