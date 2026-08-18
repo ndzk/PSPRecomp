@@ -188,7 +188,15 @@ int main(int argc, char **argv) {
         // install_profile must follow register_generated_functions: registering
         // a host override poisons the containing generated unit, and the
         // reverse order would let corpus registration undo the overrides.
-        defjam::runtime_log_initialize((executable_directory / "DefJamNative.log").string());
+        // Every run truncates this on open, so two running at once erase each
+        // other's evidence - which is exactly how one investigation here ended
+        // up reading an empty log and concluding nothing was happening.
+        // PSPRECOMP_DEFJAM_LOG gives a run its own.
+        const char *log_override = std::getenv("PSPRECOMP_DEFJAM_LOG");
+        defjam::runtime_log_initialize(
+            log_override != nullptr && *log_override != '\0'
+                ? std::string(log_override)
+                : (executable_directory / "DefJamNative.log").string());
 
         // Load the NID name table so an unimplemented import names the function
         // rather than a bare hex NID. Purely diagnostic, so a missing table is
