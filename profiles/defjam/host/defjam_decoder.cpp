@@ -11,10 +11,22 @@ std::uint8_t clamp_to_byte(std::int32_t value) {
 
 } // namespace
 
-void frame_to_abgr8888(const DecodedFrame &frame, std::uint32_t stride,
+bool frame_to_abgr8888(const DecodedFrame &frame, std::uint32_t stride,
                        std::vector<std::uint32_t> &out) {
     out.assign(static_cast<std::size_t>(stride) * frame.height, 0xFF000000u);
-    if (frame.width == 0u || frame.height == 0u || stride < frame.width) return;
+    if (frame.width == 0u || frame.height == 0u || stride < frame.width) return false;
+
+    // The planes must actually hold the rows the strides claim. Everything
+    // below indexes off those strides, so a frame that does not carry what it
+    // describes is refused here rather than read past.
+    const std::size_t rows = frame.height;
+    const std::size_t chroma_rows = (rows + 1u) / 2u;
+    if (frame.y.size() < static_cast<std::size_t>(frame.y_stride) * rows ||
+        frame.u.size() < static_cast<std::size_t>(frame.uv_stride) * chroma_rows ||
+        frame.v.size() < static_cast<std::size_t>(frame.uv_stride) * chroma_rows ||
+        frame.y_stride < frame.width || frame.uv_stride < (frame.width + 1u) / 2u) {
+        return false;
+    }
 
     for (std::uint32_t row = 0; row < frame.height; ++row) {
         const std::uint8_t *luma = frame.y.data() + static_cast<std::size_t>(row) * frame.y_stride;
@@ -40,6 +52,7 @@ void frame_to_abgr8888(const DecodedFrame &frame, std::uint32_t stride,
                              (static_cast<std::uint32_t>(g) << 8u) | static_cast<std::uint32_t>(r);
         }
     }
+    return true;
 }
 
 #if !defined(DEFJAM_HAS_FFMPEG)

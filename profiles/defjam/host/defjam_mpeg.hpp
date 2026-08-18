@@ -52,6 +52,14 @@ struct PsmfHeader {
 class ProgramStreamDemuxer {
 public:
     void reset();
+
+    // Restricts demultiplexing to the ids the container declared, so a program
+    // carrying more than one stream of a kind does not have them concatenated
+    // into a single access unit. 0 means "any of that kind", which is the state
+    // before a PSMF header has been read. The audio id is always private
+    // stream 1 in this container, so it is the video id that does the work.
+    void select_streams(std::uint8_t video_id, std::uint8_t audio_id);
+
     void append(const std::uint8_t *data, std::size_t size);
     // Ends the current access units, so trailing data is not lost at EOF.
     void flush();
@@ -79,6 +87,8 @@ private:
     AccessUnit current_audio_;
     bool video_open_{};
     bool audio_open_{};
+    std::uint8_t video_id_{};   // 0 = accept any video stream id
+    std::uint8_t audio_id_{};
     std::uint64_t video_units_{};
     std::uint64_t audio_units_{};
     std::uint64_t bytes_seen_{};

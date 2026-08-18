@@ -27,7 +27,13 @@ struct DecodedFrame {
     std::vector<std::uint8_t> v;
     std::uint32_t y_stride{};
     std::uint32_t uv_stride{};
-    std::int64_t timestamp{};   // presentation time, in the stream's own units
+    // Presentation time, in the stream's own units, and whether the decoder
+    // supplied one at all. A backend fed access units carrying no timestamps
+    // has nothing to report here, and saying so is not the same as reporting
+    // zero: the container already recorded the real time, and overwriting it
+    // with a decoder's blank costs the caller its only sync reference.
+    std::int64_t timestamp{};
+    bool has_timestamp{};
 };
 
 // Decoded audio, interleaved signed 16-bit stereo, which is what the PSP's
@@ -35,6 +41,7 @@ struct DecodedFrame {
 struct DecodedAudio {
     std::vector<std::int16_t> samples;
     std::int64_t timestamp{};
+    bool has_timestamp{};   // as above
 };
 
 class DecoderBackend {
@@ -49,6 +56,12 @@ public:
                               std::string &error) = 0;
     virtual bool decode_audio(const std::uint8_t *data, std::size_t size, DecodedAudio &out,
                               std::string &error) = 0;
+
+    // Drops everything the movie just played left behind: buffered elementary
+    // stream bytes, any framing measured from that stream, and the codecs' own
+    // reference frames. A decoder is reused across movies, so without this the
+    // second one is decoded against the first one's state.
+    virtual void reset() = 0;
 };
 
 // The compiled-in backend, or nullptr with `error` explaining why there is
@@ -64,7 +77,13 @@ public:
 //
 // Uses the BT.601 limited-range coefficients that standard-definition H.264
 // content is encoded against.
-void frame_to_abgr8888(const DecodedFrame &frame, std::uint32_t stride,
-                       std::vector<std::uint32_t> &out);
+//
+// Returns false when the picture cannot be laid out as asked - an empty frame,
+// or a stride narrower than it. `out` is left as an opaque black field of the
+// requested size, which is what a caller that ignores the result would have
+// displayed anyway; the difference is that it can now tell that apart from a
+// frame that is genuinely black.
+[[nodiscard]] bool frame_to_abgr8888(const DecodedFrame &frame, std::uint32_t stride,
+                                     std::vector<std::uint32_t> &out);
 
 } // namespace defjam

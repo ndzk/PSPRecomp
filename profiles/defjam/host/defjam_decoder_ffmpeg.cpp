@@ -87,6 +87,19 @@ public:
         return "FFmpeg (H.264 + ATRAC3+)";
     }
 
+    void reset() override {
+        // Both codecs hold state belonging to the movie that just ended:
+        // reference frames, and for audio a block size that was measured from
+        // that stream rather than stated by the container - this title's movies
+        // do not all share one. The audio context is therefore freed rather
+        // than flushed, so the next movie measures its own.
+        if (video_ != nullptr) avcodec_flush_buffers(video_);
+        avcodec_free_context(&audio_);
+        pending_.clear();
+        frame_bytes_ = 0u;
+        audio_disabled_ = false;
+    }
+
     bool decode_video(const std::uint8_t *data, std::size_t size, DecodedFrame &out,
                       std::string &error) override {
         if (data == nullptr || size == 0u) return false;
@@ -99,12 +112,24 @@ public:
         }
         std::memcpy(packet_->data, data, size);
 
-        const int sent = avcodec_send_packet(video_, packet_);
+        // EAGAIN here does not mean the packet was taken and nothing came of
+        // it: it means the packet was NOT taken, because the decoder is
+        // holding output and accepts no input until that is collected.
+        // Releasing the packet at this point drops a compressed frame, and
+        // H.264 carries the damage forward through every prediction that
+        // refers to it until the next IDR. So collect, then offer it again.
+        bool collected = false;
+        int sent = avcodec_send_packet(video_, packet_);
+        if (sent == AVERROR(EAGAIN)) {
+            collected = avcodec_receive_frame(video_, frame_) >= 0;
+            sent = avcodec_send_packet(video_, packet_);
+        }
         av_packet_unref(packet_);
         if (sent < 0 && sent != AVERROR(EAGAIN)) {
             error = "H.264 decode failed: " + averror_text(sent);
             return false;
         }
+        if (collected) return take_video(out, error);
 
         const int got = avcodec_receive_frame(video_, frame_);
         if (got == AVERROR(EAGAIN) || got == AVERROR_EOF) return false;  // needs more input
@@ -112,32 +137,29 @@ public:
             error = "H.264 decode failed: " + averror_text(got);
             return false;
         }
-        if (frame_->format != AV_PIX_FMT_YUV420P) {
-            error = "the H.264 stream decoded to an unexpected pixel format";
-            av_frame_unref(frame_);
-            return false;
-        }
-
-        out.width = static_cast<std::uint32_t>(frame_->width);
-        out.height = static_cast<std::uint32_t>(frame_->height);
-        out.y_stride = static_cast<std::uint32_t>(frame_->linesize[0]);
-        out.uv_stride = static_cast<std::uint32_t>(frame_->linesize[1]);
-        const std::size_t luma = static_cast<std::size_t>(out.y_stride) * out.height;
-        const std::size_t chroma = static_cast<std::size_t>(out.uv_stride) * ((out.height + 1u) / 2u);
-        out.y.assign(frame_->data[0], frame_->data[0] + luma);
-        out.u.assign(frame_->data[1], frame_->data[1] + chroma);
-        out.v.assign(frame_->data[2], frame_->data[2] + chroma);
-        out.timestamp = frame_->best_effort_timestamp;
-        av_frame_unref(frame_);
-        return true;
+        return take_video(out, error);
     }
 
     bool decode_audio(const std::uint8_t *data, std::size_t size, DecodedAudio &out,
                       std::string &error) override {
+        if (audio_disabled_) return false;
+
         // Access unit boundaries do not fall on frame boundaries, so the stream
         // is reassembled here and consumed a frame at a time.
         if (data != nullptr && size != 0u) pending_.insert(pending_.end(), data, data + size);
-        if (frame_bytes_ == 0u && !detect_frame_size(error)) return false;
+        if (frame_bytes_ == 0u) {
+            std::string why;
+            if (!detect_frame_size(why)) {
+                // This framing is measured from the stream, not declared by it.
+                // A measurement that does not hold should cost the movie its
+                // sound and say so, not end the run: the picture is still worth
+                // having, and the guess is this side's, not the title's.
+                audio_disabled_ = true;
+                pending_.clear();
+                runtime_log_line("movie audio disabled: " + why);
+                return false;
+            }
+        }
         if (frame_bytes_ == 0u || pending_.size() < frame_bytes_) return false;
         if (audio_ == nullptr && !open_audio(error)) return false;
 
@@ -149,12 +171,19 @@ public:
         std::memcpy(packet_->data, pending_.data() + kAtracHeaderBytes, payload);
         pending_.erase(pending_.begin(), pending_.begin() + static_cast<long>(frame_bytes_));
 
-        const int sent = avcodec_send_packet(audio_, packet_);
+        // As with video: EAGAIN leaves the packet unconsumed.
+        bool collected = false;
+        int sent = avcodec_send_packet(audio_, packet_);
+        if (sent == AVERROR(EAGAIN)) {
+            collected = avcodec_receive_frame(audio_, frame_) >= 0;
+            sent = avcodec_send_packet(audio_, packet_);
+        }
         av_packet_unref(packet_);
         if (sent < 0 && sent != AVERROR(EAGAIN)) {
             error = "ATRAC3+ decode failed: " + averror_text(sent);
             return false;
         }
+        if (collected) return take_audio(out, error);
 
         const int got = avcodec_receive_frame(audio_, frame_);
         if (got == AVERROR(EAGAIN) || got == AVERROR_EOF) return false;
@@ -162,12 +191,47 @@ public:
             error = "ATRAC3+ decode failed: " + averror_text(got);
             return false;
         }
+        return take_audio(out, error);
+    }
 
+private:
+    // Moves the picture the decoder just produced into `out`, releasing the
+    // frame either way.
+    bool take_video(DecodedFrame &out, std::string &error) {
+        if (frame_->format != AV_PIX_FMT_YUV420P) {
+            error = "the H.264 stream decoded to an unexpected pixel format";
+            av_frame_unref(frame_);
+            return false;
+        }
+        out.width = static_cast<std::uint32_t>(frame_->width);
+        out.height = static_cast<std::uint32_t>(frame_->height);
+        out.y_stride = static_cast<std::uint32_t>(frame_->linesize[0]);
+        out.uv_stride = static_cast<std::uint32_t>(frame_->linesize[1]);
+        const std::size_t luma = static_cast<std::size_t>(out.y_stride) * out.height;
+        const std::size_t chroma = static_cast<std::size_t>(out.uv_stride) * ((out.height + 1u) / 2u);
+        out.y.assign(frame_->data[0], frame_->data[0] + luma);
+        out.u.assign(frame_->data[1], frame_->data[1] + chroma);
+        out.v.assign(frame_->data[2], frame_->data[2] + chroma);
+        // Nothing sets a timestamp on the packets fed in, so the decoder has
+        // none to give back. Saying so leaves the container's own timestamp
+        // standing instead of replacing it with this blank.
+        out.has_timestamp = frame_->best_effort_timestamp != AV_NOPTS_VALUE;
+        out.timestamp = out.has_timestamp ? frame_->best_effort_timestamp : 0;
+        av_frame_unref(frame_);
+        return true;
+    }
+
+    bool take_audio(DecodedAudio &out, std::string &error) {
         // ATRAC3+ decodes to planar float; the PSP wants interleaved 16-bit.
         // Converted here rather than through a resampling library, which would
         // be a second dependency for a few lines of arithmetic.
         const int channels = frame_->ch_layout.nb_channels;
         const int samples = frame_->nb_samples;
+        if (channels <= 0 || samples <= 0) {
+            error = "the ATRAC3+ decoder produced an empty frame";
+            av_frame_unref(frame_);
+            return false;
+        }
         out.samples.assign(static_cast<std::size_t>(samples) * kAtracChannels, 0);
         if (frame_->format == AV_SAMPLE_FMT_FLTP) {
             for (int channel = 0; channel < kAtracChannels; ++channel) {
@@ -180,19 +244,28 @@ public:
                 }
             }
         } else if (frame_->format == AV_SAMPLE_FMT_S16) {
+            // Interleaved: a mono frame holds one sample per position, not two.
+            // Copying the output's length straight out of it would read past
+            // the decoder's buffer, so the lone channel is duplicated instead.
             const auto *source = reinterpret_cast<const std::int16_t *>(frame_->data[0]);
-            std::copy(source, source + out.samples.size(), out.samples.begin());
+            for (int i = 0; i < samples; ++i) {
+                for (int channel = 0; channel < kAtracChannels; ++channel) {
+                    out.samples[static_cast<std::size_t>(i) * kAtracChannels + channel] =
+                        source[static_cast<std::size_t>(i) * channels +
+                               std::min(channel, channels - 1)];
+                }
+            }
         } else {
             error = "the ATRAC3+ stream decoded to an unexpected sample format";
             av_frame_unref(frame_);
             return false;
         }
-        out.timestamp = frame_->best_effort_timestamp;
+        out.has_timestamp = frame_->best_effort_timestamp != AV_NOPTS_VALUE;
+        out.timestamp = out.has_timestamp ? frame_->best_effort_timestamp : 0;
         av_frame_unref(frame_);
         return true;
     }
 
-private:
     // Finds the spacing at which every frame begins with the sync word.
     bool detect_frame_size(std::string &error) {
         if (pending_.size() < kAtracProbeBytes) return true;  // not enough yet
@@ -249,6 +322,7 @@ private:
     AVPacket *packet_{};
     std::vector<std::uint8_t> pending_;
     std::size_t frame_bytes_{};
+    bool audio_disabled_{};   // the framing could not be measured; video goes on
 };
 
 } // namespace

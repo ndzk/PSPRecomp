@@ -96,6 +96,10 @@ struct MpegContext {
     std::uint32_t handle{};
     std::uint32_t ringbuffer{};
     std::uint32_t frame_width{};
+    // What the PSMF header said the program stream measures, learned when the
+    // guest asks where the stream starts. 0 until then, which simply means the
+    // end of the stream cannot be recognised.
+    std::uint32_t stream_size{};
     ProgramStreamDemuxer demuxer;
     bool video_registered{};
     bool audio_registered{};
@@ -117,6 +121,10 @@ std::string g_decoder_error;
 MpegStats g_stats;
 bool g_initialised = false;
 std::uint32_t g_next_es_buffer = 0;
+// Handles are never reused. Deriving one from the number of live contexts
+// hands out a duplicate as soon as a context is deleted and another created,
+// and the duplicate silently aliases the surviving one.
+std::uint32_t g_next_handle = 0;
 
 MpegContext *context_for(Runtime &rt, std::uint32_t handle_pointer) {
     // The guest holds a pointer to its own storage whose first word the library
@@ -190,6 +198,11 @@ PsmfHeader parse_psmf_header(const std::uint8_t *data, std::size_t size) {
         }
     }
     return header;
+}
+
+void ProgramStreamDemuxer::select_streams(std::uint8_t video_id, std::uint8_t audio_id) {
+    video_id_ = video_id;
+    audio_id_ = audio_id;
 }
 
 void ProgramStreamDemuxer::reset() {
@@ -273,14 +286,22 @@ void ProgramStreamDemuxer::append(const std::uint8_t *data, std::size_t size) {
             continue;
         }
 
+        // A program may carry several streams of a kind. Only the one the
+        // container declared is ours; appending the others to the same access
+        // unit hands the decoder two interleaved bitstreams as though they
+        // were one.
         AccessUnit *current = nullptr;
         bool *open = nullptr;
         if (id >= kVideoStreamBase && id < kVideoStreamBase + 16u) {
-            current = &current_video_;
-            open = &video_open_;
+            if (video_id_ == 0u || id == video_id_) {
+                current = &current_video_;
+                open = &video_open_;
+            }
         } else if (id == kPrivateStream1) {
-            current = &current_audio_;
-            open = &audio_open_;
+            if (audio_id_ == 0u || id == audio_id_) {
+                current = &current_audio_;
+                open = &audio_open_;
+            }
         }
 
         if (current != nullptr) {
@@ -328,8 +349,10 @@ void ProgramStreamDemuxer::append(const std::uint8_t *data, std::size_t size) {
             const std::uint8_t *payload = pending_.data() + payload_offset;
             std::size_t skip = 0u;
             // Private stream 1 prefixes each payload with a small sub-stream
-            // header the elementary stream does not include.
-            if (id == kPrivateStream1 && payload_size >= 4u) skip = 4u;
+            // header the elementary stream does not include. A payload too
+            // short to hold that header is all header and no data, so it
+            // contributes nothing rather than contributing its own prefix.
+            if (id == kPrivateStream1) skip = std::min<std::size_t>(payload_size, 4u);
             if (payload_size > skip)
                 current->data.insert(current->data.end(), payload + skip, payload + payload_size);
         }
@@ -390,6 +413,7 @@ void install_mpeg_hle(Runtime &runtime) {
     g_stats = MpegStats{};
     g_initialised = false;
     g_next_es_buffer = 0u;
+    g_next_handle = 0u;
 
     runtime.register_hle("sceMpeg", 0x682A619Bu, [](Runtime &, AllegrexContext &ctx) {
         g_initialised = true;
@@ -414,12 +438,17 @@ void install_mpeg_hle(Runtime &runtime) {
             set_return(ctx, static_cast<std::uint32_t>(-1));
             return;
         }
-        const std::uint32_t handle = 0x4D504700u + static_cast<std::uint32_t>(g_contexts.size()) + 1u;
+        const std::uint32_t handle = 0x4D504700u + ++g_next_handle;
         MpegContext context;
         context.handle = handle;
         context.ringbuffer = ringbuffer;
         context.frame_width = ctx.gpr[8];  // fifth argument, in $t0
         g_contexts.emplace(handle, std::move(context));
+
+        // The decoder outlives any one movie, so it arrives here still holding
+        // the last one's buffered bytes, measured audio framing and reference
+        // frames. This is the point at which a new movie begins.
+        if (g_decoder != nullptr) g_decoder->reset();
         rt.memory().store32(mpeg, handle);
         if (ringbuffer != 0u && rt.memory().contains(ringbuffer, kRingbufferSize))
             rt.memory().store32(ringbuffer + kRingbufferMpegOffset, handle);
@@ -458,6 +487,14 @@ void install_mpeg_hle(Runtime &runtime) {
                          psprecomp::hex32(psmf.stream_size) + " streams=" +
                          std::to_string(psmf.stream_count) + (psmf.has_video ? " video" : "") +
                          (psmf.has_audio ? " audio" : ""));
+        // The header is where the container states which streams it carries
+        // and how long the program stream is. Nothing else tells us either, so
+        // both are recorded here against the context that asked.
+        if (MpegContext *context = context_for(rt, ctx.gpr[4]); context != nullptr) {
+            context->stream_size = psmf.stream_size;
+            context->demuxer.select_streams(psmf.has_video ? psmf.video_stream_id : 0u,
+                                            psmf.has_audio ? psmf.audio_stream_id : 0u);
+        }
         if (out != 0u) rt.memory().store32(out, psmf.stream_offset);
         set_return(ctx, 0u);
     });
@@ -583,7 +620,18 @@ void install_mpeg_hle(Runtime &runtime) {
                                                   static_cast<std::uint32_t>(bytes))) {
                         std::vector<std::uint8_t> staging(static_cast<std::size_t>(bytes));
                         runtime.memory().copy_out(destination, staging);
-                        g_contexts.begin()->second.demuxer.append(staging.data(), staging.size());
+                        MpegContext &context = g_contexts.begin()->second;
+                        context.demuxer.append(staging.data(), staging.size());
+
+                        // Once the whole program stream has been fed there is
+                        // no more data to close the final access unit, so it
+                        // would sit open forever and the movie would lose its
+                        // last frame. This is the only end-of-stream this
+                        // library gets: the title imports no flush entry point.
+                        if (context.stream_size != 0u &&
+                            context.demuxer.bytes_seen() >= context.stream_size) {
+                            context.demuxer.flush();
+                        }
                     }
                 }
 
@@ -737,29 +785,52 @@ void install_mpeg_hle(Runtime &runtime) {
             return;
         }
 
+        // Decoding a picture and delivering it are separate outcomes. A frame
+        // that never reached guest memory must not be announced as one that
+        // did, or the title waits for a buffer it was told to expect while the
+        // statistics report nothing decoded at all.
+        bool delivered = false;
         if (produced && buffer_pointer != 0u && rt.memory().contains(buffer_pointer, 4u)) {
             const std::uint32_t destination = rt.memory().load32(buffer_pointer);
             std::vector<std::uint32_t> pixels;
-            frame_to_abgr8888(frame, stride, pixels);
-            const auto bytes = static_cast<std::uint32_t>(pixels.size() * sizeof(std::uint32_t));
-            if (destination != 0u && rt.memory().contains(destination, bytes)) {
-                rt.memory().copy_in(
-                    destination, std::span<const std::uint8_t>(
-                                     reinterpret_cast<const std::uint8_t *>(pixels.data()), bytes));
-                ++g_stats.frames_decoded;
+            if (!frame_to_abgr8888(frame, stride, pixels)) {
+                runtime_log_line("sceMpegAvcDecode: cannot lay out a " +
+                                 std::to_string(frame.width) + "x" +
+                                 std::to_string(frame.height) + " frame at stride " +
+                                 std::to_string(stride));
+            } else {
+                const auto bytes =
+                    static_cast<std::uint32_t>(pixels.size() * sizeof(std::uint32_t));
+                if (destination != 0u && rt.memory().contains(destination, bytes)) {
+                    rt.memory().copy_in(
+                        destination,
+                        std::span<const std::uint8_t>(
+                            reinterpret_cast<const std::uint8_t *>(pixels.data()), bytes));
+                    ++g_stats.frames_decoded;
+                    delivered = true;
+                } else {
+                    runtime_log_line("sceMpegAvcDecode: refused a " + std::to_string(bytes) +
+                                     "-byte frame at " + psprecomp::hex32(destination));
+                }
             }
-            if (g_stats.frames_decoded == 1u) {
+            if (g_stats.frames_decoded == 1u && delivered) {
                 runtime_log_line("first decoded frame " + std::to_string(frame.width) + "x" +
                                  std::to_string(frame.height) + " into " +
                                  psprecomp::hex32(destination) + " stride " + std::to_string(stride));
             }
         }
 
-        // The status word tells the guest whether a picture came out.
+        // The status word tells the guest whether a picture arrived.
         if (status_pointer != 0u && rt.memory().contains(status_pointer, 4u))
-            rt.memory().store32(status_pointer, produced ? 1u : 0u);
-        if (produced && au != 0u && rt.memory().contains(au, kAuSizeOffset + 4u))
+            rt.memory().store32(status_pointer, delivered ? 1u : 0u);
+        // Only a decoder that actually carried a timestamp may replace the one
+        // the demultiplexer read out of the container. A backend fed packets
+        // without timestamps reports none, and writing its blank here would
+        // leave the access unit claiming a presentation time of zero.
+        if (delivered && frame.has_timestamp && au != 0u &&
+            rt.memory().contains(au, kAuSizeOffset + 4u)) {
             rt.memory().store32(au + kAuPtsOffset, static_cast<std::uint32_t>(frame.timestamp));
+        }
         set_return(ctx, 0u);
     });
 
@@ -804,7 +875,7 @@ void install_mpeg_hle(Runtime &runtime) {
                                     reinterpret_cast<const std::uint8_t *>(audio.samples.data()),
                                     bytes));
             ++g_stats.audio_blocks_decoded;
-            if (au != 0u && rt.memory().contains(au, kAuSizeOffset + 4u))
+            if (audio.has_timestamp && au != 0u && rt.memory().contains(au, kAuSizeOffset + 4u))
                 rt.memory().store32(au + kAuPtsOffset, static_cast<std::uint32_t>(audio.timestamp));
         }
         set_return(ctx, 0u);
