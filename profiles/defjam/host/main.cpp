@@ -328,6 +328,11 @@ int main(int argc, char **argv) {
             // interesting question is often what the guest settled into.
             defjam::dump_dispatch_trace(200u);
         }
+        if (std::string range; defjam::dump_guest_range(runtime, range)) {
+            std::cout << "  range written:      " << range << "\n";
+        } else if (!range.empty()) {
+            std::cerr << "  range not written:  " << range << "\n";
+        }
         defjam::runtime_log_shutdown();
         // The window outlives the guest by design: a run that stopped on its
         // own leaves the last frame up until it is closed, so there is

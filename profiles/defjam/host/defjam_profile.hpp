@@ -84,6 +84,7 @@ void dump_dispatch_trace(std::size_t limit = 64u);
 
 void runtime_log_initialize(const std::string &path);
 void runtime_log_line(const std::string &line);
+bool dump_guest_range(psprecomp::Runtime &rt, std::string &description);
 void runtime_log_shutdown();
 
 } // namespace defjam

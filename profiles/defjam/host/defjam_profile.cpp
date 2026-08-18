@@ -904,6 +904,42 @@ void runtime_log_line(const std::string &line) {
     g_log.flush();
 }
 
+// Writes a slice of guest memory to a host file at the end of a run.
+// PSPRECOMP_DEFJAM_DUMP_RANGE=0xADDRESS:0xLENGTH:path. Exists because the
+// interesting question about runtime-loaded code is what it looks like after
+// the guest has finished relocating it, and that is a diff against the file it
+// came from rather than anything a log line can carry.
+bool dump_guest_range(psprecomp::Runtime &rt, std::string &description) {
+    const char *text = std::getenv("PSPRECOMP_DEFJAM_DUMP_RANGE");
+    if (text == nullptr || *text == 0) return false;
+    const std::string spec(text);
+    const std::size_t first = spec.find(58);
+    const std::size_t second = spec.find(58, first == std::string::npos ? 0 : first + 1);
+    if (first == std::string::npos || second == std::string::npos) {
+        description = "PSPRECOMP_DEFJAM_DUMP_RANGE wants address:length:path";
+        return false;
+    }
+    const auto address =
+        static_cast<std::uint32_t>(std::strtoul(spec.substr(0, first).c_str(), nullptr, 0));
+    const auto length = static_cast<std::uint32_t>(
+        std::strtoul(spec.substr(first + 1, second - first - 1).c_str(), nullptr, 0));
+    const std::string path = spec.substr(second + 1);
+    if (length == 0u || !rt.memory().contains(address, length)) {
+        description = "the requested range is not inside guest memory";
+        return false;
+    }
+    std::vector<std::uint8_t> bytes(length);
+    rt.memory().copy_out(address, bytes);
+    std::ofstream file(path, std::ios::binary);
+    if (!file) {
+        description = "could not open " + path;
+        return false;
+    }
+    file.write(reinterpret_cast<const char *>(bytes.data()), static_cast<std::streamsize>(length));
+    description = std::to_string(length) + " bytes from " + psprecomp::hex32(address) + " to " + path;
+    return true;
+}
+
 void runtime_log_shutdown() {
     if (g_log_open) g_log.close();
     g_log_open = false;
