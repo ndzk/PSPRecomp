@@ -441,7 +441,7 @@ std::int32_t do_open(Runtime &rt, const std::string &psp_path, std::uint32_t fla
     return fd;
 }
 
-std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::uint32_t length) {
+std::int32_t do_read_inner(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::uint32_t length) {
     FileHandle *handle = file_at(fd);
     if (handle == nullptr) return kErrorNoFile;
     // Both the length and the destination are the guest's. Checking the
@@ -490,6 +490,28 @@ std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::ui
     ++g_stats.reads;
     g_stats.bytes_read += got;
     return static_cast<std::int32_t>(got);
+}
+
+// Every successful read, with the guest range it landed in. Off by default:
+// a loading phase issues thousands of these and one line each would bury the
+// log. PSPRECOMP_DEFJAM_LOG_READS=1 turns it on, which is how you find out
+// which read delivered a given byte - the question that arrives the moment the
+// guest jumps somewhere the corpus does not cover.
+std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::uint32_t length) {
+    static const bool log_reads = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_LOG_READS");
+        return text != nullptr && *text != 0 && *text != 48;
+    }();
+    const std::int32_t got = do_read_inner(rt, fd, buffer, length);
+    if (log_reads && got > 0) {
+        const FileHandle *handle = file_at(fd);
+        runtime_log_line("sceIoRead fd=" + std::to_string(fd) + " " +
+                         (handle != nullptr ? handle->psp_path : std::string("?")) + " -> " +
+                         psprecomp::hex32(buffer) + ".." +
+                         psprecomp::hex32(buffer + static_cast<std::uint32_t>(got)) + " (" +
+                         std::to_string(got) + " bytes)");
+    }
+    return got;
 }
 
 std::int64_t do_seek(std::int32_t fd, std::int64_t offset, std::uint32_t whence) {
