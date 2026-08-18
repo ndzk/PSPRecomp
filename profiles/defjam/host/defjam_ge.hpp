@@ -82,7 +82,11 @@ struct GeMatrices {
     float world[12]{};        // four columns of three
     float view[12]{};
     float projection[16]{};   // four columns of four
+    // Eight bone matrices, each shaped like the world matrix. A skinned vertex
+    // carries weights that blend them in place of the world transform.
+    float bone[8][12]{};
     bool world_seen{}, view_seen{}, projection_seen{};
+    std::uint8_t bones_seen{};   // highest bone index written, plus one
 };
 [[nodiscard]] const GeMatrices &ge_matrices();
 

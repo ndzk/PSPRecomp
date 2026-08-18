@@ -60,6 +60,8 @@ std::uint32_t g_index_address = 0u;
 
 // Matrix upload. Each pair is a number command that sets the write cursor and a
 // data command that streams elements from it.
+constexpr std::uint8_t kCmdBoneNumber = 0x38u;
+constexpr std::uint8_t kCmdBoneData = 0x39u;
 constexpr std::uint8_t kCmdWorldNumber = 0x3Au;
 constexpr std::uint8_t kCmdWorldData = 0x3Bu;
 constexpr std::uint8_t kCmdViewNumber = 0x3Cu;
@@ -68,6 +70,7 @@ constexpr std::uint8_t kCmdProjectionNumber = 0x3Eu;
 constexpr std::uint8_t kCmdProjectionData = 0x3Fu;
 
 GeMatrices g_matrices;
+std::uint32_t g_bone_cursor = 0u;
 std::uint32_t g_world_cursor = 0u;
 std::uint32_t g_view_cursor = 0u;
 std::uint32_t g_projection_cursor = 0u;
@@ -100,6 +103,7 @@ std::uint32_t resolve_address(std::uint32_t data24) {
 
 void ge_reset() {
     g_matrices = GeMatrices{};
+    g_bone_cursor = 0u;
     g_world_cursor = g_view_cursor = g_projection_cursor = 0u;
     vertex_reset();
     texture_reset();
@@ -184,6 +188,19 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
         case kCmdBase:
             break;
 
+        case kCmdBoneNumber: g_bone_cursor = data & 0x7Fu; break;
+        case kCmdBoneData: {
+            // The bone matrices are one continuous run of 96 elements, twelve
+            // per matrix, so the cursor addresses them as a single array.
+            const std::uint32_t index = g_bone_cursor / 12u;
+            if (index < 8u) {
+                g_matrices.bone[index][g_bone_cursor % 12u] = matrix_element(data);
+                g_matrices.bones_seen =
+                    std::max<std::uint8_t>(g_matrices.bones_seen, static_cast<std::uint8_t>(index + 1u));
+            }
+            ++g_bone_cursor;
+            break;
+        }
         case kCmdWorldNumber: g_world_cursor = data & 0xFu; break;
         case kCmdViewNumber: g_view_cursor = data & 0xFu; break;
         case kCmdProjectionNumber: g_projection_cursor = data & 0x1Fu; break;

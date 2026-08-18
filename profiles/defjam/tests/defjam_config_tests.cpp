@@ -2339,6 +2339,94 @@ void test_depth_test() {
     require(stats.primitives_drawn == 3u, "the clear and both sprites should have been rasterised");
 }
 
+// Skinning blends bone matrices in place of the world matrix. This title has
+// not been observed using it - every vertex type it issues declares no weights
+// - so this is the only check there is, and it is deliberately arithmetic
+// rather than pictorial: two bones that translate along different axes, and a
+// vertex split evenly between them, must land exactly halfway.
+void test_skinning() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::ge_reset();
+
+    constexpr std::uint32_t kListBase = 0x08900000u;
+    std::vector<std::uint32_t> list;
+    const auto cmd = [&list](std::uint8_t command, std::uint32_t data) {
+        list.push_back((static_cast<std::uint32_t>(command) << 24u) | (data & 0x00FFFFFFu));
+    };
+    // Matrix and viewport operands carry the top 24 bits of a float.
+    const auto as_operand = [](float value) {
+        std::uint32_t bits{};
+        std::memcpy(&bits, &value, sizeof(bits));
+        return bits >> 8u;
+    };
+    const auto upload = [&cmd, &as_operand](std::uint8_t number, std::uint8_t data,
+                                            std::uint32_t start, const float *values,
+                                            std::size_t count) {
+        cmd(number, start);
+        for (std::size_t i = 0; i < count; ++i) cmd(data, as_operand(values[i]));
+    };
+
+    // Two bones: one shifts by 100 along x, the other by 40 along y.
+    const float bone0[12] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 0, 0};
+    const float bone1[12] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 40, 0};
+    upload(0x38u, 0x39u, 0u, bone0, 12u);
+    upload(0x38u, 0x39u, 12u, bone1, 12u);
+
+    // Identity view and projection, so clip space is view space with w of one.
+    const float identity4x3[12] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+    const float identity4x4[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    upload(0x3Cu, 0x3Du, 0u, identity4x3, 12u);
+    upload(0x3Eu, 0x3Fu, 0u, identity4x4, 16u);
+
+    // A viewport that passes device coordinates straight through, so the test
+    // reads the blended position rather than a screen mapping of it.
+    cmd(0x42u, as_operand(1.0f));    // x scale
+    cmd(0x43u, as_operand(1.0f));    // y scale
+    cmd(0x44u, as_operand(1.0f));    // z scale
+    cmd(0x45u, as_operand(0.0f));    // x centre
+    cmd(0x46u, as_operand(0.0f));    // y centre
+    cmd(0x47u, as_operand(0.0f));    // z centre
+    cmd(0x4Cu, 0u);                  // x offset
+    cmd(0x4Du, 0u);                  // y offset
+    cmd(0x0Cu, 0u);                  // END
+
+    for (std::size_t i = 0; i < list.size(); ++i)
+        runtime.memory().store32(kListBase + static_cast<std::uint32_t>(i) * 4u, list[i]);
+    defjam::GeListState state{kListBase, {}, 0u};
+    (void)defjam::ge_execute_list(runtime, state, 0u);
+
+    require(defjam::ge_matrices().bones_seen == 2u, "two bone matrices should have been recorded");
+    require(defjam::ge_matrices().bone[1][10] == 40.0f, "the second bone was written to the wrong slot");
+
+    // The vertex sits at the origin and is split evenly between the two bones,
+    // so it must land at half of each translation.
+    std::vector<defjam::Vertex> vertices(1);
+    vertices[0].weight_count = 2u;
+    vertices[0].weights[0] = 0.5f;
+    vertices[0].weights[1] = 0.5f;
+    require(defjam::transform_to_screen(vertices, 480u, 272u), "the skinned vertex was dropped");
+    require(vertices[0].x == 50.0f, "the x blend is not half of the first bone's translation");
+    require(vertices[0].y == 20.0f, "the y blend is not half of the second bone's translation");
+
+    // All of the weight on one bone must reproduce that bone exactly.
+    std::vector<defjam::Vertex> single(1);
+    single[0].weight_count = 2u;
+    single[0].weights[0] = 1.0f;
+    single[0].weights[1] = 0.0f;
+    require(defjam::transform_to_screen(single, 480u, 272u), "the single-bone vertex was dropped");
+    require(single[0].x == 100.0f && single[0].y == 0.0f,
+            "a vertex bound entirely to one bone did not follow it");
+
+    // A vertex with no weights falls back to the world matrix rather than
+    // collapsing to the origin, which is what an unguarded blend would do.
+    std::vector<defjam::Vertex> unskinned(1);
+    unskinned[0].x = 7.0f;
+    unskinned[0].y = 3.0f;
+    require(defjam::transform_to_screen(unskinned, 480u, 272u), "the unskinned vertex was dropped");
+    require(unskinned[0].x == 7.0f && unskinned[0].y == 3.0f,
+            "an unweighted vertex was run through the bone blend");
+}
+
 } // namespace
 
 int main() {
@@ -2389,6 +2477,7 @@ int main() {
         test_texture_unswizzle();
         test_texture_decode_clut8();
         test_depth_test();
+        test_skinning();
         std::cout << "All defjam config tests passed.\n";
         return 0;
     } catch (const std::exception &exception) {

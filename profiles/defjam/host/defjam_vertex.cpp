@@ -215,6 +215,14 @@ Vertex read_vertex(const std::uint8_t *base, const VertexFormat &format) {
         vertex.color = expand_color(base + format.color_offset, format.color);
         vertex.has_color = true;
     }
+    if (format.weight_offset != kAbsent && format.weight != 0u) {
+        const std::uint8_t *weights = base + format.weight_offset;
+        vertex.weight_count = std::min<std::uint8_t>(format.weight_count, 8u);
+        for (std::uint8_t i = 0; i < vertex.weight_count; ++i) {
+            // Weights use the same scaling as the other integer components.
+            vertex.weights[i] = read_texture_scalar(weights, format.weight, i, false);
+        }
+    }
     return vertex;
 }
 
@@ -330,10 +338,27 @@ void apply_4x3(const float *m, float x, float y, float z, float &ox, float &oy, 
 
 // Transforms one position all the way to screen pixels. Returns false when the
 // vertex is behind the eye, where the perspective divide has no meaning.
-bool to_screen(const GeMatrices &matrices, float x, float y, float z, std::uint32_t width,
+bool to_screen(const GeMatrices &matrices, const Vertex &vertex, std::uint32_t width,
                std::uint32_t height, float &sx, float &sy, float &sz) {
+    const float x = vertex.x, y = vertex.y, z = vertex.z;
     float wx = x, wy = y, wz = z;
-    if (matrices.world_seen) apply_4x3(matrices.world, x, y, z, wx, wy, wz);
+    if (vertex.weight_count != 0u && matrices.bones_seen != 0u) {
+        // A skinned vertex is placed by a weighted blend of bone matrices in
+        // place of the world matrix. Blending the transformed positions is
+        // equivalent to blending the matrices and cheaper to reason about.
+        wx = wy = wz = 0.0f;
+        for (std::uint8_t i = 0; i < vertex.weight_count && i < matrices.bones_seen; ++i) {
+            const float weight = vertex.weights[i];
+            if (weight == 0.0f) continue;
+            float bx{}, by{}, bz{};
+            apply_4x3(matrices.bone[i], x, y, z, bx, by, bz);
+            wx += bx * weight;
+            wy += by * weight;
+            wz += bz * weight;
+        }
+    } else if (matrices.world_seen) {
+        apply_4x3(matrices.world, x, y, z, wx, wy, wz);
+    }
     float vx = wx, vy = wy, vz = wz;
     if (matrices.view_seen) apply_4x3(matrices.view, wx, wy, wz, vx, vy, vz);
 
@@ -382,7 +407,8 @@ bool transform_to_screen(std::vector<Vertex> &vertices, std::uint32_t width, std
 
     for (Vertex &vertex : vertices) {
         float sx{}, sy{}, sz{};
-        if (!to_screen(matrices, vertex.x, vertex.y, vertex.z, width, height, sx, sy, sz)) {
+        if (vertex.weight_count != 0u) ++g_stats.skinned;
+        if (!to_screen(matrices, vertex, width, height, sx, sy, sz)) {
             ++g_stats.behind_eye;
             return false;   // drop the whole primitive rather than part of it
         }
@@ -456,7 +482,7 @@ std::string vertex_report() {
         << " indexed (" << stats.indexed_decoded << " walked, highest index "
         << stats.max_index << "), " << stats.through_draws << " through\n"
         << "  vertex transform:   " << stats.transformed << " transformed, " << stats.behind_eye
-        << " dropped behind the eye\n";
+        << " dropped behind the eye, " << stats.skinned << " skinned\n";
     const auto extent_line = [&out](const char *label, const VertexStats::Extent &extent) {
         if (!extent.any) return;
         out << label << " x " << extent.min_x << ".." << extent.max_x << "  y " << extent.min_y

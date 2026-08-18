@@ -59,6 +59,11 @@ struct Vertex {
     std::uint32_t color{0xFFFFFFFFu};   // ABGR8888
     bool has_uv{};
     bool has_color{};
+    // Skinning weights, one per bone the format declares. The last weight is
+    // often left implicit on hardware, but this title has not been observed
+    // using skinning at all, so nothing here is inferred from its data.
+    float weights[8]{};
+    std::uint8_t weight_count{};
 };
 
 // Reads `count` vertices at `address`. Returns false when the format has no
@@ -91,6 +96,7 @@ struct VertexStats {
     std::uint32_t max_index{};      // the largest index any draw referenced
     std::uint64_t transformed{};    // primitives put through the matrix pipeline
     std::uint64_t behind_eye{};     // dropped: a vertex behind the near plane
+    std::uint64_t skinned{};        // primitives blended through bone matrices
     std::uint64_t through_draws{};
     std::uint64_t with_uv{}, with_color{}, with_normal{};
     // The extent of decoded positions, kept apart for the two kinds of draw.
