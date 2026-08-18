@@ -62,6 +62,9 @@ std::uint32_t parse(const std::string &text) {
 struct Bank {
     std::uint32_t code_start{};
     std::uint32_t code_end{};
+    // Of the routine before linking, which is how it arrives in memory and so
+    // the only form the runtime can recognise it by.
+    std::uint64_t fingerprint{};
     std::vector<std::uint8_t> code;         // already linked
     std::vector<std::uint32_t> targets;     // one per rewritten call, in order
 };
@@ -105,6 +108,10 @@ bool link_bank(const std::vector<std::uint8_t> &file, const std::vector<std::uin
     }
 
     bank.code.assign(file.begin() + bank.code_start, file.begin() + bank.code_end);
+    bank.fingerprint = 0xcbf29ce484222325ull;
+    for (const std::uint8_t byte : bank.code) {
+        bank.fingerprint = (bank.fingerprint ^ byte) * 0x100000001b3ull;
+    }
     for (std::size_t offset = 0; offset + 4u <= bank.code.size(); offset += 4u) {
         const std::uint32_t word = read32(bank.code, offset);
         if ((word >> 26u) != kJumpAndLink) continue;
@@ -188,7 +195,9 @@ int main(int argc, char **argv) {
                      static_cast<std::streamsize>(bank.code.size()));
         output.close();
 
-        std::cout << "  export table:   " << exports.size() << " entries at " << argv[2] << "\n"
+        std::cout << "  fingerprint:    0x" << std::hex << std::uppercase << bank.fingerprint
+                  << std::dec << std::nouppercase << "\n"
+                  << "  export table:   " << exports.size() << " entries at " << argv[2] << "\n"
                   << "  code:           +" << bank.code_start << " .. +" << bank.code_end << " ("
                   << bank.code.size() << " bytes)\n"
                   << "  calls linked:   " << bank.targets.size() << "\n";
