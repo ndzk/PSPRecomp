@@ -288,9 +288,26 @@ RenderTarget current_render_target() {
     return target;
 }
 
+// Writing pixels is most of what a run spends its time on, and most bugs are
+// not about pixels. PSPRECOMP_DEFJAM_NO_RASTER keeps every stage that decides
+// what to draw - the display list, the vertex decode, the texture state - and
+// drops only the writing, which makes a boot-to-somewhere run fast enough to
+// iterate on. The frame is meaningless afterwards, so the counter says so.
+bool raster_disabled() {
+    static const bool disabled = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_NO_RASTER");
+        return text != nullptr && *text != 0 && *text != 48;
+    }();
+    return disabled;
+}
+
 bool rasterise(psprecomp::Runtime &runtime, std::uint32_t primitive,
                const std::vector<Vertex> &vertices, const VertexFormat &format,
                const TextureState &texture, bool positions_are_screen) {
+    if (raster_disabled()) {
+        ++g_stats.primitives_skipped;
+        return false;
+    }
     // Only screen-space draws. A transformed one needs the matrix pipeline,
     // and drawing it with its raw coordinates would put geometry in the wrong
     // place while looking like a rendering fault.
