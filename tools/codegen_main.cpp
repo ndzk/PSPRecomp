@@ -26,6 +26,51 @@
 #include <vector>
 
 namespace {
+
+// Generating for code that is not always at the same address.
+//
+// A unit is normally emitted for the address it will run at forever, so the
+// addresses it needs as values - the link register a call leaves behind, the
+// check that a chained call came back where it should have, the table that maps
+// an entry PC to a label - are constants in the generated source. That is not
+// available for code a title loads from a data file at run time: the address is
+// whatever the allocator handed out.
+//
+// A relocatable unit asks the runtime where it currently lives and expresses
+// every address of its own as an offset from that. Addresses outside it, which
+// are calls into ordinary fixed code, stay constants and keep the fast path.
+struct RelocatableUnit {
+    bool enabled{};
+    std::uint32_t base{};    // the address the image was analysed at
+    std::uint32_t limit{};   // one past its last byte
+    std::uint32_t unit_index{};
+
+    [[nodiscard]] bool contains(std::uint32_t address) const {
+        return enabled && address >= base && address < limit;
+    }
+};
+RelocatableUnit g_relocatable;
+
+// An address the generated code has to produce as a value rather than as a
+// label. Inside a relocatable unit this is only known while running.
+std::string address_value(std::uint32_t address) {
+    if (!g_relocatable.contains(address)) return psprecomp::hex32(address) + "u";
+    return "(unit_base + " + psprecomp::hex32(address - g_relocatable.base) + "u)";
+}
+
+// Declares the base at the top of a generated body, or nothing at all when
+// the unit is fixed and every address is already a constant.
+std::string unit_base_declaration() {
+    if (!g_relocatable.enabled) return {};
+    return "    const std::uint32_t unit_base = rt.unit_base(" +
+           std::to_string(g_relocatable.unit_index) + "u);\n";
+}
+
+// What a `switch` can compare against, which a runtime sum cannot be.
+std::string address_case(std::uint32_t address) {
+    if (!g_relocatable.contains(address)) return psprecomp::hex32(address) + "u";
+    return psprecomp::hex32(address - g_relocatable.base) + "u";
+}
 struct Function {
     std::string name;
     std::uint32_t address{};
@@ -875,6 +920,12 @@ std::string generated_unit_cpp_entry_name(std::uint32_t unit) {
 std::string direct_unit_chain_expression(
     std::uint32_t unit, std::uint32_t target,
     const std::map<std::uint32_t, std::uint16_t> *direct_entry_ids) {
+    // The direct form names the target in a template argument, which a runtime
+    // address cannot be, so a call staying inside a relocatable unit takes the
+    // general path instead.
+    if (g_relocatable.contains(target)) {
+        return "(ctx.pc = " + address_value(target) + ", rt.invoke_chained_call(ctx, &aot_mem))";
+    }
     if (direct_entry_ids != nullptr) {
         const auto found = direct_entry_ids->find(target);
         if (found != direct_entry_ids->end() && found->second != 0u) {
@@ -918,8 +969,8 @@ void emit_target(std::ostringstream &body, std::uint32_t target,
         body << indent << "(void)" << direct_unit_chain_expression(unit, target, direct_entry_ids)
              << "; return;\n";
     } else {
-        body << indent << "ctx.pc = " << psprecomp::hex32(target)
-             << "u; (void)rt.invoke_chained_call(ctx, &aot_mem); return;\n";
+        body << indent << "ctx.pc = " << address_value(target)
+             << "; (void)rt.invoke_chained_call(ctx, &aot_mem); return;\n";
     }
 }
 
@@ -971,6 +1022,7 @@ std::string emit_function_source(const GeneratedFunctionInput &function,
         body << "\n};\n";
 
         body << "void " << cpp_name << "_entry(Runtime &rt, AllegrexContext &ctx, std::uint16_t direct_entry_id, GuestMemory::AotFastView &aot_mem) {\n"
+             << unit_base_declaration()
              << "    std::uint32_t jump_target = 0u;\n"
              << "    std::uint32_t local_transfers = 0u;\n"
              << "    std::uint32_t local_pc = ctx.pc;\n"
@@ -978,7 +1030,8 @@ std::string emit_function_source(const GeneratedFunctionInput &function,
              << "LOCAL_DISPATCH:\n"
              << "    {\n"
              << "    if (entry_id == 0u) {\n"
-             << "        const std::uint32_t entry_delta = local_pc - " << psprecomp::hex32(dense_base) << "u;\n"
+             << "        const std::uint32_t entry_delta = local_pc - "
+             << (g_relocatable.enabled ? std::string("unit_base") : psprecomp::hex32(dense_base) + "u") << ";\n"
              << "        entry_id = (entry_delta < " << dense_span
              << "u && (entry_delta & 3u) == 0u) ? " << table_name << "[entry_delta >> 2u] : 0u;\n"
              << "    }\n"
@@ -1002,13 +1055,14 @@ std::string emit_function_source(const GeneratedFunctionInput &function,
              << "    }\n";
     } else {
         body << "void " << cpp_name << "_entry(Runtime &rt, AllegrexContext &ctx, std::uint16_t direct_entry_id, GuestMemory::AotFastView &aot_mem) {\n"
+             << unit_base_declaration()
              << "    (void)direct_entry_id;\n"
              << "    std::uint32_t jump_target = 0u;\n"
              << "    std::uint32_t local_transfers = 0u;\n"
              << "LOCAL_DISPATCH:\n"
-             << "    switch (ctx.pc) {\n";
+             << "    switch (ctx.pc" << (g_relocatable.enabled ? " - unit_base" : "") << ") {\n";
         for (const auto label : function.entry_labels) {
-            body << "    case " << psprecomp::hex32(label) << "u: goto L_"
+            body << "    case " << address_case(label) << ": goto L_"
                  << psprecomp::hex32(label).substr(2) << ";\n";
         }
         body << "    default:\n"
@@ -1051,7 +1105,7 @@ std::string emit_function_source(const GeneratedFunctionInput &function,
                     const bool likely_branch = is_likely_branch(decoded.kind);
                     const std::string condition = branch_condition(decoded);
                     if (is_link_branch(decoded.kind)) {
-                        body << "    ctx.set_gpr(31, " << psprecomp::hex32(pc + 8u) << "u);\n";
+                        body << "    ctx.set_gpr(31, " << address_value(pc + 8u) << ");\n";
                     }
                     if (likely_branch) {
                         body << "    if (" << condition << ") {\n"
@@ -1072,7 +1126,7 @@ std::string emit_function_source(const GeneratedFunctionInput &function,
                            decoded.kind == psprecomp::OpcodeKind::Jal) {
                     const std::uint32_t target = ((pc + 4u) & 0xF0000000u) | (decoded.target << 2u);
                     if (decoded.kind == psprecomp::OpcodeKind::Jal) {
-                        body << "    ctx.set_gpr(31, " << psprecomp::hex32(pc + 8u) << "u);\n";
+                        body << "    ctx.set_gpr(31, " << address_value(pc + 8u) << ");\n";
                     }
                     body << emit_regular(slot, pc + 4u);
                     if (decoded.kind == psprecomp::OpcodeKind::J) {
@@ -1114,8 +1168,8 @@ std::string emit_function_source(const GeneratedFunctionInput &function,
                                 body << direct_unit_chain_expression(target_unit, target, function.direct_entry_ids);
                             else
                                 body << "rt.invoke_chained_call(ctx, &aot_mem)";
-                            body << " && ctx.pc == " << psprecomp::hex32(return_pc)
-                                 << "u) goto L_" << psprecomp::hex32(return_pc).substr(2) << ";\n";
+                            body << " && ctx.pc == " << address_value(return_pc)
+                                 << ") goto L_" << psprecomp::hex32(return_pc).substr(2) << ";\n";
                         } else {
                             if (direct_unit)
                                 body << "    (void)" << direct_unit_chain_expression(target_unit, target, function.direct_entry_ids) << ";\n";
@@ -1139,7 +1193,7 @@ std::string emit_function_source(const GeneratedFunctionInput &function,
                         body << "    ctx.pc = jump_target;\n";
                         if (function.entry_labels.contains(return_pc)) {
                             body << "    if (rt.invoke_chained_call(ctx, &aot_mem) && ctx.pc == "
-                                 << psprecomp::hex32(return_pc) << "u) goto L_"
+                                 << address_value(return_pc) << ") goto L_"
                                  << psprecomp::hex32(return_pc).substr(2) << ";\n";
                         } else {
                             body << "    (void)rt.invoke_chained_call(ctx, &aot_mem);\n";
