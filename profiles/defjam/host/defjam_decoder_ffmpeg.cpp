@@ -187,6 +187,24 @@ public:
         // Access unit boundaries do not fall on frame boundaries, so the stream
         // is reassembled here and consumed a frame at a time.
         if (data != nullptr && size != 0u) pending_.insert(pending_.end(), data, data + size);
+
+        // The demultiplexer hands out one ATRAC3+ frame per access unit once it
+        // has measured the framing, and it validates that measurement against a
+        // third frame before trusting it. An access unit that arrives first and
+        // begins with a sync word is therefore already a frame, and its length
+        // is the frame size.
+        //
+        // Measuring it again here costs an 8 KB probe before the first frame
+        // reaches the decoder - fourteen frames of this title's movie. They are
+        // not lost, they are held: the sound runs about two thirds of a second
+        // behind the picture and the tail of the movie never plays at all.
+        if (frame_bytes_ == 0u && pending_.size() == size && size > kAtracHeaderBytes + 8u &&
+            size <= kAtracProbeBytes && data[0] == kAtracSync0 && data[1] == kAtracSync1) {
+            frame_bytes_ = size;
+            runtime_log_line("ATRAC3+ frame size taken from the access unit: " +
+                             std::to_string(size) + " bytes");
+        }
+
         if (frame_bytes_ == 0u) {
             std::string why;
             if (!detect_frame_size(why)) {
