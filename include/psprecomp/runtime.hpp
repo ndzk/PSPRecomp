@@ -81,6 +81,21 @@ public:
     const NidRegistry &nids() const noexcept;
 
     void register_function(std::uint32_t address, RecompiledFunction function, std::string name);
+
+    // Where a relocatable unit currently lives.
+    //
+    // Most recompiled code is generated for the address it will always run at,
+    // so its own addresses - link registers, the checks that a chained call
+    // returned where it should have - are constants in the generated source.
+    // Code a title loads from a data file at run time has no such address until
+    // it is loaded, so a unit generated as relocatable asks for its base rather
+    // than assuming one, and whoever loaded the code sets it here before
+    // registering the entry points.
+    void set_unit_base(std::uint32_t unit_index, std::uint32_t base);
+    [[nodiscard]] std::uint32_t unit_base(std::uint32_t unit_index) const noexcept {
+        return unit_index < kGeneratedUnitFastCapacity ? generated_unit_bases_[unit_index] : 0u;
+    }
+
     void register_hle(std::string library, std::uint32_t nid, HleFunction function);
     [[nodiscard]] bool has_function(std::uint32_t address) const;
     [[nodiscard]] std::size_t function_count() const noexcept;
@@ -319,6 +334,9 @@ private:
     // Consulted only while registering. An overlapping host/import entry poisons
     // the whole unit for the fast path; calls then unwind to exact PC dispatch.
     std::array<std::uint8_t, kGeneratedUnitFastCapacity> generated_unit_disabled_{};
+    // Zero for every unit generated at a fixed address, which is all of them
+    // unless a profile loads code and says otherwise.
+    std::array<std::uint32_t, kGeneratedUnitFastCapacity> generated_unit_bases_{};
     std::uint32_t generated_unit_base_{};
     std::uint32_t generated_unit_span_{};
     bool generated_unit_layout_valid_{true};

@@ -485,6 +485,13 @@ std::string Runtime::hle_key(std::string_view library, std::uint32_t nid) {
     return key;
 }
 
+void Runtime::set_unit_base(std::uint32_t unit_index, std::uint32_t base) {
+    if (unit_index >= kGeneratedUnitFastCapacity) {
+        throw Error("relocatable unit index is out of range");
+    }
+    generated_unit_bases_[unit_index] = base;
+}
+
 void Runtime::register_hle(std::string library, std::uint32_t nid, HleFunction function) {
     hle_[std::move(library)][nid] = std::move(function);
 }
