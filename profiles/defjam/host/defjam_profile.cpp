@@ -1750,6 +1750,19 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             return static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
         }();
 
+        // A title that edge-detects its input never sees a button that was
+        // already down when it booted. PSPRECOMP_DEFJAM_PULSE_BUTTONS presses
+        // and releases the mask on a half-second cycle instead, which is what
+        // a person does, and starts released so the boot sees nothing held.
+        static const std::uint32_t pulsed = [] {
+            const char *text = std::getenv("PSPRECOMP_DEFJAM_PULSE_BUTTONS");
+            if (text == nullptr || *text == '\0') return 0u;
+            return static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
+        }();
+        constexpr std::uint64_t kPulseHalfUs = 250000u;
+        const bool pulse_down = (g_virtual_time_us / kPulseHalfUs) % 2u == 1u;
+        const std::uint32_t buttons = held | (pulse_down ? pulsed : 0u);
+
         // This is the blocking read. Controller data is sampled once per
         // cycle: the first read in a cycle takes the sample already waiting and
         // returns, and only a second read inside the same cycle waits for the
@@ -1788,7 +1801,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         for (std::uint32_t i = 0; i < count; ++i) {
             const std::uint32_t entry = buffer + i * 16u;
             rt.memory().store32(entry, sample_time);
-            rt.memory().store32(entry + 4u, held);    // buttons
+            rt.memory().store32(entry + 4u, buttons);
             rt.memory().store8(entry + 8u, 128u);     // analog x
             rt.memory().store8(entry + 9u, 128u);     // analog y
         }

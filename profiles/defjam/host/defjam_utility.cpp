@@ -39,6 +39,10 @@ constexpr std::uint32_t kModeAutoLoad = 0u;
 constexpr std::uint32_t kModeAutoSave = 1u;
 constexpr std::uint32_t kModeLoad = 2u;
 constexpr std::uint32_t kModeSave = 3u;
+// Reading one named file out of a save. Values taken from pspsdk's
+// psputility_savedata.h, not from memory.
+constexpr std::uint32_t kModeReadDataSecure = 15u;
+constexpr std::uint32_t kModeReadData = 16u;
 
 // Result codes. Only the last is confirmed: pspsdk defines
 // PSP_SYSTEMPARAM_RETVAL_FAIL in psputility_sysparam.h, and searching that SDK
@@ -212,6 +216,30 @@ void install_utility_hle(Runtime &runtime, const std::string &savedata_root) {
         case kModeSave:
             perform_save(rt, param, directory, file_name);
             break;
+        case kModeReadDataSecure:
+        case kModeReadData: {
+            // These read one named file out of a save through a parameter
+            // block of their own: the name and destination sit in the fileData
+            // fields rather than the ones plain load uses.
+            //
+            // Only the "there is nothing to read" answer is given here, and
+            // while no save exists that is the whole of it - it lets the title
+            // start as a new player rather than stopping the run. A save that
+            // does exist still stops: filling the wrong buffer would be worse
+            // than saying the layout is not pinned down.
+            std::error_code ec;
+            if (!std::filesystem::exists(directory, ec)) {
+                ++g_stats.loads_with_no_data;
+                runtime_log_line("savedata read mode " + std::to_string(mode) + ": no save at " +
+                                 directory.string());
+                set_result(rt, param, kErrorLoadNoData);
+                break;
+            }
+            rt.stop("sceUtilitySavedata mode " + std::to_string(mode) +
+                    " found a save to read but the secure file layout is not pinned down (game=" +
+                    game_name + ", save=" + save_name + ")");
+            return;
+        }
         default:
             // Modes beyond plain load and save need the list, size and secure
             // file semantics pinned down first. Refused rather than answered
