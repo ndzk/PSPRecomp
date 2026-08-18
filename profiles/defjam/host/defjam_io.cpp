@@ -148,8 +148,14 @@ void write_stat(Runtime &rt, std::uint32_t address, const std::filesystem::path 
                 bool is_directory, std::uint32_t disc_sector) {
     rt.memory().zero(address, kStatSize);
     std::error_code ec;
-    const std::uint64_t size =
-        is_directory ? 0u : static_cast<std::uint64_t>(std::filesystem::file_size(host_path, ec));
+    std::uint64_t size = 0u;
+    if (!is_directory) {
+        // file_size reports failure through `ec` and returns uintmax_t(-1). Not
+        // reading `ec` puts that straight into st_size, telling the guest the
+        // file is 16 exabytes rather than that it could not be measured.
+        const std::uintmax_t measured = std::filesystem::file_size(host_path, ec);
+        if (!ec) size = static_cast<std::uint64_t>(measured);
+    }
     rt.memory().store32(address + kStatModeOffset, is_directory ? kModeDirectory : kModeRegular);
     rt.memory().store32(address + kStatAttrOffset, is_directory ? kAttrDirectory : kAttrRegular);
     rt.memory().store32(address + kStatSizeOffset, static_cast<std::uint32_t>(size & 0xFFFFFFFFu));
@@ -433,6 +439,15 @@ std::int32_t do_open(Runtime &rt, const std::string &psp_path, std::uint32_t fla
 std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::uint32_t length) {
     FileHandle *handle = file_at(fd);
     if (handle == nullptr) return kErrorNoFile;
+    // Both the length and the destination are the guest's. Checking the
+    // destination can hold the length before staging anything means a wrong
+    // length is refused rather than turned into an allocation of that size,
+    // which is a request this side has no reason to honour.
+    if (length != 0u && !rt.memory().contains(buffer, length)) {
+        runtime_log_line("sceIoRead: " + std::to_string(length) + " bytes into " +
+                         psprecomp::hex32(buffer) + " is not guest memory");
+        return kErrorNoFile;
+    }
     if (handle->is_device) {
         if (!disc_available()) {
             runtime_log_line("sceIoRead on device " + handle->psp_path + " length=" +
@@ -497,7 +512,10 @@ std::int64_t do_seek(std::int32_t fd, std::int64_t offset, std::uint32_t whence)
     else if (whence == 2u) direction = std::ios::end;
     handle->stream.clear();
     handle->stream.seekg(static_cast<std::streamoff>(offset), direction);
-    if (handle->writable) handle->stream.seekp(static_cast<std::streamoff>(offset), direction);
+    // Read and write share one position on an fstream, so repeating a relative
+    // seek for the write head moves it a second time. Point it at where the
+    // read head actually landed instead.
+    if (handle->writable) handle->stream.seekp(handle->stream.tellg());
     ++g_stats.seeks;
     return static_cast<std::int64_t>(handle->stream.tellg());
 }
@@ -614,11 +632,27 @@ void install_io_hle(Runtime &runtime, const std::string &game_root) {
             set_return(ctx, static_cast<std::uint32_t>(kErrorNoFile));
             return;
         }
+        // As with reads: the source range is checked before it is staged.
+        if (length != 0u && !rt.memory().contains(ctx.gpr[5], length)) {
+            runtime_log_line("sceIoWrite: " + std::to_string(length) + " bytes from " +
+                             psprecomp::hex32(ctx.gpr[5]) + " is not guest memory");
+            set_return(ctx, static_cast<std::uint32_t>(kErrorNoFile));
+            return;
+        }
         std::vector<std::uint8_t> staging(length);
         if (length != 0u) rt.memory().copy_out(ctx.gpr[5], staging);
         handle->stream.write(reinterpret_cast<const char *>(staging.data()),
                              static_cast<std::streamsize>(length));
         handle->stream.flush();
+        // Reporting the requested length whatever happened tells a title its
+        // save was written when the stream may have failed outright.
+        if (!handle->stream) {
+            handle->stream.clear();
+            runtime_log_line("sceIoWrite: " + std::to_string(length) + " bytes to " +
+                             handle->psp_path + " failed");
+            set_return(ctx, static_cast<std::uint32_t>(kErrorNoFile));
+            return;
+        }
         set_return(ctx, length);
     });
 
@@ -740,14 +774,27 @@ void install_io_hle(Runtime &runtime, const std::string &game_root) {
     runtime.register_hle("IoFileMgrForUser", 0x06A70004u, [](Runtime &rt, AllegrexContext &ctx) {
         const std::string path = read_path(rt, ctx.gpr[4]);
         std::error_code ec;
-        std::filesystem::create_directories(rt.translate_path(path), ec);
+        try {
+            std::filesystem::create_directories(rt.translate_path(path), ec);
+        } catch (const std::exception &) {
+            // translate_path rejects a path it will not map, by throwing. Every
+            // other handler here catches that; these two let it escape the HLE
+            // call and take the run down with it.
+            set_return(ctx, static_cast<std::uint32_t>(kErrorNoFile));
+            return;
+        }
         set_return(ctx, ec ? static_cast<std::uint32_t>(kErrorNoFile) : 0u);
     });
     runtime.register_hle("IoFileMgrForUser", 0x779103A0u, [](Runtime &rt, AllegrexContext &ctx) {
         const std::string from = read_path(rt, ctx.gpr[4]);
         const std::string to = read_path(rt, ctx.gpr[5]);
         std::error_code ec;
-        std::filesystem::rename(rt.translate_path(from), rt.translate_path(to), ec);
+        try {
+            std::filesystem::rename(rt.translate_path(from), rt.translate_path(to), ec);
+        } catch (const std::exception &) {
+            set_return(ctx, static_cast<std::uint32_t>(kErrorNoFile));
+            return;
+        }
         set_return(ctx, ec ? static_cast<std::uint32_t>(kErrorNoFile) : 0u);
     });
 
