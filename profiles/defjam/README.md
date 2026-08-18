@@ -254,6 +254,13 @@ mismatch.
   an event flag that only its vblank handler sets, so with the handler dropped
   the display thread never consumed a frame, the player's ring of four frame
   buffers filled, and playback stopped dead after exactly four frames.
+- **The title executes code out of its audio banks**, which the AOT corpus does
+  not cover: it is built from `BOOT.BIN`, and the code lives inside the 158
+  `.abk` files under `USRDIR`. This is what the run stops on once it gets past
+  the title screen. The banks ship unlinked and the title links them as it
+  loads them, but the linking is static and can be reproduced ahead of time, so
+  recompiling them faithfully is open rather than blocked. Format, evidence and
+  the plan are in `docs/DEFJAM_AUDIO_BANKS.md`.
 - **Ad-hoc multiplayer is out of scope** for the first release. The title
   imports 41 NIDs across `sceNet`, `sceNetAdhoc`, `sceNetAdhocctl`,
   `sceNetAdhocMatching` and `sceWlanDrv`, and ships four `pspnet` PRXs. The plan
