@@ -1262,6 +1262,98 @@ void test_savedata_names_stay_put() {
     std::filesystem::remove_all(root, ec);
 }
 
+// ---------------------------------------------------------------------------
+// The sceMpeg surface: the path this profile's movie playback runs through
+// ---------------------------------------------------------------------------
+void test_mpeg_surface() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+
+    constexpr std::uint32_t kQueryMemSize = 0xD7A29F46u, kRingbufferConstruct = 0x37295ED8u,
+                            kMpegCreate = 0xD8C5F121u, kMpegDelete = 0x606A4649u,
+                            kGetAvcAu = 0xFE246728u, kInitAu = 0x167AFD9Eu,
+                            kAvailableSize = 0xB5F6DC87u;
+    // The library's "nothing to hand out yet" code, which this title compares
+    // against by value rather than merely testing the sign.
+    constexpr std::uint32_t kErrorMpegNoData = 0x80618001u;
+    constexpr std::uint32_t kPacketOverhead = 104u, kPacketSize = 2048u;
+
+    const std::uint32_t ringbuffer = kIoScratch;
+    const std::uint32_t mpeg_handle = kIoScratch + 0x100u;
+    const std::uint32_t au = kIoScratch + 0x200u;
+    const std::uint32_t data = kIoScratch + 0x1000u;
+
+    psprecomp::AllegrexContext ctx{};
+
+    // The size the guest is told to allocate is what it is then held to.
+    ctx.set_gpr(4, 4u);
+    call_hle(runtime, "sceMpeg", kQueryMemSize, ctx);
+    const std::uint32_t needed = ctx.gpr[2];
+    require(needed == 4u * (kPacketOverhead + kPacketSize), "the ring buffer size is wrong");
+
+    // A packet count that does not fit the block the guest passed is a
+    // disagreement about one number, and everything downstream indexes that
+    // block by it.
+    const auto construct = [&](std::uint32_t packets, std::uint32_t size) {
+        ctx.set_gpr(4, ringbuffer);
+        ctx.set_gpr(5, packets);
+        ctx.set_gpr(6, data);
+        ctx.set_gpr(7, size);
+        ctx.set_gpr(8, 0u);
+        ctx.set_gpr(9, 0u);
+        call_hle(runtime, "sceMpeg", kRingbufferConstruct, ctx);
+        return ctx.gpr[2];
+    };
+    require(static_cast<std::int32_t>(construct(4u, needed / 2u)) < 0,
+            "a ring buffer smaller than its packet count was accepted");
+    require(static_cast<std::int32_t>(construct(0u, needed)) < 0,
+            "a ring buffer of no packets was accepted");
+    require(construct(4u, needed) == 0u, "a correctly sized ring buffer was refused");
+
+    // Creating a stream, then deleting and creating again: the handles must
+    // differ. Deriving one from the number of live contexts handed out a
+    // duplicate as soon as one was deleted.
+    const auto create = [&]() {
+        ctx.set_gpr(4, mpeg_handle);
+        ctx.set_gpr(5, 0u);
+        ctx.set_gpr(6, 0x10000u);
+        ctx.set_gpr(7, ringbuffer);
+        ctx.set_gpr(8, 512u);
+        call_hle(runtime, "sceMpeg", kMpegCreate, ctx);
+        require(ctx.gpr[2] == 0u, "sceMpegCreate failed");
+        return runtime.memory().load32(mpeg_handle);
+    };
+    const std::uint32_t first = create();
+    require(first != 0u, "no handle was written back");
+    ctx.set_gpr(4, mpeg_handle);
+    call_hle(runtime, "sceMpeg", kMpegDelete, ctx);
+    const std::uint32_t second = create();
+    require(second != first, "a deleted stream's handle was handed out again");
+
+    // Nothing has been fed, so there is no access unit. This must come back as
+    // the library's shortage code: the title compares the value, and a generic
+    // -1 fails that comparison and marks the movie broken.
+    ctx.set_gpr(4, mpeg_handle);
+    ctx.set_gpr(5, 0u);
+    ctx.set_gpr(6, au);
+    call_hle(runtime, "sceMpeg", kInitAu, ctx);
+    ctx.set_gpr(4, mpeg_handle);
+    ctx.set_gpr(5, 0u);
+    ctx.set_gpr(6, au);
+    call_hle(runtime, "sceMpeg", kGetAvcAu, ctx);
+    require(ctx.gpr[2] == kErrorMpegNoData,
+            "an empty demultiplexer did not report the library's shortage code");
+
+    // With nothing held, every packet slot is free.
+    ctx.set_gpr(4, ringbuffer);
+    call_hle(runtime, "sceMpeg", kAvailableSize, ctx);
+    require(ctx.gpr[2] == 4u, "an idle ring buffer did not report itself empty");
+
+    const defjam::MpegStats stats = defjam::mpeg_stats();
+    require(stats.streams_opened == 2u, "the stream count does not match");
+    require(stats.video_units_refused == 1u, "the refusal was not recorded");
+}
+
 void test_synthetic_disc() {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "defjam_synthetic_disc_test";
@@ -1489,6 +1581,7 @@ int main() {
         test_at3_container();
         test_atrac_surface();
         test_savedata_names_stay_put();
+        test_mpeg_surface();
         test_synthetic_disc();
         test_frame_conversion();
         std::cout << "All defjam config tests passed.\n";
