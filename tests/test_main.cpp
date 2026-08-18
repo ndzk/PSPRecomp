@@ -704,6 +704,129 @@ static void test_executable_ranges_respect_section_flags() {
             "A materialized pointer into executable code stopped being seeded");
 }
 
+// Every VFPU instruction reads its operands through the source prefix, so a
+// mistake here is a mistake everywhere. Table driven because the encoding packs
+// four independent controls into one word and the interesting cases are the
+// combinations, not any single bit.
+static void test_vfpu_source_prefix() {
+    struct Case {
+        const char *name;
+        std::uint32_t prefix;
+        std::uint32_t length;
+        std::array<float, 4> input;
+        std::array<float, 4> expected;
+    };
+
+    // Lane i takes its value from (prefix >> 2i) & 3; bit 8+i is abs, 12+i
+    // selects a constant, 16+i negates. 0xE4 is lanes 0,1,2,3 with nothing set.
+    constexpr std::uint32_t kIdentity = 0xE4u;
+    const std::array<float, 4> in{1.0f, -2.0f, 3.0f, -4.0f};
+
+    const Case cases[] = {
+        {"identity leaves the vector alone", kIdentity, 4u, in, {1.0f, -2.0f, 3.0f, -4.0f}},
+        // A zeroed prefix is not the identity: it broadcasts lane 0, which is
+        // why a context has to reach an instruction through eat_vfpu_prefixes.
+        {"a zero prefix broadcasts lane 0", 0x00u, 4u, in, {1.0f, 1.0f, 1.0f, 1.0f}},
+        {"lanes reverse", 0x1Bu, 4u, in, {-4.0f, 3.0f, -2.0f, 1.0f}},
+        {"abs on lane 1", kIdentity | (1u << 9u), 4u, in, {1.0f, 2.0f, 3.0f, -4.0f}},
+        {"negate on lane 0", kIdentity | (1u << 16u), 4u, in, {-1.0f, -2.0f, 3.0f, -4.0f}},
+        {"negate after abs", kIdentity | (1u << 9u) | (1u << 17u), 4u, in,
+         {1.0f, -2.0f, 3.0f, -4.0f}},
+        // With the constant bit set the lane selects from the constant table and
+        // the abs bit becomes that index's high bit: 0->0, 1->1, 4->3, 6->0.25.
+        {"constant one", (kIdentity & ~3u) | 1u | (1u << 12u), 4u, in, {1.0f, -2.0f, 3.0f, -4.0f}},
+        {"constant three", (kIdentity & ~3u) | (1u << 12u) | (1u << 8u), 4u, in,
+         {3.0f, -2.0f, 3.0f, -4.0f}},
+        {"constant a quarter", (kIdentity & ~3u) | 2u | (1u << 12u) | (1u << 8u), 4u, in,
+         {0.25f, -2.0f, 3.0f, -4.0f}},
+        {"negated constant", (kIdentity & ~3u) | 1u | (1u << 12u) | (1u << 16u), 4u, in,
+         {-1.0f, -2.0f, 3.0f, -4.0f}},
+        // A swizzle may name a lane the operand does not have. That reads as
+        // zero here, which is a defined answer rather than whatever was in the
+        // register file.
+        {"a lane past the operand reads zero", 0x1Bu, 2u, {5.0f, 6.0f, 0.0f, 0.0f},
+         {0.0f, 0.0f, 6.0f, 5.0f}},
+    };
+
+    for (const Case &test : cases) {
+        psprecomp::AllegrexContext ctx;
+        float value[4]{};
+        for (std::uint32_t i = 0; i < 4u; ++i) value[i] = test.input[i];
+        ctx.vfpu_ctrl[0] = test.prefix;
+        ctx.apply_vfpu_source_prefix(value, test.length, 0u);
+        for (std::uint32_t i = 0; i < test.length; ++i) {
+            if (value[i] == test.expected[i]) continue;
+            throw std::runtime_error(std::string("source prefix: ") + test.name + ", lane " +
+                                     std::to_string(i) + " is " + std::to_string(value[i]) +
+                                     " but should be " + std::to_string(test.expected[i]));
+        }
+    }
+
+    // Negation flips the sign bit rather than computing 0 - x, so a negative
+    // zero survives as one and a NaN keeps its payload.
+    {
+        psprecomp::AllegrexContext ctx;
+        ctx.vfpu_ctrl[0] = kIdentity | (1u << 16u);
+        float value[4]{0.0f, 0.0f, 0.0f, 0.0f};
+        ctx.apply_vfpu_source_prefix(value, 1u, 0u);
+        require(std::bit_cast<std::uint32_t>(value[0]) == 0x80000000u,
+                "negating zero did not produce negative zero");
+    }
+
+    // Control index 2 is the destination prefix and must never be applied as a
+    // source one; anything past it is not a prefix register at all.
+    {
+        psprecomp::AllegrexContext ctx;
+        ctx.vfpu_ctrl[0] = 0x00u;
+        float value[4]{7.0f, 8.0f, 9.0f, 10.0f};
+        ctx.apply_vfpu_source_prefix(value, 4u, 2u);
+        require(value[1] == 8.0f, "a control index past the source prefixes was applied anyway");
+    }
+}
+
+// The signed pack and unpack are exact inverses and are held to that. The
+// unsigned pair is not, and that is recorded here rather than left for the next
+// person to discover: vus2i scales by 15 bits and vuc2i by a byte replication
+// with a further shift, while vi2us and vi2uc take the plain high bits. Whether
+// the packs should compensate is a hardware question this test does not answer
+// - it only makes the current asymmetry deliberate instead of accidental.
+static void test_vfpu_pack_unpack_round_trip() {
+    constexpr std::uint32_t kSource = 0u;
+    constexpr std::uint32_t kPacked = 4u;
+    constexpr std::uint32_t kBack = 8u;
+    const std::uint32_t lanes[4] = {0x7FFF0000u, 0x00010000u, 0x12340000u, 0x00000000u};
+
+    const auto round_trip = [&](std::uint32_t operation, std::uint32_t *out) {
+        psprecomp::AllegrexContext ctx;
+        ctx.eat_vfpu_prefixes();
+        float source[4]{};
+        for (std::uint32_t i = 0; i < 4u; ++i) source[i] = std::bit_cast<float>(lanes[i]);
+        ctx.write_vfpu_vector(source, kSource, 4u);
+        ctx.eat_vfpu_prefixes();
+        ctx.execute_vfpu_vi2x(kPacked, kSource, 4u, operation);
+        ctx.eat_vfpu_prefixes();
+        ctx.execute_vfpu_vx2i(kBack, kPacked, 2u, operation);
+        float back[4]{};
+        ctx.read_vfpu_vector(back, kBack, 4u);
+        for (std::uint32_t i = 0; i < 4u; ++i) out[i] = std::bit_cast<std::uint32_t>(back[i]);
+    };
+
+    // vi2s then vs2i returns the operand untouched.
+    std::uint32_t signed_back[4]{};
+    round_trip(3u, signed_back);
+    for (std::uint32_t i = 0; i < 4u; ++i) {
+        if (signed_back[i] == lanes[i]) continue;
+        throw std::runtime_error("vi2s/vs2i lost lane " + std::to_string(i));
+    }
+
+    // vi2us then vus2i comes back halved, because only the unpack carries the
+    // extra shift. Asserted so a change to either side has to face this.
+    std::uint32_t unsigned_back[4]{};
+    round_trip(2u, unsigned_back);
+    require(unsigned_back[0] == (lanes[0] >> 1u) && unsigned_back[2] == (lanes[2] >> 1u),
+            "the unsigned pack/unpack pair no longer differs by the documented shift");
+}
+
 static void test_vfpu_integer_pack() {
     // Set up and inspect through the same vector addressing the instruction
     // uses. Scalar register numbers are remapped by vfpu_scalar_index and are
@@ -1930,6 +2053,8 @@ int main() {
         test_executable_ranges_respect_section_flags();
         test_nid_registry_csv_crlf();
         test_scratchpad_memory();
+        test_vfpu_source_prefix();
+        test_vfpu_pack_unpack_round_trip();
         test_vfpu_integer_pack();
 
         auto relocation_elf = psprecomp::Elf32Image::from_bytes(make_relocation_test_prx(), "synthetic_relocation.prx");

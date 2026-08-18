@@ -571,12 +571,18 @@ struct alignas(16) AllegrexContext {
         write_vfpu_vector_with_destination_prefix(result, destination_register, destination_length);
     }
 
-    // Pack integer lanes down into bytes or halves: the inverse of
-    // execute_vfpu_vx2i above, and defined as exactly that. That routine
-    // expands a byte with `int = byte << 24` and a half with `int = short <<
-    // 16`, so narrowing takes the corresponding high bits back out. The
-    // unsigned forms clamp a negative lane to zero, which is the only
-    // difference between vi2uc/vi2c and between vi2us/vi2s.
+    // Pack integer lanes down into bytes or halves, taking the high bits back
+    // out: a byte from bits 31..24 and a half from bits 31..16. The unsigned
+    // forms additionally clamp a negative lane to zero.
+    //
+    // For the signed pair this is the exact inverse of execute_vfpu_vx2i, which
+    // expands with `int = short << 16`. It is NOT for the unsigned pair: that
+    // routine expands vus2i by fifteen bits and vuc2i by a byte replication and
+    // a further shift, while the packs here take the plain high bits, so a
+    // round trip through the unsigned forms comes back halved. Whether the
+    // packs should carry the matching compensation is a hardware question that
+    // has not been settled here; test_vfpu_pack_unpack_round_trip pins the
+    // current behaviour so a change to either side is deliberate.
     //
     // operation: 0 = vi2uc, 1 = vi2c, 2 = vi2us, 3 = vi2s, matching the low two
     // bits of the encoded operation field just as the unpack direction does.
