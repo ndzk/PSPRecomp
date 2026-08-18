@@ -83,6 +83,12 @@ constexpr std::uint32_t kAuSizeOffset = 20u;
 // which is a valid time.
 constexpr std::uint32_t kNoTimestamp = 0xFFFFFFFFu;
 
+// "Nothing to hand out yet, put more packets in and ask again." A title tells
+// this apart from a hard failure by the value, so answering a shortage with a
+// generic -1 reports it as the failure and stops playback on the first frame
+// the demultiplexer is not ready for.
+constexpr std::uint32_t kErrorMpegNoData = 0x80618001u;
+
 void set_return(AllegrexContext &ctx, std::uint32_t value) { ctx.set_gpr(2, value); }
 
 // One playing movie.
@@ -130,6 +136,22 @@ void write_access_unit(Runtime &rt, std::uint32_t au_pointer, const AccessUnit &
     rt.memory().store32(au_pointer + kAuDtsHighOffset,
                         unit.has_timestamp ? unit.dts_high : kNoTimestamp);
     rt.memory().store32(au_pointer + kAuDtsOffset, unit.has_timestamp ? unit.dts : kNoTimestamp);
+}
+
+// Free packets, derived from what the demultiplexer is still holding. Those
+// bytes arrived in ring buffer slots the guest has not consumed, so the slots
+// are not free yet; anything else has the two sides disagree about the same
+// number. Written into the structure as well as returned, because a title may
+// read the field directly instead of calling the query.
+std::uint32_t store_ringbuffer_available(Runtime &rt, std::uint32_t ringbuffer,
+                                         std::uint32_t packets) {
+    if (packets == 0u || g_contexts.empty()) return packets;
+    const std::uint64_t held = g_contexts.begin()->second.demuxer.queued_bytes();
+    const auto occupied = static_cast<std::uint32_t>(
+        std::min<std::uint64_t>((held + kPacketSize - 1u) / kPacketSize, packets));
+    const std::uint32_t free_packets = packets - occupied;
+    rt.memory().store32(ringbuffer + kRingbufferAvailableOffset, free_packets);
+    return free_packets;
 }
 
 } // namespace
@@ -331,12 +353,14 @@ std::uint64_t ProgramStreamDemuxer::queued_bytes() const {
 }
 
 AccessUnit ProgramStreamDemuxer::take_video() {
+    if (video_.empty()) return AccessUnit{};
     AccessUnit unit = std::move(video_.front());
     video_.erase(video_.begin());
     return unit;
 }
 
 AccessUnit ProgramStreamDemuxer::take_audio() {
+    if (audio_.empty()) return AccessUnit{};
     AccessUnit unit = std::move(audio_.front());
     audio_.erase(audio_.begin());
     return unit;
@@ -499,16 +523,7 @@ void install_mpeg_hle(Runtime &runtime) {
             return;
         }
         const std::uint32_t packets = rt.memory().load32(ringbuffer + kRingbufferPacketsOffset);
-        if (packets == 0u || g_contexts.empty()) {
-            set_return(ctx, packets);
-            return;
-        }
-        const std::uint64_t held = g_contexts.begin()->second.demuxer.queued_bytes();
-        const auto occupied =
-            static_cast<std::uint32_t>((held + kPacketSize - 1u) / kPacketSize);
-        const std::uint32_t free_packets = occupied >= packets ? 0u : packets - occupied;
-        rt.memory().store32(ringbuffer + kRingbufferAvailableOffset, free_packets);
-        set_return(ctx, free_packets);
+        set_return(ctx, store_ringbuffer_available(rt, ringbuffer, packets));
     });
     runtime.register_hle("sceMpeg", 0xB240A59Eu, [](Runtime &rt, AllegrexContext &ctx) {
         // (ringbuffer, packets, available). The data does not come from the
@@ -541,10 +556,15 @@ void install_mpeg_hle(Runtime &runtime) {
 
         const bool entered = call_guest_function(
             rt, ctx, callback, destination, room, param,
-            [ringbuffer, destination, packets](Runtime &runtime, std::uint32_t returned) {
+            [ringbuffer, destination, packets, room](Runtime &runtime, std::uint32_t returned) {
                 const auto filled = static_cast<std::int32_t>(returned);
                 if (filled <= 0) return returned;
-                const auto count = static_cast<std::uint32_t>(filled);
+                // The callback was handed `room` and cannot have written into
+                // more than that. A larger answer is the guest reporting
+                // something other than what it put here, and believing it
+                // would size a staging buffer and advance the write index from
+                // a number this side never offered.
+                const std::uint32_t count = std::min(static_cast<std::uint32_t>(filled), room);
                 const std::uint32_t write_index =
                     runtime.memory().load32(ringbuffer + kRingbufferWriteOffset);
                 runtime.memory().store32(ringbuffer + kRingbufferWriteOffset,
@@ -552,21 +572,27 @@ void install_mpeg_hle(Runtime &runtime) {
                 g_stats.packets_put += count;
 
                 // Feed what the guest just wrote to the demuxer. There is one
-                // movie at a time, so the sole context owns it.
+                // movie at a time, so the sole context owns it. The range is
+                // checked before the buffer for it is allocated, so a packet
+                // count the guest picked cannot ask for an allocation the
+                // guest's own memory could never hold.
                 if (!g_contexts.empty()) {
-                    std::vector<std::uint8_t> staging(static_cast<std::size_t>(count) * kPacketSize);
-                    if (runtime.memory().contains(destination,
-                                                  static_cast<std::uint32_t>(staging.size()))) {
+                    const std::uint64_t bytes = static_cast<std::uint64_t>(count) * kPacketSize;
+                    if (bytes <= 0xFFFFFFFFull &&
+                        runtime.memory().contains(destination,
+                                                  static_cast<std::uint32_t>(bytes))) {
+                        std::vector<std::uint8_t> staging(static_cast<std::size_t>(bytes));
                         runtime.memory().copy_out(destination, staging);
                         g_contexts.begin()->second.demuxer.append(staging.data(), staging.size());
                     }
                 }
 
-                // The demultiplexer took the packets as they arrived, so every
-                // slot is free again. Leaving them counted as occupied is what
-                // stops a title refilling: it asks how much room there is, is
-                // told none, and never puts anything in again.
-                runtime.memory().store32(ringbuffer + kRingbufferAvailableOffset, packets);
+                // Not "every slot is free again": what the demultiplexer is
+                // still holding is exactly what the guest has not consumed, and
+                // sceMpegRingbufferAvailableSize answers from that same queue.
+                // Writing a flat `packets` here would leave the field and the
+                // query disagreeing.
+                (void)store_ringbuffer_available(runtime, ringbuffer, packets);
                 return returned;
             });
         if (!entered) set_return(ctx, static_cast<std::uint32_t>(-1));
@@ -653,10 +679,12 @@ void install_mpeg_hle(Runtime &runtime) {
             const bool ready = video ? context->demuxer.has_video() : context->demuxer.has_audio();
             if (!ready) {
                 // Nothing demultiplexed yet: the guest must put more packets in
-                // before asking again. Reported as a shortage, not an error.
+                // before asking again. This is the library's shortage code, not
+                // a generic failure - the difference decides whether the title
+                // loops back to refill or gives up on the movie.
                 if (video) ++g_stats.video_units_refused;
                 else ++g_stats.audio_units_refused;
-                set_return(ctx, static_cast<std::uint32_t>(-1));
+                set_return(ctx, kErrorMpegNoData);
                 return;
             }
             AccessUnit unit =
