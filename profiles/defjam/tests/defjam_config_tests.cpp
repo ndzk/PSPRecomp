@@ -2,6 +2,7 @@
 #include "defjam_decoder.hpp"
 #include "defjam_disc.hpp"
 #include "defjam_ge.hpp"
+#include "defjam_profile.hpp"
 #include "defjam_io.hpp"
 #include "defjam_mpeg.hpp"
 #include "defjam_utility.hpp"
@@ -598,6 +599,262 @@ void test_ge_signal_and_finish() {
     require(defjam::ge_stats().commands == 3u, "FINISH ended the list early");
 }
 
+// ---------------------------------------------------------------------------
+// The IoFileMgrForUser surface, driven through Runtime::find_hle
+// ---------------------------------------------------------------------------
+// These handlers are what recompiled code reaches through an import wrapper.
+// A test has no wrappers, so it looks the handler up and calls it with a
+// register frame of its own, which is all an import wrapper does anyway.
+void call_hle(psprecomp::Runtime &runtime, const char *library, std::uint32_t nid,
+              psprecomp::AllegrexContext &ctx) {
+    const auto *handler = runtime.find_hle(library, nid);
+    require(handler != nullptr, "the profile did not register that HLE import");
+    (*handler)(runtime, ctx);
+}
+
+// Guest scratch: a page for paths and buffers, well clear of anything else.
+constexpr std::uint32_t kIoScratch = 0x08200000u;
+
+void write_guest_string(psprecomp::Runtime &runtime, std::uint32_t address, const std::string &text) {
+    for (std::size_t i = 0; i < text.size(); ++i)
+        runtime.memory().store8(address + static_cast<std::uint32_t>(i),
+                                static_cast<std::uint8_t>(text[i]));
+    runtime.memory().store8(address + static_cast<std::uint32_t>(text.size()), 0u);
+}
+
+void test_io_surface() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "defjam_io_surface_test";
+    std::error_code ec;
+    std::filesystem::remove_all(root, ec);
+    std::filesystem::create_directories(root / "PSP_GAME", ec);
+    {
+        std::ofstream out(root / "PSP_GAME" / "DATA.BIN", std::ios::binary);
+        out << "0123456789";
+    }
+
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    runtime.set_game_root(root);
+    defjam::install_io_hle(runtime, root.string());
+
+    constexpr std::uint32_t kOpen = 0x109F50BCu, kClose = 0x810C4BC3u, kRead = 0x6A638D83u,
+                            kWrite = 0x42EC03ACu, kLseek32 = 0x68963324u, kGetstat = 0xACE946E8u;
+
+    const std::uint32_t path_address = kIoScratch;
+    const std::uint32_t buffer = kIoScratch + 0x100u;
+    write_guest_string(runtime, path_address, "disc0:/PSP_GAME/DATA.BIN");
+
+    psprecomp::AllegrexContext ctx{};
+    ctx.set_gpr(4, path_address);
+    ctx.set_gpr(5, 0x0001u);   // read only
+    call_hle(runtime, "IoFileMgrForUser", kOpen, ctx);
+    const auto fd = static_cast<std::int32_t>(ctx.gpr[2]);
+    require(fd > 0, "opening a staged file failed");
+
+    // A plain read of the whole file.
+    ctx.set_gpr(4, static_cast<std::uint32_t>(fd));
+    ctx.set_gpr(5, buffer);
+    ctx.set_gpr(6, 10u);
+    call_hle(runtime, "IoFileMgrForUser", kRead, ctx);
+    require(ctx.gpr[2] == 10u, "the read did not return the whole file");
+    for (std::uint32_t i = 0; i < 10u; ++i)
+        require(runtime.memory().load8(buffer + i) == static_cast<std::uint8_t>('0' + i),
+                "the file's bytes did not reach the guest buffer");
+
+    // A length that no guest buffer could hold is refused, not staged. Before
+    // this was checked, it sized an allocation from the length first.
+    ctx.set_gpr(4, static_cast<std::uint32_t>(fd));
+    ctx.set_gpr(5, buffer);
+    ctx.set_gpr(6, 0xFFFFFFF0u);
+    call_hle(runtime, "IoFileMgrForUser", kRead, ctx);
+    require(static_cast<std::int32_t>(ctx.gpr[2]) < 0,
+            "a read larger than guest memory was not refused");
+
+    // Seeking relative to the current position.
+    ctx.set_gpr(4, static_cast<std::uint32_t>(fd));
+    ctx.set_gpr(5, 0u);
+    ctx.set_gpr(6, 0u);        // SEEK_SET
+    call_hle(runtime, "IoFileMgrForUser", kLseek32, ctx);
+    require(ctx.gpr[2] == 0u, "seek to the start did not report zero");
+    ctx.set_gpr(4, static_cast<std::uint32_t>(fd));
+    ctx.set_gpr(5, 4u);
+    ctx.set_gpr(6, 1u);        // SEEK_CUR
+    call_hle(runtime, "IoFileMgrForUser", kLseek32, ctx);
+    require(ctx.gpr[2] == 4u, "a relative seek landed in the wrong place");
+    ctx.set_gpr(4, static_cast<std::uint32_t>(fd));
+    ctx.set_gpr(5, buffer);
+    ctx.set_gpr(6, 2u);
+    call_hle(runtime, "IoFileMgrForUser", kRead, ctx);
+    require(ctx.gpr[2] == 2u && runtime.memory().load8(buffer) == '4',
+            "reading after a relative seek returned the wrong bytes");
+
+    ctx.set_gpr(4, static_cast<std::uint32_t>(fd));
+    call_hle(runtime, "IoFileMgrForUser", kClose, ctx);
+
+    // A writable handle: the relative seek here used to move twice, because an
+    // fstream's read and write heads share one position.
+    write_guest_string(runtime, path_address, "ms0:/SAVE.BIN");
+    ctx.set_gpr(4, path_address);
+    ctx.set_gpr(5, 0x0002u | 0x0200u | 0x0400u);   // write | create | truncate
+    call_hle(runtime, "IoFileMgrForUser", kOpen, ctx);
+    const auto save = static_cast<std::int32_t>(ctx.gpr[2]);
+    require(save > 0, "creating a file for writing failed");
+
+    for (std::uint32_t i = 0; i < 8u; ++i) runtime.memory().store8(buffer + i, 'A');
+    ctx.set_gpr(4, static_cast<std::uint32_t>(save));
+    ctx.set_gpr(5, buffer);
+    ctx.set_gpr(6, 8u);
+    call_hle(runtime, "IoFileMgrForUser", kWrite, ctx);
+    require(ctx.gpr[2] == 8u, "the write did not report its length");
+
+    ctx.set_gpr(4, static_cast<std::uint32_t>(save));
+    ctx.set_gpr(5, static_cast<std::uint32_t>(-4));
+    ctx.set_gpr(6, 1u);        // SEEK_CUR, four back from eight
+    call_hle(runtime, "IoFileMgrForUser", kLseek32, ctx);
+    require(ctx.gpr[2] == 4u,
+            "a relative seek on a writable handle moved twice");
+
+    ctx.set_gpr(4, static_cast<std::uint32_t>(save));
+    call_hle(runtime, "IoFileMgrForUser", kClose, ctx);
+    require(std::filesystem::file_size(root / "SAVE.BIN", ec) == 8u,
+            "the written file is not the length that was written");
+
+    // A source range that is not guest memory is refused rather than staged.
+    ctx.set_gpr(4, static_cast<std::uint32_t>(save));
+    ctx.set_gpr(5, buffer);
+    ctx.set_gpr(6, 0xFFFFFFF0u);
+    call_hle(runtime, "IoFileMgrForUser", kWrite, ctx);
+    require(static_cast<std::int32_t>(ctx.gpr[2]) < 0, "an oversized write was not refused");
+
+    // sceIoGetstat on a real file reports its real length, and on a path it
+    // cannot measure reports zero rather than uintmax_t(-1).
+    write_guest_string(runtime, path_address, "disc0:/PSP_GAME/DATA.BIN");
+    const std::uint32_t stat = kIoScratch + 0x400u;
+    ctx.set_gpr(4, path_address);
+    ctx.set_gpr(5, stat);
+    call_hle(runtime, "IoFileMgrForUser", kGetstat, ctx);
+    require(ctx.gpr[2] == 0u, "stat on a staged file failed");
+    require(runtime.memory().load32(stat + 8u) == 10u && runtime.memory().load32(stat + 12u) == 0u,
+            "st_size is not the file's length");
+
+    std::filesystem::remove_all(root, ec);
+}
+
+// ---------------------------------------------------------------------------
+// ThreadManForUser waits, driven the same way
+// ---------------------------------------------------------------------------
+void test_kernel_wait_timeout() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+
+    constexpr std::uint32_t kCreateSema = 0xD6DA4BA1u, kWaitSema = 0x4E3A1105u,
+                            kPollSema = 0x58B1F937u;
+    constexpr std::uint32_t kErrorWaitTimeout = 0x800201A8u;
+    constexpr std::uint32_t kErrorSemaZero = 0x800201ADu;
+
+    const std::uint32_t name = kIoScratch;
+    const std::uint32_t timeout = kIoScratch + 0x40u;
+    write_guest_string(runtime, name, "test");
+
+    // A semaphore nobody will ever signal.
+    psprecomp::AllegrexContext ctx{};
+    ctx.set_gpr(4, name);
+    ctx.set_gpr(5, 0u);
+    ctx.set_gpr(6, 0u);        // initial count
+    ctx.set_gpr(7, 1u);        // maximum
+    call_hle(runtime, "ThreadManForUser", kCreateSema, ctx);
+    const std::uint32_t sema = ctx.gpr[2];
+
+    // Polling it reports the shortage rather than blocking.
+    ctx.set_gpr(4, sema);
+    ctx.set_gpr(5, 1u);
+    call_hle(runtime, "ThreadManForUser", kPollSema, ctx);
+    require(ctx.gpr[2] == kErrorSemaZero, "polling an empty semaphore reported the wrong code");
+
+    // Waiting on it with a limit must come back at that limit. Discarding the
+    // limit is what used to park the only thread for good.
+    const std::uint64_t before = defjam::headless_stats().virtual_time_us;
+    runtime.memory().store32(timeout, 50000u);   // 50 ms
+    ctx.set_gpr(4, sema);
+    ctx.set_gpr(5, 1u);
+    ctx.set_gpr(6, timeout);
+    call_hle(runtime, "ThreadManForUser", kWaitSema, ctx);
+
+    require(!runtime.stopped(),
+            ("a timed wait was reported as a deadlock: " + runtime.stop_reason()).c_str());
+    require(ctx.gpr[2] == kErrorWaitTimeout, "the wait did not come back as a timeout");
+    const std::uint64_t after = defjam::headless_stats().virtual_time_us;
+    require(after >= before + 50000u, "virtual time did not reach the deadline");
+}
+
+void test_kernel_wait_satisfied() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+
+    constexpr std::uint32_t kCreateSema = 0xD6DA4BA1u, kWaitSema = 0x4E3A1105u;
+    const std::uint32_t name = kIoScratch;
+    write_guest_string(runtime, name, "ready");
+
+    psprecomp::AllegrexContext ctx{};
+    ctx.set_gpr(4, name);
+    ctx.set_gpr(5, 0u);
+    ctx.set_gpr(6, 2u);        // two available
+    ctx.set_gpr(7, 2u);
+    call_hle(runtime, "ThreadManForUser", kCreateSema, ctx);
+    const std::uint32_t sema = ctx.gpr[2];
+
+    // A wait the count already covers returns success without blocking, and
+    // without consulting the timeout at all.
+    ctx.set_gpr(4, sema);
+    ctx.set_gpr(5, 2u);
+    ctx.set_gpr(6, 0u);
+    call_hle(runtime, "ThreadManForUser", kWaitSema, ctx);
+    require(ctx.gpr[2] == 0u, "a wait the semaphore could satisfy did not succeed");
+    require(!runtime.stopped(), "a satisfiable wait blocked");
+}
+
+void test_event_flag_poll_code() {
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_profile(runtime, 0x08900000u);
+
+    constexpr std::uint32_t kCreateEventFlag = 0x55C20A00u, kPollEventFlag = 0x30FD48F0u,
+                            kSetEventFlag = 0x1FB15A32u;
+    // A failed poll reports the condition code, not the timeout code: they are
+    // different answers and a title branches on which it got.
+    constexpr std::uint32_t kErrorEvfCond = 0x800201B1u;
+
+    const std::uint32_t name = kIoScratch;
+    write_guest_string(runtime, name, "flag");
+
+    psprecomp::AllegrexContext ctx{};
+    ctx.set_gpr(4, name);
+    ctx.set_gpr(5, 0u);
+    ctx.set_gpr(6, 0u);        // no bits set
+    call_hle(runtime, "ThreadManForUser", kCreateEventFlag, ctx);
+    const std::uint32_t flag = ctx.gpr[2];
+
+    ctx.set_gpr(4, flag);
+    ctx.set_gpr(5, 0x0Fu);
+    ctx.set_gpr(6, 0u);        // wait for all of them
+    ctx.set_gpr(7, 0u);
+    call_hle(runtime, "ThreadManForUser", kPollEventFlag, ctx);
+    require(ctx.gpr[2] == kErrorEvfCond, "a failed poll did not report the condition code");
+
+    // Once the bits are there the same poll succeeds and reports the pattern.
+    ctx.set_gpr(4, flag);
+    ctx.set_gpr(5, 0x0Fu);
+    call_hle(runtime, "ThreadManForUser", kSetEventFlag, ctx);
+
+    const std::uint32_t out = kIoScratch + 0x80u;
+    ctx.set_gpr(4, flag);
+    ctx.set_gpr(5, 0x0Fu);
+    ctx.set_gpr(6, 0u);
+    ctx.set_gpr(7, out);
+    call_hle(runtime, "ThreadManForUser", kPollEventFlag, ctx);
+    require(ctx.gpr[2] == 0u, "a poll that should match failed");
+    require((runtime.memory().load32(out) & 0x0Fu) == 0x0Fu, "the pattern was not reported");
+}
+
 void test_synthetic_disc() {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "defjam_synthetic_disc_test";
@@ -814,6 +1071,10 @@ int main() {
         test_ge_call_stack_survives_a_stall();
         test_ge_guards_its_limits();
         test_ge_signal_and_finish();
+        test_io_surface();
+        test_kernel_wait_timeout();
+        test_kernel_wait_satisfied();
+        test_event_flag_poll_code();
         test_synthetic_disc();
         test_frame_conversion();
         std::cout << "All defjam config tests passed.\n";
