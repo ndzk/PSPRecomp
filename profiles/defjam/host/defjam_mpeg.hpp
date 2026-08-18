@@ -73,6 +73,10 @@ public:
     // Data taken in but not yet handed out as access units. The ring buffer
     // still counts it as occupied, because the guest has not consumed it.
     [[nodiscard]] std::uint64_t queued_bytes() const;
+    // Bytes taken in but not yet parsed into access units. Once a packet has
+    // been demultiplexed its ring buffer slot is free; the access unit it
+    // became lives in an elementary stream buffer, not in the ring.
+    [[nodiscard]] std::uint64_t undemuxed_bytes() const;
 
 private:
     void emit_video();

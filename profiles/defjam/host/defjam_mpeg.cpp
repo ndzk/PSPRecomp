@@ -161,11 +161,18 @@ void write_access_unit(Runtime &rt, std::uint32_t au_pointer, const AccessUnit &
     rt.memory().store32(au_pointer + kAuDtsOffset, unit.has_timestamp ? unit.dts : kNoTimestamp);
 }
 
-// Free packets, derived from what the demultiplexer is still holding. Those
-// bytes arrived in ring buffer slots the guest has not consumed, so the slots
-// are not free yet; anything else has the two sides disagree about the same
-// number. Written into the structure as well as returned, because a title may
-// read the field directly instead of calling the query.
+// Free packets, derived from what the demultiplexer has not parsed yet.
+//
+// Only unparsed bytes still occupy the ring buffer. An access unit that has
+// been demultiplexed out of it lives in an elementary stream buffer and its
+// slot is free, so counting queued access units as occupancy deadlocks a title
+// that waits for the ring to drain before taking them: it will not take them
+// until there is room, and there is no room until it takes them. This title
+// does exactly that - it feeds the whole stream, then spins on
+// sceMpegRingbufferAvailableSize until it equals the packet count.
+//
+// Written into the structure as well as returned, because a title may read the
+// field directly instead of calling the query.
 MpegContext *context_for_ringbuffer(Runtime &rt, std::uint32_t ringbuffer) {
     if (ringbuffer == 0u || !rt.memory().contains(ringbuffer, kRingbufferSize)) return nullptr;
     const auto it = g_contexts.find(rt.memory().load32(ringbuffer + kRingbufferMpegOffset));
@@ -176,7 +183,7 @@ std::uint32_t store_ringbuffer_available(Runtime &rt, std::uint32_t ringbuffer,
                                          std::uint32_t packets) {
     MpegContext *context = context_for_ringbuffer(rt, ringbuffer);
     if (packets == 0u || context == nullptr) return packets;
-    const std::uint64_t held = context->demuxer.queued_bytes();
+    const std::uint64_t held = context->demuxer.undemuxed_bytes();
     const auto occupied = static_cast<std::uint32_t>(
         std::min<std::uint64_t>((held + kPacketSize - 1u) / kPacketSize, packets));
     const std::uint32_t free_packets = packets - occupied;
@@ -375,6 +382,10 @@ void ProgramStreamDemuxer::append(const std::uint8_t *data, std::size_t size) {
 void ProgramStreamDemuxer::flush() {
     emit_video();
     emit_audio();
+}
+
+std::uint64_t ProgramStreamDemuxer::undemuxed_bytes() const {
+    return pending_.size();
 }
 
 std::uint64_t ProgramStreamDemuxer::queued_bytes() const {
