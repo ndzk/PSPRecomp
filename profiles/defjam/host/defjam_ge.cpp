@@ -60,8 +60,15 @@ std::uint32_t g_index_address = 0u;
 
 // Matrix upload. Each pair is a number command that sets the write cursor and a
 // data command that streams elements from it.
-constexpr std::uint8_t kCmdBoneNumber = 0x38u;
-constexpr std::uint8_t kCmdBoneData = 0x39u;
+// Measured, not looked up. A run that reaches a fight issues 0x2B 95,697,769
+// times against 7,974,815 of 0x2A - exactly twelve data words per number, which
+// is one 4x3 bone matrix each. Nothing else in the stream has that shape, and
+// the pair this was originally written against, 0x38 and 0x39, never appears at
+// all: bones_seen stayed zero through 96 million weighted vertices, so every
+// skinned vertex fell back to the world matrix and every character stood in its
+// bind pose.
+constexpr std::uint8_t kCmdBoneNumber = 0x2Au;
+constexpr std::uint8_t kCmdBoneData = 0x2Bu;
 constexpr std::uint8_t kCmdWorldNumber = 0x3Au;
 constexpr std::uint8_t kCmdWorldData = 0x3Bu;
 constexpr std::uint8_t kCmdViewNumber = 0x3Cu;

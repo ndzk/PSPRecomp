@@ -437,7 +437,33 @@ bool transform_to_screen(std::vector<Vertex> &vertices, std::uint32_t width, std
 
     for (Vertex &vertex : vertices) {
         float sx{}, sy{}, sz{};
-        if (vertex.weight_count != 0u) ++g_stats.skinned;
+        if (vertex.weight_count != 0u) {
+            ++g_stats.skinned;
+            // Skinned positions come out in the tens of millions, which is not
+            // a pose but arithmetic gone wrong. Which of the three inputs is at
+            // fault - the weights, the bone matrices, or how many of them are
+            // live - is not decidable from the symptom, so the first one says
+            // what it was handed.
+            static bool described = false;
+            if (!described) {
+                described = true;
+                std::string text = "first skinned vertex: weights";
+                for (std::uint8_t i = 0; i < vertex.weight_count; ++i) {
+                    text += " " + std::to_string(vertex.weights[i]);
+                }
+                text += ", bones seen " + std::to_string(matrices.bones_seen);
+                runtime_log_line(text);
+                runtime_log_line("  model position " + std::to_string(vertex.x) + " " +
+                                 std::to_string(vertex.y) + " " + std::to_string(vertex.z));
+                for (std::uint8_t b = 0; b < matrices.bones_seen && b < 8u; ++b) {
+                    std::string row = "  bone " + std::to_string(b);
+                    for (std::uint32_t e = 0; e < 12u; ++e) {
+                        row += " " + std::to_string(matrices.bone[b][e]);
+                    }
+                    runtime_log_line(row);
+                }
+            }
+        }
         if (!to_screen(matrices, vertex, width, height, sx, sy, sz)) {
             ++g_stats.behind_eye;
             return false;   // drop the whole primitive rather than part of it
