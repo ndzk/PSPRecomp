@@ -272,8 +272,12 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     // opaque black over every menu entry on the match type screen: the title
     // draws them as transparent quads and relies on the test, not the blend, to
     // drop them. Only the partial alphas take the new path.
-    if (!blending && ((color >> 24u) & 0xFFu) == 0u) return;
-    target = (g_clearing || !blending) ? (color | 0xFF000000u) : blend_over(color, target);
+    // Not acted on yet. Honouring it needs the alpha test too - the hardware
+    // discards transparent texels there, not in the blend - and without that
+    // the change is half a rule. The register is identified and counted; the
+    // behaviour stays as it was until the other half exists.
+    (void)blending;
+    target = g_clearing ? (color | 0xFF000000u) : blend_over(color, target);
     ++g_stats.pixels_written;
 }
 
