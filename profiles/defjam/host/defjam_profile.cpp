@@ -480,21 +480,63 @@ bool g_stall_reported = false;
 
 void note_frame_flip() { g_last_flip = std::chrono::steady_clock::now(); }
 
-void check_progress(Runtime &rt, std::int32_t dispatch_thread_uid) {
-    const auto now = std::chrono::steady_clock::now();
-    const auto since = [&now](std::chrono::steady_clock::time_point point) {
-        return static_cast<std::uint64_t>(
-            std::chrono::duration_cast<std::chrono::seconds>(now - point).count());
-    };
+// Whether check_progress has anything to do.
+//
+// Both the setup that arms the watchdog and the dispatch hook that samples it
+// have to agree on this, and asking it in one place is what keeps them
+// agreeing. They did not: the hook tested only the stall and heartbeat
+// intervals, so arming the watchdog with a guest time budget alone logged that
+// it was armed and then never checked it, and the run sailed past its budget.
+// A frame dump interval on its own was dropped the same way.
+[[nodiscard]] bool watchdog_armed() {
+    return g_stall_seconds != 0u || g_heartbeat_seconds != 0u ||
+           g_stop_at_guest_us != 0u || g_frame_dump_interval_us != 0u;
+}
 
-    if (g_heartbeat_seconds != 0u && since(g_last_heartbeat) >= g_heartbeat_seconds) {
-        g_last_heartbeat = now;
-        runtime_log_line("heartbeat: guest " + std::to_string(g_virtual_time_us) + "us, " +
-                         std::to_string(g_hook_dispatches) + " dispatches, thread " +
-                         std::to_string(dispatch_thread_uid) + ", " +
-                         std::to_string(since(g_last_flip)) + "s since the last frame");
+// The two that measure wall time, and so have to be sampled: reading a clock on
+// every dispatch would cost more than the thing it watches for. The two that
+// measure guest time do not need sampling at all - see below.
+[[nodiscard]] bool wall_clock_watchdog_armed() {
+    return g_stall_seconds != 0u || g_heartbeat_seconds != 0u;
+}
+
+// Set when guest time has reached something that was waiting for it.
+bool g_guest_deadline_due = false;
+
+// Everything that moves guest time forward goes through the two helpers below.
+//
+// A budget stated in guest time should be noticed when guest time reaches it,
+// not whenever the dispatch sampler next happens to run. Sampling every 0x100000
+// dispatches works out at ninety to a hundred and twenty seconds of guest time
+// in this title, so a five second budget stopped the run at ninety seconds and a
+// frame every two seconds produced one every ninety. Testing the deadline where
+// the clock actually moves costs two integer compares and no clock read, and the
+// dispatch hook picks the flag up at the next instruction boundary.
+//
+// The work is deferred to that boundary rather than done here because these run
+// inside the scheduler and inside HLE handlers; stopping the run or reading the
+// framebuffer from there would reenter both.
+void note_guest_time_deadlines() {
+    if ((g_stop_at_guest_us != 0u && g_virtual_time_us >= g_stop_at_guest_us) ||
+        (g_frame_dump_interval_us != 0u && g_virtual_time_us >= g_next_frame_dump_us)) {
+        g_guest_deadline_due = true;
     }
+}
 
+void advance_virtual_time_to(std::uint64_t when) {
+    g_virtual_time_us = std::max(g_virtual_time_us, when);
+    note_guest_time_deadlines();
+}
+
+void advance_virtual_time_by(std::uint64_t delta) {
+    g_virtual_time_us += delta;
+    note_guest_time_deadlines();
+}
+
+// Acts on whatever guest time has reached. Called from the dispatch hook the
+// moment note_guest_time_deadlines raised its flag, so a budget stops the run at
+// the microsecond it was set for rather than at the next sample.
+void service_guest_deadlines(Runtime &rt) {
     if (g_stop_at_guest_us != 0u && g_virtual_time_us >= g_stop_at_guest_us) {
         rt.stop("the guest time budget of " + std::to_string(g_stop_at_guest_us) + "us ran out");
         return;
@@ -510,6 +552,22 @@ void check_progress(Runtime &rt, std::int32_t dispatch_thread_uid) {
         } else {
             runtime_log_line("frame not written: " + error);
         }
+    }
+}
+
+void check_progress(Runtime &rt, std::int32_t dispatch_thread_uid) {
+    const auto now = std::chrono::steady_clock::now();
+    const auto since = [&now](std::chrono::steady_clock::time_point point) {
+        return static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::seconds>(now - point).count());
+    };
+
+    if (g_heartbeat_seconds != 0u && since(g_last_heartbeat) >= g_heartbeat_seconds) {
+        g_last_heartbeat = now;
+        runtime_log_line("heartbeat: guest " + std::to_string(g_virtual_time_us) + "us, " +
+                         std::to_string(g_hook_dispatches) + " dispatches, thread " +
+                         std::to_string(dispatch_thread_uid) + ", " +
+                         std::to_string(since(g_last_flip)) + "s since the last frame");
     }
 
     if (g_stall_seconds == 0u || g_stall_reported || since(g_last_flip) < g_stall_seconds) return;
@@ -527,8 +585,11 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &, std::uint32_t dispatch_pc
                        std::int32_t dispatch_thread_uid) {
     // Reading a clock on every dispatch would cost more than the thing it is
     // watching for, so this samples.
-    if ((++g_hook_dispatches & 0xFFFFFu) == 0u &&
-        (g_stall_seconds != 0u || g_heartbeat_seconds != 0u)) {
+    if (g_guest_deadline_due) {
+        g_guest_deadline_due = false;
+        service_guest_deadlines(rt);
+    }
+    if ((++g_hook_dispatches & 0xFFFFFu) == 0u && wall_clock_watchdog_armed()) {
         check_progress(rt, dispatch_thread_uid);
     }
     if (!g_watches.empty()) check_watches(rt, dispatch_pc, dispatch_thread_uid);
@@ -725,7 +786,7 @@ bool activate_next_thread(Runtime &rt, AllegrexContext &ctx, const char *reason)
             }
         }
         if (!earliest) return false;
-        g_virtual_time_us = std::max(g_virtual_time_us, *earliest);
+        advance_virtual_time_to(*earliest);
         promote_expired_delays();
         next = best_ready_thread();
         if (next == -1) return false;
@@ -950,7 +1011,7 @@ void queue_ge_callbacks(const GeExecution &execution, std::int32_t callback_id) 
 // Runtime hooks
 // ---------------------------------------------------------------------------
 void starvation_tick(Runtime &rt, AllegrexContext &ctx) {
-    g_virtual_time_us += g_starvation_tick_us;
+    advance_virtual_time_by(g_starvation_tick_us);
     pump_vblank_clock();
     promote_expired_delays();
     ThreadRecord *running = current_thread();
@@ -1077,10 +1138,7 @@ void install_progress_watchdog() {
     g_stop_at_guest_us = number("PSPRECOMP_DEFJAM_STOP_AT_GUEST_US");
     g_frame_dump_interval_us = number("PSPRECOMP_DEFJAM_FRAME_EVERY_US");
     g_next_frame_dump_us = g_frame_dump_interval_us;
-    if (g_stall_seconds == 0u && g_heartbeat_seconds == 0u && g_stop_at_guest_us == 0u &&
-        g_frame_dump_interval_us == 0u) {
-        return;
-    }
+    if (!watchdog_armed()) return;
 
     const auto now = std::chrono::steady_clock::now();
     g_last_flip = now;
@@ -1198,6 +1256,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     g_async_frames.clear();
     g_next_kernel_uid = 0x1000;
     g_virtual_time_us = 0;
+    g_guest_deadline_due = false;
     g_vblanks = 0;
     g_sub_interrupts.clear();
     g_vblank_next_us = kVblankPeriodUs;
@@ -1777,7 +1836,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     runtime.register_hle("ThreadManForUser", 0x349D6D6Cu, [](Runtime &, AllegrexContext &ctx) {
         // Nothing currently notifies a callback, so there is never one pending.
         // Advance time so a poll loop cannot freeze the virtual clock.
-        g_virtual_time_us += 25u;
+        advance_virtual_time_by(25u);
         set_success(ctx);
     });
     runtime.register_hle("ThreadManForUser", 0x6652B8CAu, [](Runtime &, AllegrexContext &ctx) {
