@@ -83,6 +83,37 @@ void install_dispatch_trace();
 // PSPRECOMP_DEFJAM_HEARTBEAT_SECONDS; both off by default.
 void install_progress_watchdog();
 
+// What the watchdog was asked for, and the three questions the implementation
+// asks about it.
+//
+// These are free functions over an explicit settings value rather than reads of
+// the running configuration, so the answers can be held against each other
+// without a guest. That is the point: the watchdog is serviced by two separate
+// paths, one sampled against the wall clock and one checked where guest time
+// moves, and every setting that arms it has to be picked up by one of them.
+// When the arming condition and the sampled condition were written out
+// separately they drifted apart, and a run asked for a guest time budget alone
+// logged that the watchdog was armed and then never checked it.
+struct WatchdogSettings {
+    std::uint64_t stall_seconds{};
+    std::uint64_t heartbeat_seconds{};
+    std::uint64_t stop_at_guest_us{};
+    std::uint64_t frame_dump_interval_us{};
+};
+
+// Whether anything was asked for at all, and so whether the dispatch hook is
+// installed.
+[[nodiscard]] bool watchdog_armed(const WatchdogSettings &settings);
+
+// Whether the sampled path has work: the two intervals measured in wall time.
+[[nodiscard]] bool watchdog_needs_wall_clock_sampling(const WatchdogSettings &settings);
+
+// Whether guest time has reached something waiting for it. Checked wherever the
+// virtual clock moves, which costs two integer compares and no clock read.
+[[nodiscard]] bool watchdog_guest_deadline_due(const WatchdogSettings &settings,
+                                               std::uint64_t guest_time_us,
+                                               std::uint64_t next_frame_dump_us);
+
 void install_memory_watch();
 void dump_dispatch_trace(std::size_t limit = 64u);
 [[nodiscard]] bool dispatch_trace_enabled();

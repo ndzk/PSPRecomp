@@ -480,24 +480,13 @@ bool g_stall_reported = false;
 
 void note_frame_flip() { g_last_flip = std::chrono::steady_clock::now(); }
 
-// Whether check_progress has anything to do.
-//
-// Both the setup that arms the watchdog and the dispatch hook that samples it
-// have to agree on this, and asking it in one place is what keeps them
-// agreeing. They did not: the hook tested only the stall and heartbeat
-// intervals, so arming the watchdog with a guest time budget alone logged that
-// it was armed and then never checked it, and the run sailed past its budget.
-// A frame dump interval on its own was dropped the same way.
-[[nodiscard]] bool watchdog_armed() {
-    return g_stall_seconds != 0u || g_heartbeat_seconds != 0u ||
-           g_stop_at_guest_us != 0u || g_frame_dump_interval_us != 0u;
-}
-
-// The two that measure wall time, and so have to be sampled: reading a clock on
-// every dispatch would cost more than the thing it watches for. The two that
-// measure guest time do not need sampling at all - see below.
-[[nodiscard]] bool wall_clock_watchdog_armed() {
-    return g_stall_seconds != 0u || g_heartbeat_seconds != 0u;
+// The running configuration, as the value the decision functions take. Setup
+// and both servicing paths ask their questions of this one value, which is what
+// keeps them from drifting apart; see WatchdogSettings in the header for what
+// happened when they did.
+[[nodiscard]] WatchdogSettings current_watchdog_settings() {
+    return WatchdogSettings{g_stall_seconds, g_heartbeat_seconds, g_stop_at_guest_us,
+                            g_frame_dump_interval_us};
 }
 
 // Set when guest time has reached something that was waiting for it.
@@ -517,8 +506,8 @@ bool g_guest_deadline_due = false;
 // inside the scheduler and inside HLE handlers; stopping the run or reading the
 // framebuffer from there would reenter both.
 void note_guest_time_deadlines() {
-    if ((g_stop_at_guest_us != 0u && g_virtual_time_us >= g_stop_at_guest_us) ||
-        (g_frame_dump_interval_us != 0u && g_virtual_time_us >= g_next_frame_dump_us)) {
+    if (watchdog_guest_deadline_due(current_watchdog_settings(), g_virtual_time_us,
+                                    g_next_frame_dump_us)) {
         g_guest_deadline_due = true;
     }
 }
@@ -589,7 +578,8 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &, std::uint32_t dispatch_pc
         g_guest_deadline_due = false;
         service_guest_deadlines(rt);
     }
-    if ((++g_hook_dispatches & 0xFFFFFu) == 0u && wall_clock_watchdog_armed()) {
+    if ((++g_hook_dispatches & 0xFFFFFu) == 0u &&
+        watchdog_needs_wall_clock_sampling(current_watchdog_settings())) {
         check_progress(rt, dispatch_thread_uid);
     }
     if (!g_watches.empty()) check_watches(rt, dispatch_pc, dispatch_thread_uid);
@@ -1138,7 +1128,7 @@ void install_progress_watchdog() {
     g_stop_at_guest_us = number("PSPRECOMP_DEFJAM_STOP_AT_GUEST_US");
     g_frame_dump_interval_us = number("PSPRECOMP_DEFJAM_FRAME_EVERY_US");
     g_next_frame_dump_us = g_frame_dump_interval_us;
-    if (!watchdog_armed()) return;
+    if (!watchdog_armed(current_watchdog_settings())) return;
 
     const auto now = std::chrono::steady_clock::now();
     g_last_flip = now;
@@ -2644,6 +2634,21 @@ std::string thread_report() {
         out << " pc=" << psprecomp::hex32(thread.suspended.pc) << "\n";
     }
     return out.str();
+}
+
+bool watchdog_armed(const WatchdogSettings &settings) {
+    return watchdog_needs_wall_clock_sampling(settings) || settings.stop_at_guest_us != 0u ||
+           settings.frame_dump_interval_us != 0u;
+}
+
+bool watchdog_needs_wall_clock_sampling(const WatchdogSettings &settings) {
+    return settings.stall_seconds != 0u || settings.heartbeat_seconds != 0u;
+}
+
+bool watchdog_guest_deadline_due(const WatchdogSettings &settings, std::uint64_t guest_time_us,
+                                 std::uint64_t next_frame_dump_us) {
+    return (settings.stop_at_guest_us != 0u && guest_time_us >= settings.stop_at_guest_us) ||
+           (settings.frame_dump_interval_us != 0u && guest_time_us >= next_frame_dump_us);
 }
 
 } // namespace defjam

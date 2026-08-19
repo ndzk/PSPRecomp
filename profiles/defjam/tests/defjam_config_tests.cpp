@@ -2429,8 +2429,72 @@ void test_skinning() {
 
 } // namespace
 
+// The watchdog is serviced by two separate paths: the intervals measured in
+// wall time are sampled from the dispatch hook, and the ones measured in guest
+// time are checked where the virtual clock moves. Every setting that arms the
+// watchdog has to be picked up by one of them.
+//
+// It did not hold. The arming condition and the sampled condition were written
+// out separately and drifted apart, so asking for a guest time budget alone
+// armed the watchdog, logged that it was armed, and then checked nothing: the
+// run went past its budget and never stopped. A frame interval on its own was
+// dropped the same way. Nothing failed loudly, which is what let it ship.
+void test_every_watchdog_setting_is_serviced() {
+    using defjam::WatchdogSettings;
+    using defjam::watchdog_armed;
+    using defjam::watchdog_guest_deadline_due;
+    using defjam::watchdog_needs_wall_clock_sampling;
+
+    require(!watchdog_armed(WatchdogSettings{}), "nothing asked for must not arm the watchdog");
+
+    const WatchdogSettings stall{7u, 0u, 0u, 0u};
+    const WatchdogSettings heartbeat{0u, 7u, 0u, 0u};
+    const WatchdogSettings budget{0u, 0u, 5000000u, 0u};
+    const WatchdogSettings frames{0u, 0u, 0u, 1000000u};
+
+    require(watchdog_armed(stall) && watchdog_armed(heartbeat) && watchdog_armed(budget) &&
+                watchdog_armed(frames),
+            "each watchdog setting on its own must arm it");
+
+    require(watchdog_needs_wall_clock_sampling(stall), "a stall timeout is measured in wall time");
+    require(watchdog_needs_wall_clock_sampling(heartbeat), "a heartbeat is measured in wall time");
+    require(!watchdog_needs_wall_clock_sampling(budget),
+            "a guest time budget must not depend on the sampled path");
+    require(!watchdog_needs_wall_clock_sampling(frames),
+            "a guest time frame interval must not depend on the sampled path");
+
+    require(!watchdog_guest_deadline_due(budget, 4999999u, 0u), "a budget is not due before it");
+    require(watchdog_guest_deadline_due(budget, 5000000u, 0u),
+            "a budget is due the moment guest time reaches it");
+    require(watchdog_guest_deadline_due(budget, 9999999u, 0u), "a budget stays due past it");
+
+    require(!watchdog_guest_deadline_due(frames, 999999u, 1000000u),
+            "a frame is not due before its interval");
+    require(watchdog_guest_deadline_due(frames, 1000000u, 1000000u),
+            "a frame is due when guest time reaches the next one");
+
+    const std::uint64_t forever = ~static_cast<std::uint64_t>(0);
+    require(!watchdog_guest_deadline_due(stall, forever, forever),
+            "a stall timeout must not invent a guest time deadline");
+    require(!watchdog_guest_deadline_due(heartbeat, forever, forever),
+            "a heartbeat must not invent a guest time deadline");
+
+    // The invariant the two halves have to keep between them, over every
+    // combination rather than the four singles above.
+    for (std::uint64_t bits = 1u; bits < 16u; ++bits) {
+        const WatchdogSettings settings{(bits & 1u) ? 7u : 0u, (bits & 2u) ? 7u : 0u,
+                                        (bits & 4u) ? 5000000u : 0u,
+                                        (bits & 8u) ? 1000000u : 0u};
+        require(watchdog_armed(settings), "any non-empty combination must arm the watchdog");
+        require(watchdog_needs_wall_clock_sampling(settings) ||
+                    watchdog_guest_deadline_due(settings, forever, forever),
+                "a watchdog that arms must be serviced by one of the two paths");
+    }
+}
+
 int main() {
     try {
+        test_every_watchdog_setting_is_serviced();
         test_parses_the_shipped_manifest();
         test_ram_size_is_one_the_runtime_models();
         test_expected_hash_checking();
