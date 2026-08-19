@@ -145,6 +145,15 @@ byte-identical output, and re-running in place reports `rewritten units: 0`.
 There is no post-generation optimization step, so the checked-in files are
 exactly what the command above emits.
 
+The run also sweeps stale output from a previous generation, scoped to what this
+mode emits: `generated_unit_*.cpp` and `generated_registry.cpp`. The
+`generated_relocatable_*.cpp` units come from `psp_recomp --relocatable` and
+share this directory, so the sweep leaves them alone. A generator from before
+that scoping matched every `generated_*.cpp` and deleted all of them on each
+`--auto` run; nothing else refers to those files, so the build stayed green with
+the recompiled bank code simply gone. Regenerate with an older `psp_recomp` and
+you have to rebuild the bank units afterwards.
+
 Every instruction in this executable is lowered: the corpus contains no
 unsupported-instruction traps. The only `rt.unsupported` call in it is the
 one-per-unit guard against an invalid internal function entry.
