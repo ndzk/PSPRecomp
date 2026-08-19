@@ -596,9 +596,12 @@ void note_black_painter(const PixelTally &before, std::uint32_t color,
     if (clear_mode_active()) return;
     const std::uint64_t black = g_opaque_black.load(std::memory_order_relaxed) - before.opaque_black;
     const std::uint64_t written = g_pixels_kept - before.kept;
-    if (black < 800u || written == 0u || black * 5u < written * 4u) return;
+    // Anything that covers a visible area and comes out mostly very dark. The
+    // first pass asked for 80% pure opaque black and found nothing in a fight,
+    // which rules out that exact shape and not the rectangle the screen shows.
+    if (black < 600u || written == 0u || black * 2u < written) return;
     static int described = 0;
-    if (described >= 30) return;
+    if (described >= 400) return;
     ++described;
     runtime_log_line("black painter at " + std::to_string(x) + "," + std::to_string(y) + "  " +
                      std::to_string(black) + " opaque black of " + std::to_string(written) +
@@ -946,7 +949,14 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     if (g_discard_scan && !rejected && !g_clearing) {
         note_heat(ux, uy);
         note_source(ux, color);
-        if ((color & 0x00FFFFFFu) == 0u && ((color >> 24u) & 0xFFu) >= 128u) ++g_opaque_black;
+        // Very dark, not only exactly black: a rectangle that reads as black on
+        // screen need not be written with a colour of exactly zero.
+        const std::uint32_t red = (color >> 16u) & 0xFFu;
+        const std::uint32_t green = (color >> 8u) & 0xFFu;
+        const std::uint32_t blue = color & 0xFFu;
+        if (red <= 8u && green <= 8u && blue <= 8u && ((color >> 24u) & 0xFFu) >= 96u) {
+            ++g_opaque_black;
+        }
     }
     ++g_stats.pixels_written;
 }
