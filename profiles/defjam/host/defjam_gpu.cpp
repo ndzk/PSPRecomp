@@ -157,6 +157,9 @@ struct Backend {
     std::uint32_t srv_size{};
     std::uint32_t next_texture_slot{};
     std::map<std::uint64_t, CachedTexture> textures;
+    std::uint32_t last_texture_address{};
+    std::uint32_t last_clut_address{};
+    std::uint64_t last_texture_key{};
 
     std::map<std::uint64_t, TargetResources> targets;
     ComPtr<ID3D12Resource> target;
@@ -343,11 +346,63 @@ void submit() {
 // this to watch the memory, which this one has not been observed doing.
 bool ensure_texture(psprecomp::Runtime &runtime, const TextureState &texture,
                     std::uint32_t &slot) {
-    const std::uint64_t key = (static_cast<std::uint64_t>(texture.address) << 32u) ^
-                              (static_cast<std::uint64_t>(texture.clut_address) << 8u) ^
-                              (static_cast<std::uint64_t>(texture.width) << 20u) ^
-                              (static_cast<std::uint64_t>(texture.height) << 4u) ^
-                              static_cast<std::uint64_t>(texture.format);
+    // Keyed on what the texture is, not on where it lives.
+    //
+    // Keying on the address alone was wrong, and the comment that used to sit
+    // here said as much while assuming this title would not do it: it loads the
+    // next character's textures over the last one's memory, so a cache hit
+    // handed the new model the old model's skin. The software rasteriser never
+    // showed this because it decodes afresh on every draw.
+    //
+    // The bytes are sampled rather than read whole - a few hundred points
+    // spread across the image and the whole palette, which is small and is what
+    // a recoloured variant changes. Sampling can in principle miss an edit, and
+    // that is a trade against decoding megabytes on every bind; nothing seen so
+    // far slips through it.
+    // Almost every bind repeats the one before it - a run showed 981,857 binds
+    // of 16 textures - so the sampled hash is computed once per texture per
+    // frame and remembered. Costing it on every bind put five seconds on a
+    // forty second segment for an answer that had not changed.
+    if (texture.address == g_gpu.last_texture_address &&
+        texture.clut_address == g_gpu.last_clut_address) {
+        const auto quick = g_gpu.textures.find(g_gpu.last_texture_key);
+        if (quick != g_gpu.textures.end()) {
+            slot = quick->second.slot;
+            ++g_gpu.stats.texture_cache_hits;
+            return true;
+        }
+    }
+
+    std::uint64_t key = 0xcbf29ce484222325ull;
+    const auto mix = [&key](std::uint64_t value) {
+        key = (key ^ value) * 0x100000001b3ull;
+    };
+    mix(texture.address);
+    mix(texture.clut_address);
+    mix(texture.width);
+    mix(texture.height);
+    mix(static_cast<std::uint64_t>(texture.format));
+    mix(texture.stride);
+    mix(texture.swizzled ? 1u : 0u);
+
+    const std::uint32_t span = texture.stride * texture.height;
+    if (span != 0u && runtime.memory().contains(texture.address, span)) {
+        constexpr std::uint32_t kSamples = 256u;
+        const std::uint32_t step = std::max(4u, (span / kSamples) & ~3u);
+        for (std::uint32_t offset = 0u; offset + 4u <= span; offset += step) {
+            mix(runtime.memory().load32(texture.address + offset));
+        }
+    }
+    if (texture_format_is_paletted(texture.format) && texture.clut_address != 0u &&
+        runtime.memory().contains(texture.clut_address, 1024u)) {
+        for (std::uint32_t offset = 0u; offset < 1024u; offset += 16u) {
+            mix(runtime.memory().load32(texture.clut_address + offset));
+        }
+    }
+    g_gpu.last_texture_address = texture.address;
+    g_gpu.last_clut_address = texture.clut_address;
+    g_gpu.last_texture_key = key;
+
     const auto found = g_gpu.textures.find(key);
     if (found != g_gpu.textures.end()) {
         slot = found->second.slot;
@@ -935,6 +990,8 @@ void gpu_resolve(psprecomp::Runtime &runtime) {
         std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now() - copying)
             .count());
+    g_gpu.last_texture_address = 0u;
+    g_gpu.last_clut_address = 0u;
     ++g_gpu.stats.resolves;
 }
 
