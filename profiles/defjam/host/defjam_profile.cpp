@@ -545,6 +545,7 @@ void service_guest_deadlines(Runtime &rt) {
         std::string error;
         dump_named_buffer(rt, 0x04000000u, stem + "_A.bmp", error);
         dump_named_buffer(rt, 0x04090000u, stem + "_B.bmp", error);
+        dump_host_surface(stem + "_host.bmp", error);
         const std::string path = stem + ".bmp";
         if (dump_display(rt, path, error)) {
             ++g_frame_dumps_written;

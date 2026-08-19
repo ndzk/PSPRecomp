@@ -97,6 +97,9 @@ void raster_configure_side_split();
 // open. Exists so a headless run can be looked at.
 // Dumps a specific guest frame buffer, for comparing the one being drawn into
 // against the one on screen.
+// Dumps the host working copy directly, bypassing guest memory.
+[[nodiscard]] bool dump_host_surface(const std::string &path, std::string &error);
+
 [[nodiscard]] bool dump_named_buffer(psprecomp::Runtime &runtime, std::uint32_t address,
                                     const std::string &path, std::string &error);
 

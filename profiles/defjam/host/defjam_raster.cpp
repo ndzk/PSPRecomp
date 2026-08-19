@@ -305,7 +305,13 @@ std::uint64_t g_pixels_blacked = 0u;
 // and lost, or never written at all.
 constexpr std::uint32_t kHeatColumns = 12u;
 constexpr std::uint32_t kHeatRows = 6u;
-std::array<std::uint64_t, kHeatColumns * kHeatRows> g_heat{};
+// Atomic, because the rows of a primitive are filled on several threads.
+//
+// These were plain integers and a plain map, and the two disagreed by a factor
+// of 1.7 about the same frame, which made every number read off them arguable.
+// A race can only lose counts, never invent them, so the conclusion they
+// supported still stands - but it should not have needed that argument.
+std::array<std::atomic<std::uint64_t>, kHeatColumns * kHeatRows> g_heat{};
 
 // Which buffer the pixels of this frame are going into.
 //
@@ -313,10 +319,43 @@ std::array<std::uint64_t, kHeatColumns * kHeatRows> g_heat{};
 // the last clear and the buffer read out of guest memory is 90% zero there. The
 // writes are real and the read is real, so the only thing left is that they are
 // not talking about the same memory.
-std::map<std::uint32_t, std::uint64_t> g_frame_targets;
+std::atomic<std::uint64_t> g_heat_target_a{0};
+std::atomic<std::uint64_t> g_heat_target_b{0};
+
+// What the pixels written into the left half of the screen actually carry.
+//
+// They are written - 130,000 of them into 65,280 pixels of area, with the
+// working copy and both guest buffers agreeing that the result is 90% exactly
+// zero. A write with an alpha of one over a black background rounds to black:
+// counted, invisible. So either the alpha is nearly nothing or the texel is,
+// and these two histograms say which without another guess.
+std::array<std::atomic<std::uint64_t>, 9> g_left_alpha{};
+std::atomic<std::uint64_t> g_left_black_rgb{0};
+std::atomic<std::uint64_t> g_left_total{0};
+// Opaque black written anywhere, so a primitive can be judged by how much of it
+// it produced.
+std::atomic<std::uint64_t> g_opaque_black{0};
+
+void note_source(std::uint32_t x, std::uint32_t color) {
+    if (x >= kDisplayWidth / 2u) return;
+    ++g_left_total;
+    const std::uint32_t alpha = (color >> 24u) & 0xFFu;
+    std::size_t bucket = 0;
+    if (alpha >= 255u) bucket = 8;
+    else if (alpha >= 128u) bucket = 7;
+    else if (alpha >= 64u) bucket = 6;
+    else if (alpha >= 32u) bucket = 5;
+    else if (alpha >= 16u) bucket = 4;
+    else if (alpha >= 8u) bucket = 3;
+    else if (alpha >= 4u) bucket = 2;
+    else if (alpha >= 1u) bucket = 1;
+    ++g_left_alpha[bucket];
+    if ((color & 0x00FFFFFFu) == 0u) ++g_left_black_rgb;
+}
 
 void note_heat(std::uint32_t x, std::uint32_t y) {
-    ++g_frame_targets[g_surface_target.address];
+    if (g_surface_target.address == 0x04000000u) ++g_heat_target_a;
+    else ++g_heat_target_b;
     const std::uint32_t column = std::min(kHeatColumns - 1u, x * kHeatColumns / kDisplayWidth);
     const std::uint32_t row = std::min(kHeatRows - 1u, y * kHeatRows / kDisplayHeight);
     ++g_heat[row * kHeatColumns + column];
@@ -327,10 +366,12 @@ struct PixelTally {
     std::uint64_t dropped{};
     std::uint64_t white{};
     std::uint64_t blacked{};
+    std::uint64_t opaque_black{};
 };
 
 PixelTally begin_primitive() {
-    return PixelTally{g_pixels_kept, g_pixels_dropped, g_pixels_white, g_pixels_blacked};
+    return PixelTally{g_pixels_kept, g_pixels_dropped, g_pixels_white, g_pixels_blacked,
+                      g_opaque_black.load(std::memory_order_relaxed)};
 }
 
 // One primitive that filled a large area with pure white, described in full.
@@ -501,8 +542,12 @@ void note_clear_boundary() {
 }
 
 void reset_heat() {
-    g_heat.fill(0u);
-    g_frame_targets.clear();
+    for (auto &cell : g_heat) cell.store(0u);
+    g_heat_target_a.store(0u);
+    g_heat_target_b.store(0u);
+    for (auto &bucket : g_left_alpha) bucket.store(0u);
+    g_left_black_rgb.store(0u);
+    g_left_total.store(0u);
 }
 
 void note_census(const PixelTally &before, bool textured, float x, std::uint64_t covered) {
@@ -527,6 +572,43 @@ void note_census(const PixelTally &before, bool textured, float x, std::uint64_t
     (x < 240.0f ? g_left_pending : g_right_pending) += written;
     if (written != 0u) into.targets[g_surface_target.address] += written;
     if (textured) ++into.textured;
+}
+
+// A primitive that paints opaque black over the left half, described in full.
+//
+// The menu's left half takes 130,876 writes in a frame, 96.6% of them fully
+// opaque and 60% pure black, over an area of 65,280 pixels. It is not missing
+// its content: something is painting it out. The earlier blackout counter could
+// not see this because it asked for the pixel to have been non-black first, and
+// after the frame clear it never is - black over black registered as nothing at
+// all.
+void note_black_painter(const PixelTally &before, std::uint32_t color,
+                        const TextureState &texture, bool textured, float x, float y) {
+    if (!g_discard_scan) return;
+    static const std::uint64_t after = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_SCAN_AFTER_US");
+        return text == nullptr ? 60000000ull : std::strtoull(text, nullptr, 0);
+    }();
+    if (guest_time_us() < after) return;
+    if (x >= 240.0f || clear_mode_active()) return;
+    const std::uint64_t black = g_opaque_black.load(std::memory_order_relaxed) - before.opaque_black;
+    const std::uint64_t written = g_pixels_kept - before.kept;
+    if (black < 800u || written == 0u || black * 5u < written * 4u) return;
+    static int described = 0;
+    if (described >= 30) return;
+    ++described;
+    runtime_log_line("black painter at " + std::to_string(x) + "," + std::to_string(y) + "  " +
+                     std::to_string(black) + " opaque black of " + std::to_string(written) +
+                     " written  vertex colour " + psprecomp::hex32(color) + "  textured " +
+                     std::to_string(textured ? 1 : 0));
+    if (textured) {
+        runtime_log_line("  texture " + psprecomp::hex32(texture.address) + " " +
+                         std::to_string(texture.width) + "x" + std::to_string(texture.height) +
+                         " format " + std::to_string(static_cast<int>(texture.format)) + " clut " +
+                         psprecomp::hex32(texture.clut_address) + " swizzled " +
+                         std::to_string(texture.swizzled ? 1 : 0) + " stride " +
+                         std::to_string(texture.stride));
+    }
 }
 
 void note_blackout(const PixelTally &before, std::uint32_t color, const TextureState &texture,
@@ -671,8 +753,25 @@ std::uint32_t combine_texel(std::uint32_t texel, std::uint32_t vertex) {
         return text == nullptr || (text[0] != 0 && text[0] != 48);
     }();
     if (!enabled) return texel;
-    if (ge_registers()[kTextureFunctionCandidate] != kTextureFunctionModulate) return texel;
-    return modulate(texel, vertex);
+    if (ge_registers()[kTextureFunctionCandidate] == kTextureFunctionModulate) {
+        return modulate(texel, vertex);
+    }
+    // The other mode replaces the colour but keeps the vertex's alpha.
+    //
+    // Which register selected the texture function was decided by correlating it
+    // against "is the vertex colour white", and that test read only the RGB:
+    //
+    //     if ((vertex_color & 0x00FFFFFFu) == 0x00FFFFFFu) ++counts.first;
+    //
+    // 0x73FFFFFF passes it. The main menu darkens its left half with a 256x256
+    // paletted quad drawn at exactly that colour - white, alpha 0x73 - and
+    // dropping the whole vertex colour dropped the 0x73 with it, so a dimming
+    // overlay was painted as opaque black over the brick wall and seven of the
+    // eight tiles. The alpha survives the replace; only the colour does not.
+    const std::uint32_t texel_alpha = (texel >> 24u) & 0xFFu;
+    const std::uint32_t vertex_alpha = (vertex >> 24u) & 0xFFu;
+    const std::uint32_t alpha = (texel_alpha * vertex_alpha + 127u) / 255u;
+    return (alpha << 24u) | (texel & 0x00FFFFFFu);
 }
 
 void note_texture_function(std::uint32_t vertex_color) {
@@ -841,7 +940,11 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     }
     if (!rejected && !source_white && (target & 0x00FFFFFFu) == 0x00FFFFFFu) ++g_pixels_white;
     if (!rejected && (was & 0x00FFFFFFu) != 0u && (target & 0x00FFFFFFu) == 0u) ++g_pixels_blacked;
-    if (g_discard_scan && !rejected && !g_clearing) note_heat(ux, uy);
+    if (g_discard_scan && !rejected && !g_clearing) {
+        note_heat(ux, uy);
+        note_source(ux, color);
+        if ((color & 0x00FFFFFFu) == 0u && ((color >> 24u) & 0xFFu) >= 128u) ++g_opaque_black;
+    }
     ++g_stats.pixels_written;
 }
 
@@ -1035,6 +1138,8 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
                      (first.y + second.y) * 0.5f);
     note_blackout(tally, second.color, texture, textured, (first.x + second.x) * 0.5f,
                   (first.y + second.y) * 0.5f);
+    note_black_painter(tally, second.color, texture, textured, (first.x + second.x) * 0.5f,
+                       (first.y + second.y) * 0.5f);
     note_census(tally, textured, (first.x + second.x) * 0.5f,
                 static_cast<std::uint64_t>(std::max(0, x1 - x0)) *
                     static_cast<std::uint64_t>(std::max(0, y1 - y0)));
@@ -1133,6 +1238,7 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
     fill_rows(min_y, max_y, max_x - min_x + 1, band);
     note_white_block(tally, a.color, texture, textured, centre_x, centre_y);
     note_blackout(tally, a.color, texture, textured, centre_x, centre_y);
+    note_black_painter(tally, a.color, texture, textured, centre_x, centre_y);
     note_census(tally, textured, centre_x,
                 static_cast<std::uint64_t>(std::max(0, max_x - min_x + 1)) *
                     static_cast<std::uint64_t>(std::max(0, max_y - min_y + 1)));
@@ -1324,16 +1430,19 @@ std::string half_census_report() {
         }
         out << "\n";
     };
-    out << "  buffers written since the last clear:";
-    for (const auto &entry : g_frame_targets) {
-        out << "  " << psprecomp::hex32(entry.first) << " x" << entry.second;
-    }
+    out << "  buffers written since the last clear:  0x04000000 x" << g_heat_target_a.load()
+        << "  other x" << g_heat_target_b.load();
     out << "   displayed: " << psprecomp::hex32(displayed_framebuffer()) << "\n";
+    out << "  what the left half is written with: " << g_left_total.load() << " pixels, "
+        << g_left_black_rgb.load() << " of them black" + std::string("\n");
+    out << "    alpha 0 / 1-3 / 4-7 / 8-15 / 16-31 / 32-63 / 64-127 / 128-254 / 255:";
+    for (const auto &bucket : g_left_alpha) out << " " << bucket.load();
+    out << "\n";
     out << "  pixels written per screen cell since the last clear:\n";
     for (std::uint32_t row = 0; row < kHeatRows; ++row) {
         out << "   ";
         for (std::uint32_t column = 0; column < kHeatColumns; ++column) {
-            out << " " << g_heat[row * kHeatColumns + column];
+            out << " " << g_heat[row * kHeatColumns + column].load();
         }
         out << "\n";
     }
@@ -1588,6 +1697,67 @@ bool dump_named_buffer(psprecomp::Runtime &runtime, std::uint32_t address, const
     if (target.height == 0u) target.height = kDisplayHeight;
     if (target.width == 0u) target.width = kDisplayWidth;
     return write_target_bmp(runtime, target, path, error);
+}
+
+// Writes the host copy itself, without going through guest memory.
+//
+// The heat map says pixels land in the left half of the working copy and the
+// buffer read back out of guest memory says they are not there. One of those is
+// wrong and this says which: if the host copy holds the menu, the loss is in
+// pushing it back; if it is black too, the writes counted are going somewhere
+// this profile has not looked.
+bool dump_host_surface(const std::string &path, std::string &error) {
+    if (g_surface.empty() || !g_surface_target.valid()) {
+        error = "no host surface";
+        return false;
+    }
+    std::ofstream file(path, std::ios::binary);
+    if (!file) {
+        error = "could not open " + path;
+        return false;
+    }
+    const std::uint32_t width = g_surface_target.width;
+    const std::uint32_t height = g_surface_target.height;
+    const std::uint32_t image_bytes = width * height * 4u;
+    const auto put16 = [&file](std::uint16_t value) {
+        const std::uint8_t bytes[2] = {static_cast<std::uint8_t>(value),
+                                       static_cast<std::uint8_t>(value >> 8u)};
+        file.write(reinterpret_cast<const char *>(bytes), 2);
+    };
+    const auto put32 = [&file](std::uint32_t value) {
+        const std::uint8_t bytes[4] = {
+            static_cast<std::uint8_t>(value), static_cast<std::uint8_t>(value >> 8u),
+            static_cast<std::uint8_t>(value >> 16u), static_cast<std::uint8_t>(value >> 24u)};
+        file.write(reinterpret_cast<const char *>(bytes), 4);
+    };
+    file.write("BM", 2);
+    put32(54u + image_bytes);
+    put32(0u);
+    put32(54u);
+    put32(40u);
+    put32(width);
+    put32(height);
+    put16(1u);
+    put16(32u);
+    put32(0u);
+    put32(image_bytes);
+    put32(2835u);
+    put32(2835u);
+    put32(0u);
+    put32(0u);
+    for (std::uint32_t y = 0; y < height; ++y) {
+        const std::uint32_t row = height - 1u - y;
+        for (std::uint32_t x = 0; x < width; ++x) {
+            const std::uint32_t texel = g_surface[static_cast<std::size_t>(row) *
+                                                      g_surface_target.stride + x];
+            const std::uint8_t out[4] = {static_cast<std::uint8_t>((texel >> 16u) & 0xFFu),
+                                         static_cast<std::uint8_t>((texel >> 8u) & 0xFFu),
+                                         static_cast<std::uint8_t>(texel & 0xFFu),
+                                         static_cast<std::uint8_t>((texel >> 24u) & 0xFFu)};
+            file.write(reinterpret_cast<const char *>(out), 4);
+        }
+    }
+    return static_cast<bool>(file);
 }
 
 bool dump_display(psprecomp::Runtime &runtime, const std::string &path, std::string &error) {
