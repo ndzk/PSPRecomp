@@ -189,6 +189,57 @@ struct BlendCorrelation {
     std::uint64_t off_partial{};
     std::uint64_t off_opaque{};
 };
+// Which register selects how a texel combines with the vertex colour.
+//
+// This rasteriser returns the texel and drops the vertex colour, which is one
+// of the four things the hardware can be told to do and not the usual one. The
+// choice only shows when the vertex colour is not white, so the register that
+// selects it should hold different values for the draws that carry colour than
+// for the ones that do not.
+//
+// 0xC4 is the untried register the title writes per draw, holding 0, 2 and 32
+// across 10,134 writes. Everything else in that block is already accounted for:
+// 0xB8 size, 0xC2 mode, 0xC3 format, 0xC5 palette format.
+constexpr std::uint8_t kTextureFunctionCandidate = 0xC4u;
+
+std::map<std::uint32_t, std::pair<std::uint64_t, std::uint64_t>> g_texture_function;
+
+// Texel times vertex colour, per channel.
+//
+// Which of the hardware's texture functions is in force was decided by
+// correlation. 0xC4 holds 32 for 16,472 draws and every one of them carries a
+// white vertex colour - a mode that used the colour would not need the title to
+// always send white - and holds 2 for draws that are 82% coloured. So 2 is the
+// mode that multiplies and 32 the one that replaces, which is what this
+// rasteriser did for both.
+constexpr std::uint32_t kTextureFunctionModulate = 2u;
+
+std::uint32_t modulate(std::uint32_t texel, std::uint32_t vertex) {
+    const auto mix = [](std::uint32_t a, std::uint32_t b) { return (a * b + 127u) / 255u; };
+    return (mix((texel >> 24u) & 0xFFu, (vertex >> 24u) & 0xFFu) << 24u) |
+           (mix((texel >> 16u) & 0xFFu, (vertex >> 16u) & 0xFFu) << 16u) |
+           (mix((texel >> 8u) & 0xFFu, (vertex >> 8u) & 0xFFu) << 8u) |
+           mix(texel & 0xFFu, vertex & 0xFFu);
+}
+
+std::uint32_t combine_texel(std::uint32_t texel, std::uint32_t vertex) {
+    // Not switched on. The register is identified and the multiply is written,
+    // but turning it on moves 6% of a frame the user confirmed looked right and
+    // fixes nothing visible: the menu it was meant to explain - a lit brick wall
+    // and seven of eight tiles, all absent - looked identical with it. Evidence
+    // for the mechanism is not evidence for the result, so it waits for a case
+    // that can show it is better.
+    (void)vertex;
+    return texel;
+}
+
+void note_texture_function(std::uint32_t vertex_color) {
+    const std::uint32_t value = ge_registers()[kTextureFunctionCandidate];
+    auto &counts = g_texture_function[value];
+    if ((vertex_color & 0x00FFFFFFu) == 0x00FFFFFFu) ++counts.first;
+    else ++counts.second;
+}
+
 BlendCorrelation g_candidate_a;
 BlendCorrelation g_candidate_b;
 
@@ -458,6 +509,7 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
     const float span_x = std::max(1.0f, second.x - first.x);
     const float span_y = std::max(1.0f, second.y - first.y);
 
+    if (textured) note_texture_function(second.color);
     const auto band = [&](std::int32_t from, std::int32_t to) {
     for (std::int32_t y = from; y <= to; ++y) {
         for (std::int32_t x = x0; x < x1; ++x) {
@@ -465,8 +517,10 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
             if (textured) {
                 const float t = (static_cast<float>(x) - first.x) / span_x;
                 const float s = (static_cast<float>(y) - first.y) / span_y;
-                color = sample(texels, texture, first.u + t * (second.u - first.u),
-                               first.v + s * (second.v - first.v), uv_in_texels);
+                color = combine_texel(
+                    sample(texels, texture, first.u + t * (second.u - first.u),
+                           first.v + s * (second.v - first.v), uv_in_texels),
+                    second.color);
             }
             put_pixel(x, y, color, second.z);
         }
@@ -488,6 +542,7 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
     if (area == 0.0f) return;   // degenerate, nothing to fill
     const float inverse = 1.0f / area;
 
+    if (textured) note_texture_function(a.color);
     const auto band = [&](std::int32_t from, std::int32_t to) {
     for (std::int32_t y = from; y <= to; ++y) {
         for (std::int32_t x = min_x; x <= max_x; ++x) {
@@ -506,8 +561,24 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
             const float ba = w1 / total, bb = w2 / total, bc = w0 / total;
             std::uint32_t color = a.color;
             if (textured) {
-                color = sample(texels, texture, a.u * ba + b.u * bb + c.u * bc,
-                               a.v * ba + b.v * bb + c.v * bc, uv_in_texels);
+                // The vertex colour is interpolated across the triangle the same
+                // way the texture coordinates are.
+                const auto channel = [&](std::uint32_t shift) {
+                    return static_cast<float>((a.color >> shift) & 0xFFu) * ba +
+                           static_cast<float>((b.color >> shift) & 0xFFu) * bb +
+                           static_cast<float>((c.color >> shift) & 0xFFu) * bc;
+                };
+                std::uint32_t vertex = 0u;
+                for (std::uint32_t shift = 0u; shift < 32u; shift += 8u) {
+                    float value = channel(shift);
+                    if (value < 0.0f) value = 0.0f;
+                    if (value > 255.0f) value = 255.0f;
+                    vertex |= static_cast<std::uint32_t>(value + 0.5f) << shift;
+                }
+                color = combine_texel(
+                    sample(texels, texture, a.u * ba + b.u * bb + c.u * bc,
+                           a.v * ba + b.v * bb + c.v * bc, uv_in_texels),
+                    vertex);
             }
             put_pixel(x, y, color, a.z * ba + b.z * bb + c.z * bc);
         }
@@ -686,6 +757,21 @@ void raster_reset() {
 }
 
 RasterStats raster_stats() { return g_stats; }
+
+std::string texture_function_report() {
+    if (g_texture_function.empty()) return {};
+    std::ostringstream out;
+    out << "  texture function candidate 0xC4, by vertex colour:\n";
+    for (const auto &entry : g_texture_function) {
+        const std::uint64_t white = entry.second.first;
+        const std::uint64_t coloured = entry.second.second;
+        const std::uint64_t total = white + coloured;
+        out << "    value " << entry.first << "   white " << white << "   coloured " << coloured;
+        if (total != 0u) out << "   (" << (100u * coloured / total) << "% coloured)";
+        out << "\n";
+    }
+    return out.str();
+}
 
 std::string blend_correlation_report() {
     std::ostringstream out;

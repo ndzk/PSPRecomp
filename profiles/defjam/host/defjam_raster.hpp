@@ -71,6 +71,9 @@ void raster_reset();
 // Correlates candidate enable registers against the alpha of what is drawn.
 [[nodiscard]] std::string blend_correlation_report();
 
+// Correlates the candidate texture-function register against vertex colour.
+[[nodiscard]] std::string texture_function_report();
+
 [[nodiscard]] std::string raster_report();
 
 // Writes the frame buffer the display is pointed at to a BMP file. Returns
