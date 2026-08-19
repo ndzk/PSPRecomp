@@ -851,14 +851,27 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
             const float total = w0 + w1 + w2;
             if (total == 0.0f) continue;
             const float ba = w1 / total, bb = w2 / total, bc = w0 / total;
+            // Perspective correction. The three barycentric weights are scaled
+            // by each vertex's 1/w and renormalised, which turns a weighting
+            // that is linear in screen space into one that is linear in the
+            // space the vertices came from. A screen-space draw carries 1/w of
+            // one at every vertex and comes through this unchanged.
+            float pa = ba, pb = bb, pc = bc;
+            const float inv_w = a.inv_w * ba + b.inv_w * bb + c.inv_w * bc;
+            if (inv_w > 0.0f) {
+                const float scale = 1.0f / inv_w;
+                pa = ba * a.inv_w * scale;
+                pb = bb * b.inv_w * scale;
+                pc = bc * c.inv_w * scale;
+            }
             std::uint32_t color = a.color;
             if (textured) {
                 // The vertex colour is interpolated across the triangle the same
                 // way the texture coordinates are.
                 const auto channel = [&](std::uint32_t shift) {
-                    return static_cast<float>((a.color >> shift) & 0xFFu) * ba +
-                           static_cast<float>((b.color >> shift) & 0xFFu) * bb +
-                           static_cast<float>((c.color >> shift) & 0xFFu) * bc;
+                    return static_cast<float>((a.color >> shift) & 0xFFu) * pa +
+                           static_cast<float>((b.color >> shift) & 0xFFu) * pb +
+                           static_cast<float>((c.color >> shift) & 0xFFu) * pc;
                 };
                 std::uint32_t vertex = 0u;
                 for (std::uint32_t shift = 0u; shift < 32u; shift += 8u) {
@@ -868,10 +881,12 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
                     vertex |= static_cast<std::uint32_t>(value + 0.5f) << shift;
                 }
                 color = combine_texel(
-                    sample(texels, texture, a.u * ba + b.u * bb + c.u * bc,
-                           a.v * ba + b.v * bb + c.v * bc, uv_in_texels),
+                    sample(texels, texture, a.u * pa + b.u * pb + c.u * pc,
+                           a.v * pa + b.v * pb + c.v * pc, uv_in_texels),
                     vertex);
             }
+            // Depth stays linear in screen space: that is what a depth buffer
+            // stores, and it is already the divided value.
             put_pixel(x, y, color, a.z * ba + b.z * bb + c.z * bc);
         }
     }

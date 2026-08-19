@@ -54,7 +54,8 @@ using Microsoft::WRL::ComPtr;
 // through the transform, so the only work left is the mapping onto the clip
 // cube and, for a textured draw, the sample.
 constexpr char kShaderSource[] = R"(
-cbuffer Frame : register(b0) { float2 target_size; uint textured; uint unused; };
+cbuffer Frame : register(b0) { float2 target_size; uint textured; uint modulate;
+                               float2 texture_size; };
 
 struct VSIn {
     float3 position : POSITION;
@@ -69,6 +70,15 @@ struct VSOut {
 
 VSOut vs_main(VSIn input) {
     VSOut output;
+    // No half-pixel offset here, and it is not an oversight.
+    //
+    // The reference rasteriser evaluates attributes at the pixel corner and a
+    // card evaluates them at the centre, so shifting the geometry half a pixel
+    // looks like the obvious way to make the two agree. Measured, it takes the
+    // disagreement from 1,266 pixels to 82,446 - sixty-five times worse. The
+    // vertices already arrive in the convention this backend wants; the residue
+    // is texture interpolation, which the card does with perspective correction
+    // and the reference does affinely.
     output.position = float4(input.position.x / target_size.x * 2.0f - 1.0f,
                              1.0f - input.position.y / target_size.y * 2.0f,
                              saturate(input.position.z / 65535.0f), 1.0f);
@@ -81,8 +91,28 @@ Texture2D source : register(t0);
 SamplerState point_sampler : register(s0);
 
 float4 ps_main(VSOut input) : SV_Target {
-    if (textured != 0u) return source.Sample(point_sampler, input.uv);
-    return input.color;
+    if (textured == 0u) return input.color;
+    // The texel index is computed the way the reference computes it, rather
+    // than handed to a sampler and hoped to agree.
+    //
+    // This did not fix anything measurable. It was written to explain 1,266
+    // pixels where the two backends disagree, on the theory that normalising by
+    // the texture size and letting the sampler multiply it back drifts across a
+    // texel boundary; the count came back at 1,266, unchanged to the pixel. It
+    // stays because agreeing by construction is worth more than agreeing by
+    // luck, not because it closed the gap. The gap is still open, and the
+    // remaining suspect is the sprite path, which walks its span with a
+    // parameter of its own rather than interpolating across two triangles.
+    int2 size = int2(texture_size);
+    // Truncate toward zero, then bring a negative back into range, which is
+    // what the reference does. The doubled modulo keeps it branchless and
+    // avoids select(), which needs a shader model this does not compile as.
+    int2 index = ((int2(input.uv) % size) + size) % size;
+    float4 texel = source.Load(int3(index, 0));
+    // Same rule the software rasteriser applies: the texture function register
+    // decides whether the vertex colour tints the texel or is thrown away.
+    if (modulate != 0u) texel *= input.color;
+    return texel;
 }
 )";
 
@@ -94,17 +124,32 @@ struct GpuVertex {
 
 // What a primitive needs the pipeline to be. Small on purpose: two states that
 // change the pipeline and one that changes the descriptor.
+// How a pixel joins what is already in the target.
+//
+// The software rasteriser reads the guest's blend enable and its one non-zero
+// blend function and does three different things; this backend used to do one,
+// mixing every pixel source-over whether the title asked for it or not. That is
+// the behaviour that painted the main menu's left half black, so leaving it here
+// would mean the two paths disagree about the picture, and the software one is
+// the reference.
+enum class BlendMode : std::uint8_t {
+    Write,      // a clear, or anything else that overwrites
+    SourceOver, // the guest's blend enable is off
+    Additive,   // enable on, function 0x0101: destination plus source times alpha
+};
+
 struct PipelineKey {
     bool textured{};
-    bool blend{};
+    bool modulate{};
+    BlendMode blend{BlendMode::Write};
     bool depth_test{};
     bool depth_write{};
     std::uint8_t compare{};
 
     [[nodiscard]] bool operator<(const PipelineKey &other) const {
-        return std::tie(textured, blend, depth_test, depth_write, compare) <
-               std::tie(other.textured, other.blend, other.depth_test, other.depth_write,
-                        other.compare);
+        return std::tie(textured, modulate, blend, depth_test, depth_write, compare) <
+               std::tie(other.textured, other.modulate, other.blend, other.depth_test,
+                        other.depth_write, other.compare);
     }
 };
 
@@ -178,6 +223,10 @@ struct Backend {
     PipelineKey batch_key{};
     std::uint32_t batch_start{};
     std::uint32_t batch_texture_slot{};
+    // The size of the texture the open batch samples, so the shader can index
+    // it in texels the way the reference rasteriser does.
+    std::uint32_t batch_texture_width{1u};
+    std::uint32_t batch_texture_height{1u};
     bool batch_open{};
 
     GpuStats stats;
@@ -231,9 +280,9 @@ ID3D12PipelineState *pipeline_for(const PipelineKey &key) {
     blend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     // Source over destination, which is what the software path does. Clear mode
     // writes straight through, and arrives here with blending off.
-    blend.BlendEnable = key.blend ? TRUE : FALSE;
+    blend.BlendEnable = key.blend == BlendMode::Write ? FALSE : TRUE;
     blend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-    blend.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+    blend.DestBlend = key.blend == BlendMode::Additive ? D3D12_BLEND_ONE : D3D12_BLEND_INV_SRC_ALPHA;
     blend.BlendOp = D3D12_BLEND_OP_ADD;
     blend.SrcBlendAlpha = D3D12_BLEND_ONE;
     blend.DestBlendAlpha = D3D12_BLEND_ZERO;
@@ -318,6 +367,11 @@ void flush_batch() {
         g_gpu.list->SetGraphicsRoot32BitConstants(0, 2, constants, 0);
         const std::uint32_t textured = g_gpu.batch_key.textured ? 1u : 0u;
         g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &textured, 2);
+        const std::uint32_t modulate = g_gpu.batch_key.modulate ? 1u : 0u;
+        g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &modulate, 3);
+        const float size[2] = {static_cast<float>(g_gpu.batch_texture_width),
+                               static_cast<float>(g_gpu.batch_texture_height)};
+        g_gpu.list->SetGraphicsRoot32BitConstants(0, 2, size, 4);
         if (g_gpu.batch_key.textured) {
             D3D12_GPU_DESCRIPTOR_HANDLE srv = g_gpu.srv_heap->GetGPUDescriptorHandleForHeapStart();
             srv.ptr += static_cast<UINT64>(g_gpu.batch_texture_slot) * g_gpu.srv_size;
@@ -525,16 +579,21 @@ void append(const Vertex &vertex, float u, float v, std::uint32_t color, float d
 }
 
 // Normalised texture coordinates, from whichever convention the draw states.
+// Texture coordinates in texels, which is the unit the shader now fetches in
+// and the unit the reference rasteriser has always worked in.
 void texture_coordinates(const Vertex &vertex, const TextureState &texture, bool uv_in_texels,
                          float &u, float &v) {
     u = vertex.u;
     v = vertex.v;
-    if (!uv_in_texels || texture.width == 0u || texture.height == 0u) return;
-    u /= static_cast<float>(texture.width);
-    v /= static_cast<float>(texture.height);
+    if (uv_in_texels) return;
+    // A transformed draw carries normalised coordinates; they only become
+    // texels once scaled by the texture size.
+    u *= static_cast<float>(texture.width);
+    v *= static_cast<float>(texture.height);
 }
 
-void begin_batch(const PipelineKey &key, std::uint32_t texture_slot) {
+void begin_batch(const PipelineKey &key, std::uint32_t texture_slot, std::uint32_t texture_width,
+                 std::uint32_t texture_height) {
     if (g_gpu.batch_open && key < g_gpu.batch_key) {
         // ordered comparison both ways is how a map key says "different"
     }
@@ -544,6 +603,8 @@ void begin_batch(const PipelineKey &key, std::uint32_t texture_slot) {
     flush_batch();
     g_gpu.batch_key = key;
     g_gpu.batch_texture_slot = texture_slot;
+    g_gpu.batch_texture_width = texture_width != 0u ? texture_width : 1u;
+    g_gpu.batch_texture_height = texture_height != 0u ? texture_height : 1u;
     g_gpu.batch_start = g_gpu.vertex_count;
     g_gpu.batch_open = true;
 }
@@ -647,7 +708,7 @@ bool gpu_initialize(std::string &error) {
     range.NumDescriptors = 1;
     D3D12_ROOT_PARAMETER parameters[2]{};
     parameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-    parameters[0].Constants.Num32BitValues = 4;
+    parameters[0].Constants.Num32BitValues = 6;
     parameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     parameters[1].DescriptorTable.NumDescriptorRanges = 1;
@@ -854,13 +915,26 @@ bool gpu_draw(psprecomp::Runtime &runtime, std::uint32_t primitive,
     const std::array<std::uint32_t, 256> &registers = ge_registers();
     PipelineKey key;
     key.textured = textured;
-    // Same register the software path reads, so the two agree about when a
-    // pixel is mixed with what lies under it.
-    key.blend = !clearing;
+    // The same registers the software path reads, so the two agree about how a
+    // pixel joins the target rather than only about when.
+    constexpr std::uint8_t kBlendEnable = 0x1Du;
+    constexpr std::uint8_t kBlendFunction = 0xC6u;
+    constexpr std::uint32_t kAdditive = 0x0101u;
+    constexpr std::uint8_t kTextureFunction = 0xC4u;
+    constexpr std::uint32_t kModulate = 2u;
+    if (clearing) {
+        key.blend = BlendMode::Write;
+    } else if ((registers[kBlendEnable] & 1u) != 0u &&
+               (registers[kBlendFunction] & 0x00FFFFFFu) == kAdditive) {
+        key.blend = BlendMode::Additive;
+    } else {
+        key.blend = BlendMode::SourceOver;
+    }
+    key.modulate = textured && registers[kTextureFunction] == kModulate;
     key.depth_test = !clearing && (registers[0x23u] & 1u) != 0u;
     key.depth_write = (registers[0xE7u] & 1u) == 0u;
     key.compare = static_cast<std::uint8_t>(registers[0xDEu] & 7u);
-    begin_batch(key, slot);
+    begin_batch(key, slot, texture.width, texture.height);
 
     const auto emit = [&](const Vertex &vertex, std::uint32_t color, float depth) {
         float u{}, v{};

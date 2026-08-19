@@ -623,6 +623,7 @@ Vertex to_screen_from_clip(const ClipVertex &clip) {
     out.x = ndc_x * viewport.x_scale + viewport.x_center - viewport.x_offset;
     out.y = ndc_y * viewport.y_scale + viewport.y_center - viewport.y_offset;
     out.z = ndc_z * viewport.z_scale + viewport.z_center;
+    out.inv_w = inverse;
     out.u = clip.u;
     out.v = clip.v;
     out.color = clip.color;

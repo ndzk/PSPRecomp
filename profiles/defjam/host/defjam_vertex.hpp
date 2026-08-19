@@ -60,6 +60,18 @@ struct VertexFormat {
 struct Vertex {
     float x{}, y{}, z{};
     float u{}, v{};
+    // The reciprocal of the clip-space w this vertex was projected by, kept so
+    // the rasteriser can correct for perspective.
+    //
+    // Interpolating texture coordinates straight across a triangle in screen
+    // space is only right when the triangle is parallel to the screen. On one
+    // that recedes, the far half is stretched and the near half compressed, and
+    // the error grows with the angle - the warping familiar from hardware that
+    // could not afford the divide. Carrying 1/w makes the correct interpolation
+    // possible: weight u/w and v/w, weight 1/w alongside them, divide at the
+    // end. It stays 1 for a vertex that arrives already in screen space, which
+    // leaves every 2D overlay exactly as it was.
+    float inv_w{1.0f};
     std::uint32_t color{0xFFFFFFFFu};   // ABGR8888
     bool has_uv{};
     bool has_color{};
