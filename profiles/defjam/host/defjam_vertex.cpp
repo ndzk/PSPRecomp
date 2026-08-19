@@ -405,6 +405,36 @@ bool transform_to_screen(std::vector<Vertex> &vertices, std::uint32_t width, std
     const GeMatrices &matrices = ge_matrices();
     if (!matrices.projection_seen) return false;   // nothing to transform with
 
+    // Every transformed vertex in a run lands at depth 65535, which is what
+    // cz == -cw gives for all of them. Whether that is a defect in this pipeline
+    // or the matrices the title actually sets is not something to reason about
+    // from the symptom, so the first transform reports what it was handed.
+    static bool described = false;
+    if (!described) {
+        described = true;
+        const auto row = [](const char *label, const float *m, std::uint32_t count) {
+            std::string text = label;
+            for (std::uint32_t i = 0; i < count; ++i) {
+                text += " " + std::to_string(m[i]);
+            }
+            runtime_log_line(text);
+        };
+        runtime_log_line("first transformed draw, matrices as captured:");
+        if (matrices.world_seen) row("  world     ", matrices.world, 12u);
+        if (matrices.view_seen) row("  view      ", matrices.view, 12u);
+        row("  projection", matrices.projection, 16u);
+        const Viewport viewport = current_viewport();
+        runtime_log_line("  viewport   scale " + std::to_string(viewport.x_scale) + " " +
+                         std::to_string(viewport.y_scale) + " " + std::to_string(viewport.z_scale) +
+                         "  centre " + std::to_string(viewport.x_center) + " " +
+                         std::to_string(viewport.y_center) + " " +
+                         std::to_string(viewport.z_center));
+        if (!vertices.empty()) {
+            runtime_log_line("  first vertex " + std::to_string(vertices[0].x) + " " +
+                             std::to_string(vertices[0].y) + " " + std::to_string(vertices[0].z));
+        }
+    }
+
     for (Vertex &vertex : vertices) {
         float sx{}, sy{}, sz{};
         if (vertex.weight_count != 0u) ++g_stats.skinned;

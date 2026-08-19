@@ -21,6 +21,7 @@ set(DEFJAM_HOST_SOURCES
     host/defjam_decoder_ffmpeg.cpp
     host/defjam_disc.cpp
     host/defjam_ge.cpp
+    host/defjam_gpu.cpp
     host/defjam_io.cpp
     host/defjam_mpeg.cpp
     host/defjam_net.cpp

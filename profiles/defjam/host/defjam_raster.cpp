@@ -1,6 +1,7 @@
 #include "defjam_raster.hpp"
 
 #include "defjam_ge.hpp"
+#include "defjam_gpu.hpp"
 #include "defjam_profile.hpp"
 #include "psprecomp/common.hpp"
 
@@ -8,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 
 namespace defjam {
@@ -262,6 +264,13 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
 } // namespace
 
 void flush_surface(psprecomp::Runtime &runtime) {
+    // With the card drawing, the frame lives in its render target and comes
+    // back from there. The host surface is not written at all in that case, so
+    // pushing it would overwrite the frame with a blank one.
+    if (gpu_enabled()) {
+        gpu_resolve(runtime);
+        return;
+    }
     if (g_surface.empty() || !g_surface_target.valid()) return;
     const std::uint32_t bytes = g_surface_target.stride * g_surface_target.height * 4u;
     if (!runtime.memory().contains(g_surface_target.address, bytes)) return;
@@ -307,6 +316,32 @@ bool rasterise(psprecomp::Runtime &runtime, std::uint32_t primitive,
     if (raster_disabled()) {
         ++g_stats.primitives_skipped;
         return false;
+    }
+
+    if (gpu_enabled()) {
+        // Asking for the card and quietly getting the CPU would make a
+        // comparison between the two meaningless, so a device that will not
+        // start says so once and the report repeats it.
+        static const bool ready = [] {
+            std::string error;
+            if (gpu_initialize(error)) return true;
+            std::cerr << "the graphics backend did not start, drawing on the CPU: " << error
+                      << "\n";
+            return false;
+        }();
+        if (ready) {
+            const RenderTarget target = current_render_target();
+            if (!target.valid()) {
+                ++g_stats.no_target;
+                return false;
+            }
+            gpu_set_target(target.address, target.stride, target.width, target.height);
+            const bool drawn = gpu_draw(runtime, primitive, vertices, format, texture,
+                                        clear_mode_active());
+            if (drawn) ++g_stats.primitives_drawn;
+            else ++g_stats.primitives_skipped;
+            return drawn;
+        }
     }
     // Only screen-space draws. A transformed one needs the matrix pipeline,
     // and drawing it with its raw coordinates would put geometry in the wrong
