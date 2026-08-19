@@ -284,14 +284,53 @@ bool g_discard_scan = false;
 
 std::uint64_t g_pixels_white = 0u;
 
+// Pixels that held something and were turned black.
+//
+// The main menu renders its wall and seven of its eight tiles into nothing, and
+// the search for what does it kept looking at the wrong candidate: untextured
+// opaque black quads, of which the menu draws exactly zero. Counting the
+// outcome instead of guessing at the cause finds it whatever it is - a textured
+// overlay, a sprite, a clear - because whatever blacks the screen out has to
+// pass through here and take a pixel from something to nothing.
+std::uint64_t g_pixels_blacked = 0u;
+
+// Where written pixels actually land, counted at the point of writing.
+//
+// Every measurement so far has been of primitives, and primitives have been
+// classified by their centroid, which put every full-screen quad on one side and
+// made the left-versus-right split mean something other than it claimed. This
+// counts the pixel itself, in a grid over the screen, and is reset by each clear
+// so that what it holds is one frame's work. Read against the frame buffer at
+// the same moment it says whether the missing part of the main menu is written
+// and lost, or never written at all.
+constexpr std::uint32_t kHeatColumns = 12u;
+constexpr std::uint32_t kHeatRows = 6u;
+std::array<std::uint64_t, kHeatColumns * kHeatRows> g_heat{};
+
+// Which buffer the pixels of this frame are going into.
+//
+// The heat map says the left half of the main menu takes 126,000 writes after
+// the last clear and the buffer read out of guest memory is 90% zero there. The
+// writes are real and the read is real, so the only thing left is that they are
+// not talking about the same memory.
+std::map<std::uint32_t, std::uint64_t> g_frame_targets;
+
+void note_heat(std::uint32_t x, std::uint32_t y) {
+    ++g_frame_targets[g_surface_target.address];
+    const std::uint32_t column = std::min(kHeatColumns - 1u, x * kHeatColumns / kDisplayWidth);
+    const std::uint32_t row = std::min(kHeatRows - 1u, y * kHeatRows / kDisplayHeight);
+    ++g_heat[row * kHeatColumns + column];
+}
+
 struct PixelTally {
     std::uint64_t kept{};
     std::uint64_t dropped{};
     std::uint64_t white{};
+    std::uint64_t blacked{};
 };
 
 PixelTally begin_primitive() {
-    return PixelTally{g_pixels_kept, g_pixels_dropped, g_pixels_white};
+    return PixelTally{g_pixels_kept, g_pixels_dropped, g_pixels_white, g_pixels_blacked};
 }
 
 // One primitive that filled a large area with pure white, described in full.
@@ -358,6 +397,166 @@ void describe_blended(std::uint64_t covered, std::uint32_t color, const TextureS
         }
     }
     if (line.size() > 6u) runtime_log_line(line);
+}
+
+// All three vertex colours of a large untextured primitive.
+//
+// The main menu draws its wall and its eight tiles, then a quad over them, then
+// the selected tile again - dim everything, highlight the choice. Mixed
+// source-over that quad comes out solid black and only the highlighted tile
+// survives; treated as additive it disappears entirely and takes the dimming
+// with it. Which is right depends on the alpha the quad actually carries, and
+// only the first vertex has ever been printed. A quad that dims carries partial
+// alpha; one that is opaque black at every corner means the alpha is arriving
+// wrong and the fault is upstream of the blend.
+void describe_dark_quad(const Vertex &a, const Vertex &b, const Vertex &c, std::uint64_t covered,
+                        float x, float y) {
+    // Gated on the guest clock, not on a count. The screen that matters is the
+    // main menu, and the title draws these from its first second: a cap of eight
+    // filled during boot, and raising it to two hundred filled by 1.5 seconds.
+    // Both answered about the wrong frame.
+    //
+    // PSPRECOMP_DEFJAM_SCAN_AFTER_US sets when to start listening, default 60s.
+    static const std::uint64_t after = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_SCAN_AFTER_US");
+        return text == nullptr ? 60000000ull : std::strtoull(text, nullptr, 0);
+    }();
+    if (guest_time_us() < after) return;
+    static int described = 0;
+    if (described >= 200) return;
+    ++described;
+    runtime_log_line("dark quad at " + std::to_string(x) + "," + std::to_string(y) + "  " +
+                     std::to_string(covered) + " pixels");
+    runtime_log_line("  vertex colours " + psprecomp::hex32(a.color) + " " +
+                     psprecomp::hex32(b.color) + " " + psprecomp::hex32(c.color) +
+                     "   alphas " + std::to_string((a.color >> 24u) & 0xFFu) + " " +
+                     std::to_string((b.color >> 24u) & 0xFFu) + " " +
+                     std::to_string((c.color >> 24u) & 0xFFu));
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
+    runtime_log_line("  0x1d " + std::to_string(registers[0x1Du]) + "  0xc6 " +
+                     std::to_string(registers[0xC6u]) + "  0xc4 " +
+                     std::to_string(registers[0xC4u]) + "  0xc7 " +
+                     std::to_string(registers[0xC7u]) + "  0xd2 " +
+                     std::to_string(registers[0xD2u]));
+}
+
+// A primitive that took a large area from something to black, described in
+// full, whatever kind of primitive it turns out to be.
+// How many primitives reach each half of the screen, and what they put there.
+//
+// The main menu leaves 90% of its left half at exactly zero while its right half
+// draws correctly, and every loss counter in this profile reads zero. Two very
+// different things produce that: primitives that never arrive, which makes it a
+// geometry problem, or primitives that arrive and write nothing, which makes it
+// a pixel problem. Nothing measured so far separates them, because everything
+// measured so far assumed the second.
+struct HalfCensus {
+    std::uint64_t primitives{};
+    std::uint64_t covered{};
+    std::uint64_t written{};
+    std::uint64_t textured{};
+    // Pixels written before a clear came along and wiped them.
+    //
+    // The left half of the main menu receives more primitives than the right and
+    // writes nearly twice as many pixels, and still ends up 90% exactly zero.
+    // Something is drawn and then erased. Splitting each half's writes either
+    // side of the clears says whether that is what happens, and to which half.
+    std::uint64_t wiped{};
+    // Which frame buffer this half's pixels are written into.
+    //
+    // The title flips between two, at offset 0 and 0x90000. The main menu writes
+    // three times as many primitives into its left half as its right and shows
+    // nothing there, and one clear per frame rules out anything erasing them
+    // mid-frame. Pixels that land in the buffer that is not on screen would look
+    // exactly like this.
+    std::map<std::uint32_t, std::uint64_t> targets;
+};
+HalfCensus g_left;
+HalfCensus g_right;
+
+// Written since the last clear, per half.
+std::uint64_t g_left_pending = 0u;
+std::uint64_t g_right_pending = 0u;
+// The last stretch that ran from one clear to the next, whole.
+std::uint64_t g_left_last = 0u;
+std::uint64_t g_right_last = 0u;
+// How many clears the title issues, against how many frames it shows.
+//
+// Measuring what a later clear wipes turned out to say nothing: every frame is
+// wiped by the next one, so both halves came back at 99.96% and the two sides
+// looked identical. What separates them is how the work is arranged inside a
+// single frame - one clear per frame is ordinary double buffering, several means
+// content is being erased mid-frame and only the last stretch reaches the
+// screen, which is exactly what the menu looks like.
+std::uint64_t g_clear_boundaries = 0u;
+
+void note_clear_boundary() {
+    g_left.wiped += g_left_pending;
+    g_right.wiped += g_right_pending;
+    g_left_last = g_left_pending;
+    g_right_last = g_right_pending;
+    ++g_clear_boundaries;
+    g_left_pending = 0u;
+    g_right_pending = 0u;
+}
+
+void reset_heat() {
+    g_heat.fill(0u);
+    g_frame_targets.clear();
+}
+
+void note_census(const PixelTally &before, bool textured, float x, std::uint64_t covered) {
+    if (!g_discard_scan) return;
+    static const std::uint64_t after = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_SCAN_AFTER_US");
+        return text == nullptr ? 60000000ull : std::strtoull(text, nullptr, 0);
+    }();
+    if (guest_time_us() < after) return;
+    const std::uint64_t written = g_pixels_kept - before.kept;
+    if (clear_mode_active()) {
+        if (written != 0u) {
+            note_clear_boundary();
+            reset_heat();
+        }
+        return;
+    }
+    HalfCensus &into = x < 240.0f ? g_left : g_right;
+    ++into.primitives;
+    into.covered += covered;
+    into.written += written;
+    (x < 240.0f ? g_left_pending : g_right_pending) += written;
+    if (written != 0u) into.targets[g_surface_target.address] += written;
+    if (textured) ++into.textured;
+}
+
+void note_blackout(const PixelTally &before, std::uint32_t color, const TextureState &texture,
+                   bool textured, float x, float y) {
+    if (!g_discard_scan) return;
+    static const std::uint64_t after = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_SCAN_AFTER_US");
+        return text == nullptr ? 60000000ull : std::strtoull(text, nullptr, 0);
+    }();
+    if (guest_time_us() < after) return;
+    const std::uint64_t blacked = g_pixels_blacked - before.blacked;
+    if (blacked < 2000u) return;
+    static int described = 0;
+    if (described >= 40) return;
+    ++described;
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
+    runtime_log_line("blackout at " + std::to_string(x) + "," + std::to_string(y) + "  " +
+                     std::to_string(blacked) + " pixels turned black  colour " +
+                     psprecomp::hex32(color) + "  textured " + std::to_string(textured ? 1 : 0));
+    if (textured) {
+        runtime_log_line("  texture " + psprecomp::hex32(texture.address) + " " +
+                         std::to_string(texture.width) + "x" + std::to_string(texture.height) +
+                         " format " + std::to_string(static_cast<int>(texture.format)) + " clut " +
+                         psprecomp::hex32(texture.clut_address));
+    }
+    runtime_log_line("  0x1d " + std::to_string(registers[0x1Du]) + "  0xc6 " +
+                     std::to_string(registers[0xC6u]) + "  0xc4 " +
+                     std::to_string(registers[0xC4u]) + "  0x1e " +
+                     std::to_string(registers[0x1Eu]) + "  clearing " +
+                     std::to_string(clear_mode_active() ? 1 : 0));
 }
 
 void note_blended(const PixelTally &before, std::uint32_t color, const TextureState &texture,
@@ -463,6 +662,15 @@ std::uint32_t combine_texel(std::uint32_t texel, std::uint32_t vertex) {
     // vertex colour is the remaining thing being discarded. 65,165 draws set
     // this register, and 82% of the ones asking for 2 carry a colour that was
     // going nowhere.
+    // PSPRECOMP_DEFJAM_MODULATE=0 turns this off, because it is a suspect: the
+    // main menu asks for modulation and renders its wall and seven of its eight
+    // tiles into exactly nothing, and multiplying a texel by a black vertex
+    // colour would do precisely that.
+    static const bool enabled = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_MODULATE");
+        return text == nullptr || (text[0] != 0 && text[0] != 48);
+    }();
+    if (!enabled) return texel;
     if (ge_registers()[kTextureFunctionCandidate] != kTextureFunctionModulate) return texel;
     return modulate(texel, vertex);
 }
@@ -612,6 +820,7 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     // the first found nothing, because no single primitive in a stack of them
     // is white on its own.
     const bool source_white = (color & 0x00FFFFFFu) == 0x00FFFFFFu;
+    const std::uint32_t was = target;
     if (rejected) {
         if ((ge_registers()[kCmdBlendEnable] & 1u) != 0u) ++g_clear_alpha_blend_on;
         else ++g_clear_alpha_blend_off;
@@ -631,6 +840,8 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
         target = blend_over(color, target);
     }
     if (!rejected && !source_white && (target & 0x00FFFFFFu) == 0x00FFFFFFu) ++g_pixels_white;
+    if (!rejected && (was & 0x00FFFFFFu) != 0u && (target & 0x00FFFFFFu) == 0u) ++g_pixels_blacked;
+    if (g_discard_scan && !rejected && !g_clearing) note_heat(ux, uy);
     ++g_stats.pixels_written;
 }
 
@@ -822,6 +1033,11 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
     if (y1 > y0) fill_rows(y0, y1 - 1, x1 - x0, band);
     note_white_block(tally, second.color, texture, textured, (first.x + second.x) * 0.5f,
                      (first.y + second.y) * 0.5f);
+    note_blackout(tally, second.color, texture, textured, (first.x + second.x) * 0.5f,
+                  (first.y + second.y) * 0.5f);
+    note_census(tally, textured, (first.x + second.x) * 0.5f,
+                static_cast<std::uint64_t>(std::max(0, x1 - x0)) *
+                    static_cast<std::uint64_t>(std::max(0, y1 - y0)));
     note_blended(tally, second.color, texture, textured, (first.x + second.x) * 0.5f,
                  (first.y + second.y) * 0.5f);
     end_primitive(tally);
@@ -916,6 +1132,14 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
     };
     fill_rows(min_y, max_y, max_x - min_x + 1, band);
     note_white_block(tally, a.color, texture, textured, centre_x, centre_y);
+    note_blackout(tally, a.color, texture, textured, centre_x, centre_y);
+    note_census(tally, textured, centre_x,
+                static_cast<std::uint64_t>(std::max(0, max_x - min_x + 1)) *
+                    static_cast<std::uint64_t>(std::max(0, max_y - min_y + 1)));
+    if (g_discard_scan && !textured && g_pixels_kept - tally.kept >= 5000u &&
+        ((a.color | b.color | c.color) & 0x00FFFFFFu) == 0u) {
+        describe_dark_quad(a, b, c, g_pixels_kept - tally.kept, centre_x, centre_y);
+    }
     note_blended(tally, a.color, texture, textured, centre_x, centre_y);
     if (g_discard_scan && g_pixels_kept == tally.kept && g_pixels_dropped > tally.dropped &&
         centre_x < 240.0f) {
@@ -1088,6 +1312,40 @@ bool rasterise(psprecomp::Runtime &runtime, std::uint32_t primitive,
     return true;
 }
 
+std::string half_census_report() {
+    if (!g_discard_scan) return {};
+    std::ostringstream out;
+    const auto line = [&out](const char *name, const HalfCensus &half) {
+        out << "    " << name << "  " << half.primitives << " primitives (" << half.textured
+            << " textured), " << half.covered << " pixels covered, " << half.written
+            << " written";
+        for (const auto &entry : half.targets) {
+            out << "  |  buffer " << psprecomp::hex32(entry.first) << ": " << entry.second;
+        }
+        out << "\n";
+    };
+    out << "  buffers written since the last clear:";
+    for (const auto &entry : g_frame_targets) {
+        out << "  " << psprecomp::hex32(entry.first) << " x" << entry.second;
+    }
+    out << "   displayed: " << psprecomp::hex32(displayed_framebuffer()) << "\n";
+    out << "  pixels written per screen cell since the last clear:\n";
+    for (std::uint32_t row = 0; row < kHeatRows; ++row) {
+        out << "   ";
+        for (std::uint32_t column = 0; column < kHeatColumns; ++column) {
+            out << " " << g_heat[row * kHeatColumns + column];
+        }
+        out << "\n";
+    }
+    out << "  clears that erased drawn pixels: " << g_clear_boundaries << "\n";
+    out << "  the last whole stretch between two clears wrote: left " << g_left_last
+        << ", right " << g_right_last << "\n";
+    out << "  primitives by screen half, past the scan threshold:\n";
+    line("left ", g_left);
+    line("right", g_right);
+    return out.str();
+}
+
 std::string blend_state_report() {
     std::ostringstream out;
     out << "  blend state: honouring registers " << (g_honour_blend_state ? "yes" : "no") << "\n";
@@ -1238,13 +1496,24 @@ std::string frame_dump_path() {
     return path == nullptr ? std::string{} : std::string(path);
 }
 
-bool dump_display(psprecomp::Runtime &runtime, const std::string &path, std::string &error) {
-    flush_surface(runtime);
-    const RenderTarget target = g_surface_target.valid() ? g_surface_target : current_render_target();
-    if (!target.valid()) {
-        error = "no frame buffer has been drawn into";
-        return false;
-    }
+// Which buffer to read, when the question is where the picture went.
+//
+// PSPRECOMP_DEFJAM_DUMP_BUFFER names a guest address to dump instead of the one
+// being drawn into. The title flips between two frame buffers and the main menu
+// shows only part of what it draws; reading each buffer out separately says
+// whether the missing part is sitting in the other one. Every measurement so
+// far has been indirect, and three of them were designed badly enough to point
+// the wrong way, so this one reads the memory itself.
+std::uint32_t dump_buffer_override() {
+    static const std::uint32_t address = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_DUMP_BUFFER");
+        return text == nullptr ? 0u : static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
+    }();
+    return address;
+}
+
+bool write_target_bmp(psprecomp::Runtime &runtime, const RenderTarget &target,
+                      const std::string &path, std::string &error) {
     const std::uint32_t bytes = target.stride * target.height * 4u;
     if (!runtime.memory().contains(target.address, bytes)) {
         error = "the frame buffer is not inside guest memory";
@@ -1306,6 +1575,35 @@ bool dump_display(psprecomp::Runtime &runtime, const std::string &path, std::str
         }
     }
     return static_cast<bool>(file);
+}
+
+// Reads one named buffer straight out of guest memory, whatever is being drawn
+// into at the time.
+bool dump_named_buffer(psprecomp::Runtime &runtime, std::uint32_t address, const std::string &path,
+                       std::string &error) {
+    flush_surface(runtime);
+    RenderTarget target = g_surface_target.valid() ? g_surface_target : current_render_target();
+    target.address = address;
+    if (target.stride == 0u) target.stride = 512u;
+    if (target.height == 0u) target.height = kDisplayHeight;
+    if (target.width == 0u) target.width = kDisplayWidth;
+    return write_target_bmp(runtime, target, path, error);
+}
+
+bool dump_display(psprecomp::Runtime &runtime, const std::string &path, std::string &error) {
+    flush_surface(runtime);
+    RenderTarget target = g_surface_target.valid() ? g_surface_target : current_render_target();
+    if (const std::uint32_t override_address = dump_buffer_override(); override_address != 0u) {
+        target.address = override_address;
+        if (target.stride == 0u) target.stride = 512u;
+        if (target.height == 0u) target.height = kDisplayHeight;
+        if (target.width == 0u) target.width = kDisplayWidth;
+    }
+    if (!target.valid()) {
+        error = "no frame buffer has been drawn into";
+        return false;
+    }
+    return write_target_bmp(runtime, target, path, error);
 }
 
 } // namespace defjam

@@ -119,6 +119,12 @@ void dump_dispatch_trace(std::size_t limit = 64u);
 [[nodiscard]] bool dispatch_trace_enabled();
 
 void runtime_log_initialize(const std::string &path);
+// The guest clock, for diagnostics that only want a later part of a run.
+[[nodiscard]] std::uint64_t guest_time_us();
+
+// The buffer the title last handed to the display.
+[[nodiscard]] std::uint32_t displayed_framebuffer();
+
 void runtime_log_line(const std::string &line);
 bool dump_guest_range(psprecomp::Runtime &rt, std::string &description);
 void runtime_log_shutdown();

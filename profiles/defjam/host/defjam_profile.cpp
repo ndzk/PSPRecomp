@@ -533,11 +533,28 @@ void service_guest_deadlines(Runtime &rt) {
 
     if (g_frame_dump_interval_us != 0u && g_virtual_time_us >= g_next_frame_dump_us) {
         g_next_frame_dump_us = g_virtual_time_us + g_frame_dump_interval_us;
-        const std::string path = "frame_" + std::to_string(g_virtual_time_us / 1000u) + "ms.bmp";
+        // Both buffers, not just the one being drawn into.
+        //
+        // A dump taken from the render target catches the frame that is still
+        // being built, which is not what the display is showing and not what the
+        // window shows either. Every frame examined today was read that way, so
+        // "the left half is black" was measured against a half-finished picture.
+        // Writing both makes the comparison possible in one visit to a screen
+        // rather than one visit per buffer.
+        const std::string stem = "frame_" + std::to_string(g_virtual_time_us / 1000u) + "ms";
         std::string error;
+        dump_named_buffer(rt, 0x04000000u, stem + "_A.bmp", error);
+        dump_named_buffer(rt, 0x04090000u, stem + "_B.bmp", error);
+        const std::string path = stem + ".bmp";
         if (dump_display(rt, path, error)) {
             ++g_frame_dumps_written;
-            runtime_log_line("frame written: " + path);
+            runtime_log_line("frame written: " + path + "  displayed buffer " +
+                             psprecomp::hex32(g_display_framebuffer));
+            // The census goes into the log beside each frame, not only at exit.
+            // Waiting for exit cost three round trips of asking for the same
+            // screen to be visited again, because the answer only existed once
+            // the program had stopped.
+            runtime_log_line(half_census_report());
         } else {
             runtime_log_line("frame not written: " + error);
         }
@@ -1024,6 +1041,10 @@ void runtime_log_initialize(const std::string &path) {
     g_log.open(path, std::ios::out | std::ios::trunc);
     g_log_open = g_log.is_open();
 }
+
+std::uint64_t guest_time_us() { return g_virtual_time_us; }
+
+std::uint32_t displayed_framebuffer() { return g_display_framebuffer; }
 
 void runtime_log_line(const std::string &line) {
     if (!g_log_open) return;

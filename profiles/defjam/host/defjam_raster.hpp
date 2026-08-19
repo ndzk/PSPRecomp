@@ -81,6 +81,10 @@ void raster_configure_side_split();
 
 // Reports whether the blend registers are being honoured, and where the
 // transparent pixels sit relative to the blend enable.
+// Counts primitives reaching each half of the screen, to separate geometry
+// that never arrives from pixels that never land.
+[[nodiscard]] std::string half_census_report();
+
 [[nodiscard]] std::string blend_state_report();
 
 // Splits register state by whether a primitive put anything on the screen.
@@ -91,6 +95,11 @@ void raster_configure_side_split();
 // Writes the frame buffer the display is pointed at to a BMP file. Returns
 // false with `error` set when there is nothing to write or the file will not
 // open. Exists so a headless run can be looked at.
+// Dumps a specific guest frame buffer, for comparing the one being drawn into
+// against the one on screen.
+[[nodiscard]] bool dump_named_buffer(psprecomp::Runtime &runtime, std::uint32_t address,
+                                    const std::string &path, std::string &error);
+
 [[nodiscard]] bool dump_display(psprecomp::Runtime &runtime, const std::string &path,
                                 std::string &error);
 
