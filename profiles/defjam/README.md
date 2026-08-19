@@ -272,13 +272,26 @@ unsupported instruction, or a watchdog budget ran out.
   an event flag that only its vblank handler sets, so with the handler dropped
   the display thread never consumed a frame, the player's ring of four frame
   buffers filled, and playback stopped dead after exactly four frames.
-- **The title executes code out of its audio banks**, which the AOT corpus does
-  not cover: it is built from `BOOT.BIN`, and the code lives inside the 158
-  `.abk` files under `USRDIR`. This is what the run stops on once it gets past
-  the title screen. The banks ship unlinked and the title links them as it
-  loads them, but the linking is static and can be reproduced ahead of time, so
-  recompiling them faithfully is open rather than blocked. Format, evidence and
-  the plan are in `docs/DEFJAM_AUDIO_BANKS.md`.
+- **The title executes code out of its audio banks, and that code is
+  recompiled.** It does not come from `BOOT.BIN`, so the main corpus cannot
+  carry it: it lives inside the 158 `.abk` files under `USRDIR`. The banks ship
+  unlinked and the title links them as it loads them, but the linking is static,
+  so `tools/recompile_bank_code.ps1` reproduces it ahead of time and translates
+  the result with `psp_recomp --relocatable`.
+
+  All 158 banks are covered, by 83 translation units — `generated_relocatable_0400`
+  through `0482`. There are fewer units than banks because a routine is keyed on
+  its own bytes before linking, so banks carrying the same routine share one.
+  Re-running the script with `-WhatIfOnly` reports `83 distinct routines, 0
+  bank(s) this tool could not read`.
+
+  Registration happens at load: `defjam_banks.cpp` is offered every buffer a
+  read just filled, recognises a bank by that fingerprint and registers its unit
+  at whatever address the bank was read into. A staged run to 150 seconds of
+  guest time reports `1 loaded, 1 routines registered, 0 not recompiled` — the
+  path works end to end, though only the first bank has been reached at that
+  point, so the other 82 units are covered statically rather than exercised.
+  Format and evidence are in `docs/DEFJAM_AUDIO_BANKS.md`.
 - **Ad-hoc multiplayer is out of scope** for the first release. The title
   imports 41 NIDs across `sceNet`, `sceNetAdhoc`, `sceNetAdhocctl`,
   `sceNetAdhocMatching` and `sceWlanDrv`, and ships four `pspnet` PRXs. Two of
