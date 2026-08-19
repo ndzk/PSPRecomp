@@ -351,6 +351,115 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
     }
 }
 
+// Every GE register this profile consumes, listed once so the audit below can
+// say what is left over.
+//
+// The list is maintained by hand against the code that reads them, which is the
+// only place the truth lives: the display-list walker in this file, the vertex
+// pipeline, the texture decoder and the rasteriser. Adding a register to the
+// code without adding it here makes the audit overstate the gap, which is the
+// safe direction to be wrong in.
+constexpr std::uint8_t kConsumed[] = {
+    0x00u, 0x01u, 0x02u, 0x04u, 0x05u, 0x06u, 0x07u, 0x08u, 0x09u, 0x0Au, 0x0Bu, 0x0Cu,
+    0x0Eu, 0x0Fu, 0x10u, 0x12u, 0x13u, 0x14u, 0x1Du, 0x1Eu, 0x23u, 0x2Au, 0x2Bu, 0x3Au,
+    0x3Bu, 0x3Cu, 0x3Du, 0x3Eu, 0x3Fu, 0x42u, 0x43u, 0x44u, 0x45u, 0x46u, 0x47u, 0x4Cu,
+    0x4Du, 0x9Cu, 0x9Du, 0xA0u, 0xA8u, 0xB0u, 0xB1u, 0xB8u, 0xC2u, 0xC3u, 0xC4u, 0xC5u,
+    0xC6u, 0xD3u, 0xDEu, 0xE7u,
+};
+
+bool is_consumed(std::uint8_t command) {
+    for (const std::uint8_t entry : kConsumed) {
+        if (entry == command) return true;
+    }
+    return false;
+}
+
+// What this profile is not doing, ranked by how hard the title leans on it.
+//
+// Every register the title writes is already counted with the set of values it
+// takes. Crossing that against the registers anything here actually reads turns
+// a vague sense that the render state is incomplete into a list: a register the
+// title writes often, with values other than zero, that nothing reads, is a
+// feature that is missing and mattering. One that only ever holds zero is
+// missing and costing nothing, which is worth knowing too, because it is the
+// difference between a gap to close and a gap to leave alone.
+// The value each register actually holds when a draw happens.
+//
+// Counting writes overstates the gap and points at the wrong registers. 0x53
+// and 0x54 are written 363,290 and 353,392 times, more than anything else this
+// profile ignores, and both sat at the top of the first audit - but sampled at
+// the moment a draw is issued, 0x53 is set for all 172,204 of them and 0x54 is
+// clear for all but six. Their state never varies between draws, so ignoring
+// them cannot make one draw come out different from another, whatever they
+// mean. A register only matters here if what it holds while drawing changes.
+struct DrawState {
+    std::array<std::uint32_t, 4> values{};
+    std::array<std::uint64_t, 4> counts{};
+    std::uint8_t distinct{};
+    bool overflowed{};
+};
+std::array<DrawState, 256> g_draw_state;
+std::uint64_t g_draws_sampled = 0u;
+
+void note_draw_state() {
+    ++g_draws_sampled;
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
+    for (std::size_t i = 0; i < 256u; ++i) {
+        DrawState &entry = g_draw_state[i];
+        const std::uint32_t value = registers[i];
+        bool found = false;
+        for (std::uint8_t slot = 0; slot < entry.distinct; ++slot) {
+            if (entry.values[slot] == value) {
+                ++entry.counts[slot];
+                found = true;
+                break;
+            }
+        }
+        if (found) continue;
+        if (entry.distinct >= entry.values.size()) {
+            entry.overflowed = true;
+            continue;
+        }
+        entry.values[entry.distinct] = value;
+        entry.counts[entry.distinct] = 1u;
+        ++entry.distinct;
+    }
+}
+
+std::string register_audit_report() {
+    std::ostringstream out;
+    std::ostringstream held;
+    out << "  GE state ignored here, varying across " << g_draws_sampled << " draws:\n";
+    std::uint64_t constant = 0u;
+    for (std::size_t i = 0; i < 256u; ++i) {
+        const DrawState &entry = g_draw_state[i];
+        if (entry.distinct == 0u) continue;
+        if (is_consumed(static_cast<std::uint8_t>(i))) continue;
+        if (entry.distinct == 1u && !entry.overflowed) {
+            // Held at one value for every draw in the run. That rules it out as
+            // the reason one draw comes out right and the next one wrong, and
+            // rules out nothing else: a setting that is wrong the same way in
+            // every draw is wrong across the whole picture, and is harder to
+            // see for exactly that reason. So these get named, not counted.
+            if (entry.values[0] != 0u) {
+                held << "    0x" << std::hex << i << std::dec << "  " << entry.values[0] << "\n";
+                ++constant;
+            }
+            continue;
+        }
+        out << "    0x" << std::hex << i << std::dec << " ";
+        for (std::uint8_t slot = 0; slot < entry.distinct; ++slot) {
+            out << "  " << entry.values[slot] << " x" << entry.counts[slot];
+        }
+        if (entry.overflowed) out << "  ...";
+        out << "\n";
+    }
+    out << "  GE state ignored here, held at one non-zero value for all " << g_draws_sampled
+        << " draws (" << constant << "):\n"
+        << held.str();
+    return out.str();
+}
+
 std::string command_value_report() {
     std::ostringstream out;
     out << "  GE registers written, with the values used:\n";

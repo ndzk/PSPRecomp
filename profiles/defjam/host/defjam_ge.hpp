@@ -70,6 +70,13 @@ void ge_reset();
 // register by what it does rather than by a remembered number.
 [[nodiscard]] std::string command_value_report();
 
+// Lists the GE registers the title writes that nothing here reads, ranked by
+// how often it writes them, so the gap in the render state is explicit.
+// Samples the whole register file at the moment a draw is issued, so the audit
+// reports what varies between draws rather than what is merely written often.
+void note_draw_state();
+[[nodiscard]] std::string register_audit_report();
+
 [[nodiscard]] std::string ge_report();
 
 // The transform matrices, as the guest streamed them in.

@@ -108,6 +108,14 @@ struct VertexStats {
     std::uint64_t offscreen{};
     std::uint64_t through_draws{};
     std::uint64_t with_uv{}, with_color{}, with_normal{};
+    // 0x53 and 0x54, the two registers the audit reports as written most often
+    // and read by nothing, split by whether the draw carries normals.
+    std::uint64_t normals_with_flag{};
+    std::uint64_t normals_without_flag{};
+    std::uint64_t normals_with_colour{};
+    std::uint64_t plain_with_flag{};
+    std::uint64_t plain_without_flag{};
+    std::uint64_t plain_with_colour{};
     // The extent of decoded positions, kept apart for the two kinds of draw.
     // Mixing them hides the answer: through-mode vertices are screen pixels and
     // transformed ones are model coordinates, so one combined range is always

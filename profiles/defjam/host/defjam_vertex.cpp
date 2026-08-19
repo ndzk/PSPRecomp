@@ -810,6 +810,32 @@ void note_draw(Runtime &runtime, std::uint32_t primitive, std::uint32_t vtype,
     if (format.texture != 0u) ++g_stats.with_uv;
     if (format.color != 0u) ++g_stats.with_color;
     if (format.normal != 0u) ++g_stats.with_normal;
+    note_draw_state();
+    // Whether the two registers the audit says this profile ignores track the
+    // presence of normals.
+    //
+    // 0x53 holds 0 or 1 across 363,290 writes and 0x54 holds 0 or 0x808080
+    // across 353,392, written in near lockstep, one draw at a time. An enable
+    // paired with a colour is the shape of a lighting or material setting, and
+    // a draw that is lit is a draw that carries normals. If the two line up,
+    // the title is asking for shading this rasteriser does not do; if they do
+    // not, the pair means something else and the guess is dead rather than
+    // half-believed.
+    {
+        const std::array<std::uint32_t, 256> &registers = ge_registers();
+        const bool flagged = (registers[0x53u] & 1u) != 0u;
+        const bool lit_colour = registers[0x54u] != 0u;
+        const bool normals = format.normal != 0u;
+        if (normals) {
+            if (flagged) ++g_stats.normals_with_flag;
+            else ++g_stats.normals_without_flag;
+            if (lit_colour) ++g_stats.normals_with_colour;
+        } else {
+            if (flagged) ++g_stats.plain_with_flag;
+            else ++g_stats.plain_without_flag;
+            if (lit_colour) ++g_stats.plain_with_colour;
+        }
+    }
 
     static std::vector<Vertex> vertices;
     const bool indexed = format.index != 0u;
@@ -849,7 +875,11 @@ std::string vertex_report() {
     out << "  vertex draws:       " << stats.draws_decoded << " decoded, " << stats.draws_skipped
         << " skipped, " << stats.vertices_decoded << " vertices\n"
         << "  vertex content:     " << stats.with_uv << " textured, " << stats.with_color
-        << " coloured, " << stats.with_normal << " with normals, " << stats.indexed_draws
+        << " coloured, " << stats.with_normal << " with normals ["
+        << stats.normals_with_flag << " with 0x53, " << stats.normals_without_flag
+        << " without, " << stats.normals_with_colour << " with 0x54; plain "
+        << stats.plain_with_flag << "/" << stats.plain_without_flag << "/"
+        << stats.plain_with_colour << "], " << stats.indexed_draws
         << " indexed (" << stats.indexed_decoded << " walked, highest index "
         << stats.max_index << "), " << stats.through_draws << " through\n"
         << "  vertex transform:   " << stats.transformed << " transformed, " << stats.behind_eye
