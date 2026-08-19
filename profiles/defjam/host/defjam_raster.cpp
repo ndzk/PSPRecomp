@@ -590,7 +590,10 @@ void note_black_painter(const PixelTally &before, std::uint32_t color,
         return text == nullptr ? 60000000ull : std::strtoull(text, nullptr, 0);
     }();
     if (guest_time_us() < after) return;
-    if (x >= 240.0f || clear_mode_active()) return;
+    // The whole screen, not just the left half. The half was where the menu's
+    // overlay sat; a fight paints a black rectangle of its own somewhere else
+    // entirely, and the same question applies wherever it appears.
+    if (clear_mode_active()) return;
     const std::uint64_t black = g_opaque_black.load(std::memory_order_relaxed) - before.opaque_black;
     const std::uint64_t written = g_pixels_kept - before.kept;
     if (black < 800u || written == 0u || black * 5u < written * 4u) return;
@@ -950,9 +953,29 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
 
 // Nearest-neighbour sampling, with the coordinate wrapped rather than clamped,
 // which is what the hardware does by default.
+// Textures the decoder could not produce, by the format that defeated it.
+std::map<std::uint8_t, std::uint64_t> g_missing_textures;
+std::mutex g_missing_lock;
+
+void note_missing_texture(const TextureState &texture) {
+    std::lock_guard<std::mutex> guard(g_missing_lock);
+    ++g_missing_textures[static_cast<std::uint8_t>(texture.format)];
+}
+
 std::uint32_t sample(const std::vector<std::uint32_t> &texels, const TextureState &texture, float u,
                      float v, bool uv_in_texels) {
-    if (texels.empty() || texture.width == 0u || texture.height == 0u) return 0xFFFFFFFFu;
+    // A texture that could not be read draws nothing and says so, rather than
+    // standing in for itself with opaque white.
+    //
+    // Returning 0xFFFFFFFF here put a solid white square on screen wherever a
+    // decode failed, which is both a fabricated pixel and a silent fallback -
+    // the one thing this profile is not allowed to do. It is counted instead,
+    // and the format that could not be read is named once so the gap is a
+    // reported fact rather than a shape someone has to notice.
+    if (texels.empty() || texture.width == 0u || texture.height == 0u) {
+        note_missing_texture(texture);
+        return 0u;
+    }
     if (!uv_in_texels) {
         // A transformed draw carries normalised coordinates; they only become
         // texels once scaled by the texture size.
@@ -1452,6 +1475,18 @@ std::string half_census_report() {
     out << "  primitives by screen half, past the scan threshold:\n";
     line("left ", g_left);
     line("right", g_right);
+    return out.str();
+}
+
+std::string missing_texture_report() {
+    std::lock_guard<std::mutex> guard(g_missing_lock);
+    if (g_missing_textures.empty()) return {};
+    std::ostringstream out;
+    out << "  pixels wanting a texture this profile could not read:\n";
+    for (const auto &entry : g_missing_textures) {
+        out << "    format " << texture_format_name(static_cast<TextureFormat>(entry.first))
+            << "   " << entry.second << " pixels\n";
+    }
     return out.str();
 }
 

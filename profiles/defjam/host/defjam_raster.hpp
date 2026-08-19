@@ -85,6 +85,9 @@ void raster_configure_side_split();
 // that never arrives from pixels that never land.
 [[nodiscard]] std::string half_census_report();
 
+// Reports pixels that asked for a texture the decoder could not produce.
+[[nodiscard]] std::string missing_texture_report();
+
 [[nodiscard]] std::string blend_state_report();
 
 // Splits register state by whether a primitive put anything on the screen.

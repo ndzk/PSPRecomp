@@ -338,6 +338,7 @@ int main(int argc, char **argv) {
         std::cout << defjam::texture_function_report();
         std::cout << defjam::side_difference_report();
         std::cout << defjam::half_census_report();
+        std::cout << defjam::missing_texture_report();
         std::cout << defjam::blend_state_report();
         std::cout << defjam::discard_state_report();
         std::cout << defjam::register_audit_report();
