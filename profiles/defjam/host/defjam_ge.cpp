@@ -353,15 +353,12 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
 
 std::string command_value_report() {
     std::ostringstream out;
-    out << "  GE registers holding only small values, with the values used:\n";
+    out << "  GE registers written, with the values used:\n";
     for (const auto &entry : g_command_values) {
         const std::set<std::uint32_t> &values = entry.second;
-        if (values.size() > 6u) continue;
-        bool small = true;
-        for (const std::uint32_t value : values) {
-            if (value > 0xFFFFu) small = false;
-        }
-        if (!small) continue;
+        // Everything, unfiltered. Two registers were guessed from memory today
+        // and both were wrong, so the full picture is the starting point for
+        // anything that reads guest render state.
         out << "    0x" << std::hex << static_cast<std::uint32_t>(entry.first) << std::dec
             << "  used " << g_command_counts[entry.first] << " times, values";
         for (const std::uint32_t value : values) out << " " << value;

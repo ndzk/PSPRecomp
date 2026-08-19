@@ -155,7 +155,18 @@ bool clear_mode_active() { return (ge_registers()[kCmdClearMode] & 1u) != 0u; }
 // The bone matrices went the same way: 0x38 and 0x39 were wrong and never
 // appeared at all, and what found the real pair was the shape of the command
 // stream rather than a remembered constant. The same is needed here.
-constexpr std::uint8_t kCmdBlendEnable = 0x1Eu;
+// Still unidentified. Two candidates have been ruled out by evidence:
+//
+// 0xE0 is written three times in a whole run and always zero, so it is not a
+// per-draw control at all. 0x1E looked convincing - on for 94% of the pixels
+// carrying partial alpha and off for 60% of the opaque ones - but that
+// correlation belongs to texturing, not blending: this profile already reads
+// 0x1E as the texture enable in defjam_texture.cpp, and textured draws are
+// exactly the ones that carry alpha. Acting on it blanked the menu.
+//
+// What remains untried in the block the title writes per draw: 0xC4, which
+// holds 0, 2 and 32 across 10,134 writes.
+constexpr std::uint8_t kCmdBlendCandidate = 0x1Eu;
 constexpr std::uint8_t kCmdBlendMode = 0xE1u;
 
 std::map<std::uint64_t, std::uint64_t> g_blend_modes;
@@ -200,7 +211,7 @@ void note_blend_correlation(std::uint32_t color) {
 void note_blend_state() {
     const std::array<std::uint32_t, 256> &registers = ge_registers();
     const std::uint64_t seen =
-        (static_cast<std::uint64_t>(registers[kCmdBlendEnable] & 1u) << 32u) |
+        (static_cast<std::uint64_t>(registers[kCmdBlendCandidate] & 1u) << 32u) |
         (registers[kCmdBlendMode] & 0x00FFFFFFu);
     ++g_blend_modes[seen];
 }
@@ -264,7 +275,7 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     //
     // 19,434,256 pixels of one run carry partial alpha with blending off. The
     // hardware writes those straight through; mixing them in was wrong.
-    const bool blending = (ge_registers()[kCmdBlendEnable] & 1u) != 0u;
+    const bool blending = (ge_registers()[kCmdBlendCandidate] & 1u) != 0u;
     // A fully transparent pixel is left alone whatever the blend state says.
     //
     // The hardware discards those with its alpha test, which this rasteriser
