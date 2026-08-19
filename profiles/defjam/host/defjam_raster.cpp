@@ -282,12 +282,60 @@ std::array<std::map<std::uint32_t, std::uint64_t>, 256> g_state_vanished;
 std::array<std::map<std::uint32_t, std::uint64_t>, 256> g_state_landed;
 bool g_discard_scan = false;
 
+std::uint64_t g_pixels_white = 0u;
+
 struct PixelTally {
     std::uint64_t kept{};
     std::uint64_t dropped{};
+    std::uint64_t white{};
 };
 
-PixelTally begin_primitive() { return PixelTally{g_pixels_kept, g_pixels_dropped}; }
+PixelTally begin_primitive() {
+    return PixelTally{g_pixels_kept, g_pixels_dropped, g_pixels_white};
+}
+
+// One primitive that filled a large area with pure white, described in full.
+//
+// The white rectangles over the warning text, the title screen and part of the
+// main menu are not blank textures: a run decodes 4,096 textures and not one of
+// them comes out a flat colour. So something else is painting them, and the way
+// to find out is to catch a primitive doing it and print its state rather than
+// reason about what could.
+void describe_white(std::uint64_t white, std::uint32_t color, const TextureState &texture,
+                    bool textured, float x, float y) {
+    static int described = 0;
+    if (described >= 8) return;
+    ++described;
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
+    runtime_log_line("white block at " + std::to_string(x) + "," + std::to_string(y) + "  " +
+                     std::to_string(white) + " white pixels");
+    runtime_log_line("  vertex colour " + psprecomp::hex32(color) + "  textured " +
+                     std::to_string(textured ? 1 : 0));
+    if (textured) {
+        runtime_log_line("  texture " + psprecomp::hex32(texture.address) + " " +
+                         std::to_string(texture.width) + "x" + std::to_string(texture.height) +
+                         " format " + std::to_string(static_cast<int>(texture.format)) +
+                         " clut " + psprecomp::hex32(texture.clut_address) + " swizzled " +
+                         std::to_string(texture.swizzled ? 1 : 0));
+    }
+    runtime_log_line("  0x1d " + std::to_string(registers[0x1Du]) + "  0xc6 " +
+                     std::to_string(registers[0xC6u]) + "  0xc4 " +
+                     std::to_string(registers[0xC4u]) + "  0x1e " +
+                     std::to_string(registers[0x1Eu]) + "  clearing " +
+                     std::to_string(clear_mode_active() ? 1 : 0));
+}
+
+// Fires on a primitive whose output is overwhelmingly pure white over an area
+// big enough to be one of the rectangles on screen.
+void note_white_block(const PixelTally &before, std::uint32_t color, const TextureState &texture,
+                      bool textured, float x, float y) {
+    if (!g_discard_scan) return;
+    const std::uint64_t white = g_pixels_white - before.white;
+    const std::uint64_t kept = g_pixels_kept - before.kept;
+    if (white < 1500u || kept == 0u) return;
+    if (white * 20u < kept * 19u) return;
+    describe_white(white, color, texture, textured, x, y);
+}
 
 // One primitive that covered pixels and left none of them, described in full.
 // Correlation narrowed this to a handful of registers and then stopped being
@@ -405,9 +453,23 @@ void note_blend_state() {
     ++g_blend_modes[seen];
 }
 
+// Additive, with the source scaled by its own alpha.
+//
+// Adding the source unweighted was wrong in a way that showed: 137,569,380 of
+// the pixels a run draws with blending on carry an alpha of zero, and in a font
+// or effect atlas a transparent texel is usually white with an alpha of zero
+// rather than black. Unweighted, every one of those adds white, and a few
+// layers of it saturate to a solid white rectangle. That is what appeared over
+// the warning text, under the title screen and across part of the main menu the
+// moment this path was switched on.
+//
+// Scaling by alpha makes a transparent texel add nothing, which is what it
+// means for it to be transparent, and leaves an opaque one adding in full.
 std::uint32_t add_saturating(std::uint32_t source, std::uint32_t destination) {
-    const auto mix = [](std::uint32_t a, std::uint32_t b) {
-        const std::uint32_t sum = a + b;
+    const std::uint32_t alpha = (source >> 24u) & 0xFFu;
+    if (alpha == 0u) return destination;
+    const auto mix = [alpha](std::uint32_t a, std::uint32_t b) {
+        const std::uint32_t sum = (a * alpha + 127u) / 255u + b;
         return sum > 255u ? 255u : sum;
     };
     return 0xFF000000u | (mix((source >> 16u) & 0xFFu, (destination >> 16u) & 0xFFu) << 16u) |
@@ -495,6 +557,7 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     const bool rejected = !g_clearing && ((color >> 24u) & 0xFFu) == 0u;
     if (rejected) ++g_pixels_dropped;
     else ++g_pixels_kept;
+    if (!rejected && (color & 0x00FFFFFFu) == 0x00FFFFFFu) ++g_pixels_white;
     if (rejected) {
         if ((ge_registers()[kCmdBlendEnable] & 1u) != 0u) ++g_clear_alpha_blend_on;
         else ++g_clear_alpha_blend_off;
@@ -699,6 +762,8 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
     }
     };
     if (y1 > y0) fill_rows(y0, y1 - 1, x1 - x0, band);
+    note_white_block(tally, second.color, texture, textured, (first.x + second.x) * 0.5f,
+                     (first.y + second.y) * 0.5f);
     end_primitive(tally);
 }
 
@@ -762,6 +827,7 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
     }
     };
     fill_rows(min_y, max_y, max_x - min_x + 1, band);
+    note_white_block(tally, a.color, texture, textured, centre_x, centre_y);
     if (g_discard_scan && g_pixels_kept == tally.kept && g_pixels_dropped > tally.dropped &&
         centre_x < 240.0f) {
         describe_vanished(g_pixels_dropped - tally.dropped, a.color, texture, textured,

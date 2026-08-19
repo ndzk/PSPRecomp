@@ -5,6 +5,7 @@
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
+#include <iomanip>
 #include <cstring>
 #include <map>
 #include <set>
@@ -151,6 +152,9 @@ void unswizzle(const std::uint8_t *source, std::size_t source_size, std::uint32_
     }
 }
 
+void note_flat_texture(const TextureState &state, const std::vector<std::uint32_t> &out,
+                       const std::vector<std::uint8_t> &linear);
+
 bool decode_texture(psprecomp::Runtime &runtime, const TextureState &state,
                     std::vector<std::uint32_t> &out, std::string &error) {
     out.clear();
@@ -258,10 +262,82 @@ bool decode_texture(psprecomp::Runtime &runtime, const TextureState &state,
             out[static_cast<std::size_t>(y) * state.width + x] = texel;
         }
     }
+    note_flat_texture(state, out, linear);
     return true;
 }
 
+// Textures that come out of the decoder as a single flat colour.
+//
+// The white rectangles sitting over the warning text, the title screen and part
+// of the main menu are textured quads, and the text drawn beside them decodes
+// correctly, so this is not "text does not work" - particular textures are
+// arriving blank. A texture that decodes to one repeated value either was never
+// written by the title, in which case the source bytes are flat too, or is
+// being decoded wrongly, in which case they are not. Recording both separates
+// the two without guessing which it is.
+struct FlatTexture {
+    std::uint32_t address{};
+    std::uint32_t texel{};
+    std::uint32_t width{};
+    std::uint32_t height{};
+    std::uint8_t format{};
+    bool source_flat{};
+    std::uint64_t decodes{};
+};
+std::map<std::uint64_t, FlatTexture> g_flat;
+
+void note_flat_texture(const TextureState &state, const std::vector<std::uint32_t> &out,
+                       const std::vector<std::uint8_t> &linear) {
+    if (out.empty()) return;
+    const std::uint32_t first = out[0];
+    for (const std::uint32_t texel : out) {
+        if (texel != first) return;
+    }
+    bool source_flat = true;
+    if (!linear.empty()) {
+        for (const std::uint8_t byte : linear) {
+            if (byte != linear[0]) {
+                source_flat = false;
+                break;
+            }
+        }
+    }
+    const std::uint64_t key = (static_cast<std::uint64_t>(state.address) << 8u) |
+                              static_cast<std::uint64_t>(state.format);
+    FlatTexture &entry = g_flat[key];
+    entry.address = state.address;
+    entry.texel = first;
+    entry.width = state.width;
+    entry.height = state.height;
+    entry.format = static_cast<std::uint8_t>(state.format);
+    entry.source_flat = source_flat;
+    ++entry.decodes;
+}
+
+std::string flat_texture_report() {
+    if (g_flat.empty()) return {};
+    std::vector<const FlatTexture *> ordered;
+    ordered.reserve(g_flat.size());
+    for (const auto &entry : g_flat) ordered.push_back(&entry.second);
+    std::sort(ordered.begin(), ordered.end(),
+              [](const FlatTexture *a, const FlatTexture *b) { return a->decodes > b->decodes; });
+
+    std::ostringstream out;
+    out << "  textures decoding to one flat colour: " << g_flat.size() << "\n";
+    std::size_t shown = 0;
+    for (const FlatTexture *entry : ordered) {
+        if (shown++ >= 12u) break;
+        out << "    0x" << std::hex << std::setw(8) << std::setfill('0') << entry->address
+            << "  texel 0x" << std::setw(8) << entry->texel << std::dec << std::setfill(' ')
+            << "  " << entry->width << "x" << entry->height << "  format "
+            << texture_format_name(static_cast<TextureFormat>(entry->format)) << "  source "
+            << (entry->source_flat ? "flat" : "varied") << "  x" << entry->decodes << "\n";
+    }
+    return out.str();
+}
+
 void texture_reset() {
+    g_flat.clear();
     g_stats = TextureStats{};
     g_sizes.clear();
 }
