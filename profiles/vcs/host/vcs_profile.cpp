@@ -8789,10 +8789,15 @@ void install_profile(psprecomp::Runtime &runtime, std::uint32_t user_arena_start
             const std::uint32_t command = ctx.gpr[5];
             const std::uint32_t input = ctx.gpr[6];
             const std::uint32_t input_length = ctx.gpr[7];
-            const std::uint32_t output = rt.memory().contains(ctx.gpr[29] + 16u, 8u)
-                ? rt.memory().load32(ctx.gpr[29] + 16u) : 0u;
-            const std::uint32_t output_length = rt.memory().contains(ctx.gpr[29] + 20u, 4u)
-                ? rt.memory().load32(ctx.gpr[29] + 20u) : 0u;
+            // Arguments five and six arrive in $t0 and $t1, not on the caller's stack.
+            // These imports are kernel syscalls: the stub is the unpatched
+            // "jr $ra; <slot>" form the loader fills in, and the kernel reads the
+            // caller's register frame. Reading sp+16 picked up whatever the argument
+            // spill area happened to hold, which is usually a live pointer -- so the
+            // store below could land 4 bytes anywhere in guest RAM, and the
+            // output_length guards accepted or rejected commands at random.
+            const std::uint32_t output = ctx.gpr[8];
+            const std::uint32_t output_length = ctx.gpr[9];
 
             if (command == 0x02425823u && (device == "fatms0:" || device == "ms0:")) {
                 if (output == 0u || !rt.memory().contains(output, 4u)) {
