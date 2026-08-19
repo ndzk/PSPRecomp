@@ -416,6 +416,12 @@ void window_present(const psprecomp::GuestMemory &memory, std::uint32_t address,
     g_state.frame_pending = true;
 }
 
+bool window_frame_pending() {
+    if (!window_enabled()) return false;
+    std::lock_guard<std::mutex> guard(g_state.frame_lock);
+    return g_state.frame_pending;
+}
+
 std::uint32_t window_buttons() {
     if (!window_enabled()) return 0u;
     return g_state.buttons.load(std::memory_order_relaxed);

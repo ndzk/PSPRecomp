@@ -41,6 +41,7 @@ void gpu_shutdown() {}
 #include <wrl/client.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <map>
 
@@ -905,7 +906,12 @@ void gpu_resolve(psprecomp::Runtime &runtime) {
     back.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
     back.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
     g_gpu.list->ResourceBarrier(1, &back);
+
+    const auto waiting = std::chrono::steady_clock::now();
     submit();
+    const auto copying = std::chrono::steady_clock::now();
+    g_gpu.stats.resolve_wait_us += static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(copying - waiting).count());
 
     void *mapped = nullptr;
     D3D12_RANGE everything{0, static_cast<SIZE_T>(row_pitch) * g_gpu.target_height};
@@ -925,6 +931,10 @@ void gpu_resolve(psprecomp::Runtime &runtime) {
     }
     D3D12_RANGE nothing{0, 0};
     g_gpu.readback->Unmap(0, &nothing);
+    g_gpu.stats.resolve_copy_us += static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now() - copying)
+            .count());
     ++g_gpu.stats.resolves;
 }
 
@@ -938,6 +948,8 @@ std::string gpu_report() {
         << " vertices, " << g_gpu.stats.batches_flushed << " batches\n"
         << "  gpu textures:       " << g_gpu.stats.textures_uploaded << " uploaded, "
         << g_gpu.stats.texture_cache_hits << " reused\n"
+        << "  gpu resolve time:   " << g_gpu.stats.resolve_wait_us / 1000u
+        << " ms waiting, " << g_gpu.stats.resolve_copy_us / 1000u << " ms copying\n"
         << "  gpu targets:        " << g_gpu.stats.targets_created << " created, "
         << g_gpu.stats.targets_reused << " reused\n"
         << "  gpu resolves:       " << g_gpu.stats.resolves << " on "

@@ -64,6 +64,13 @@ struct GpuStats {
     // resources and destroyed three more every single frame.
     std::uint64_t targets_created{};
     std::uint64_t targets_reused{};
+    // Where the time in a resolve goes. The copy back into guest memory is
+    // needed for correctness - the frame has to land where the hardware
+    // would have left it - but the wait for the card to finish is not
+    // obviously worth what it costs, and guessing which half dominates is
+    // how an optimisation gets built for the wrong bottleneck.
+    std::uint64_t resolve_wait_us{};
+    std::uint64_t resolve_copy_us{};
     std::string adapter;
 };
 [[nodiscard]] GpuStats gpu_stats();

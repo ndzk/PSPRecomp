@@ -40,6 +40,15 @@ void window_present(const psprecomp::GuestMemory &memory, std::uint32_t address,
 // The live PSP button mask, or zero when the window is disabled or unfocused.
 // This is ORed with the scripted button variables so the deterministic runs
 // keep working with a window open.
+// True when a frame is already waiting to be shown.
+//
+// The guest flips faster than the window presents - measured at 2,230 flips
+// against 483 frames actually shown - and a frame handed over while one is
+// still queued replaces it and is never seen. Producing those costs a full wait
+// on the graphics card each time, 932ms of one run against 75ms of copying, so
+// asking first is worth more than making the copy faster.
+[[nodiscard]] bool window_frame_pending();
+
 [[nodiscard]] std::uint32_t window_buttons();
 
 // Analog stick, 128/128 at rest.

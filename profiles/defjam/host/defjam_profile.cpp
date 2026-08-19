@@ -1853,7 +1853,9 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         // where the window takes it. The rasteriser works on a host copy, so
         // that has to be pushed back into guest memory first - otherwise the
         // window presents whatever was in the buffer before this frame.
-        if (window_enabled()) {
+        // Skipped while one frame is still queued: that frame would replace it
+        // unseen, and producing it costs a wait on the card.
+        if (window_enabled() && !window_frame_pending()) {
             flush_surface(rt);
             window_present(rt.memory(), g_display_framebuffer, g_display_stride, g_display_format,
                            kDisplayWidth, kDisplayHeight);
