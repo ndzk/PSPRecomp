@@ -14,7 +14,10 @@
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+// mingw-w64 predefines NOMINMAX, MSVC does not, so define it only if absent.
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 #endif
 

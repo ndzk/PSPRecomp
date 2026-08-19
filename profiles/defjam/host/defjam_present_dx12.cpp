@@ -21,7 +21,10 @@ std::string dx12_adapter_name() { return {}; }
 #else
 
 #define WIN32_LEAN_AND_MEAN
+// mingw-w64 predefines NOMINMAX, MSVC does not, so define it only if absent.
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 
 #include <d3d12.h>
@@ -288,7 +291,8 @@ bool dx12_initialize(void *native_window, std::uint32_t width, std::uint32_t hei
     swap_desc.BufferCount = kFramesInFlight;
     swap_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swap_desc.SampleDesc.Count = 1;
-    swap_desc.Flags = g_presenter.tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
+    swap_desc.Flags = g_presenter.tearing
+        ? static_cast<UINT>(DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) : 0u;
 
     ComPtr<IDXGISwapChain1> swapchain;
     hr = factory->CreateSwapChainForHwnd(g_presenter.queue.Get(), static_cast<HWND>(native_window),
@@ -590,7 +594,8 @@ bool dx12_resize(std::uint32_t width, std::uint32_t height, std::string &error) 
     wait_for_gpu();
     for (auto &buffer : g_presenter.backbuffer) buffer.Reset();
     for (auto &frame : g_presenter.frames) frame.fence_value = 0u;
-    const UINT flags = g_presenter.tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
+    const UINT flags = g_presenter.tearing
+        ? static_cast<UINT>(DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) : 0u;
     const HRESULT hr = g_presenter.swapchain->ResizeBuffers(kFramesInFlight, width, height,
                                                             DXGI_FORMAT_R8G8B8A8_UNORM, flags);
     if (FAILED(hr)) {
