@@ -8,6 +8,10 @@
 
 namespace defjam {
 
+// Declared rather than included: the texture header needs the vertex
+// formats, so including it back here would close a loop.
+struct TextureState;
+
 // PSP vertex formats.
 //
 // The GE does not describe its vertices per draw; it latches one VTYPE word and
@@ -97,6 +101,7 @@ struct VertexStats {
     std::uint64_t transformed{};    // primitives put through the matrix pipeline
     std::uint64_t behind_eye{};     // dropped: a vertex behind the near plane
     std::uint64_t skinned{};        // primitives blended through bone matrices
+    std::uint64_t clipped{};        // primitives the near plane cut rather than dropped
     std::uint64_t through_draws{};
     std::uint64_t with_uv{}, with_color{}, with_normal{};
     // The extent of decoded positions, kept apart for the two kinds of draw.
@@ -121,6 +126,13 @@ void vertex_reset();
 // Puts vertices through world, view and projection, leaving them in screen
 // pixels. Returns false when the primitive cannot be drawn - currently when any
 // vertex falls behind the near plane, since nothing clips against it yet.
+// Transforms, clips against the near plane and draws one primitive. Replaces
+// transforming a whole draw at once, which could only ever keep or drop a
+// primitive whole.
+void transform_and_draw(psprecomp::Runtime &runtime, std::uint32_t primitive,
+                        const std::vector<Vertex> &vertices, const VertexFormat &format,
+                        const TextureState &texture);
+
 [[nodiscard]] bool transform_to_screen(std::vector<Vertex> &vertices, std::uint32_t width,
                                        std::uint32_t height);
 
