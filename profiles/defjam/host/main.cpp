@@ -332,7 +332,6 @@ int main(int argc, char **argv) {
         std::cout << defjam::vertex_report();
         std::cout << defjam::texture_report();
         std::cout << defjam::raster_report();
-        std::cout << defjam::gpu_report();
         std::cout << defjam::window_report();
         std::cout << defjam::bank_report();
         if (const std::string dump = defjam::frame_dump_path(); !dump.empty()) {
@@ -343,6 +342,9 @@ int main(int argc, char **argv) {
                 std::cerr << "  frame not written:  " << dump_error << "\n";
             }
         }
+        // After the frame dump, not before it: the dump is what triggers the
+        // last resolve, and reporting first showed zero of them.
+        std::cout << defjam::gpu_report();
         const defjam::IoStats io = defjam::io_stats();
         std::cout << "  file opens:         " << io.opens << " (" << io.failed_opens << " failed)\n"
                   << "  reads:              " << io.reads << ", " << io.bytes_read << " bytes\n"

@@ -112,6 +112,20 @@ struct CachedTexture {
     std::uint32_t slot{};
 };
 
+// The colour, depth and readback buffers for one guest frame buffer.
+//
+// This title flips between two of them, so the address changes every frame and
+// building these fresh each time meant creating three resources sixty times a
+// second and throwing away three more. They are kept instead, and switching
+// between them costs two descriptor writes.
+struct TargetResources {
+    ComPtr<ID3D12Resource> colour;
+    ComPtr<ID3D12Resource> depth;
+    ComPtr<ID3D12Resource> readback;
+    std::uint32_t width{};
+    std::uint32_t height{};
+};
+
 constexpr std::uint32_t kMaxVertices = 1u << 20u;
 constexpr std::uint32_t kTextureSlots = 1024u;
 constexpr DXGI_FORMAT kTargetFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -143,6 +157,7 @@ struct Backend {
     std::uint32_t next_texture_slot{};
     std::map<std::uint64_t, CachedTexture> textures;
 
+    std::map<std::uint64_t, TargetResources> targets;
     ComPtr<ID3D12Resource> target;
     ComPtr<ID3D12Resource> depth;
     ComPtr<ID3D12Resource> readback;
@@ -695,54 +710,76 @@ void gpu_set_target(std::uint32_t address, std::uint32_t stride, std::uint32_t w
     g_gpu.target_height = height;
     g_gpu.target_cleared = false;
 
-    D3D12_HEAP_PROPERTIES heap{};
-    heap.Type = D3D12_HEAP_TYPE_DEFAULT;
-    D3D12_RESOURCE_DESC desc{};
-    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    desc.Width = width;
-    desc.Height = height;
-    desc.DepthOrArraySize = 1;
-    desc.MipLevels = 1;
-    desc.Format = kTargetFormat;
-    desc.SampleDesc.Count = 1;
-    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-    D3D12_CLEAR_VALUE clear{};
-    clear.Format = kTargetFormat;
-    g_gpu.device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
-                                          D3D12_RESOURCE_STATE_RENDER_TARGET, &clear,
-                                          IID_PPV_ARGS(&g_gpu.target));
+    const std::uint64_t key = (static_cast<std::uint64_t>(address) << 32u) ^
+                              (static_cast<std::uint64_t>(width) << 16u) ^
+                              static_cast<std::uint64_t>(height);
+    auto found = g_gpu.targets.find(key);
+    if (found == g_gpu.targets.end()) {
+        TargetResources made;
+        made.width = width;
+        made.height = height;
+
+        D3D12_HEAP_PROPERTIES heap{};
+        heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+        D3D12_RESOURCE_DESC desc{};
+        desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        desc.Width = width;
+        desc.Height = height;
+        desc.DepthOrArraySize = 1;
+        desc.MipLevels = 1;
+        desc.Format = kTargetFormat;
+        desc.SampleDesc.Count = 1;
+        desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+        D3D12_CLEAR_VALUE clear{};
+        clear.Format = kTargetFormat;
+        g_gpu.device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
+                                              D3D12_RESOURCE_STATE_RENDER_TARGET, &clear,
+                                              IID_PPV_ARGS(&made.colour));
+
+        D3D12_RESOURCE_DESC depth_desc = desc;
+        depth_desc.Format = kDepthFormat;
+        depth_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+        D3D12_CLEAR_VALUE depth_clear{};
+        depth_clear.Format = kDepthFormat;
+        g_gpu.device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &depth_desc,
+                                              D3D12_RESOURCE_STATE_DEPTH_WRITE, &depth_clear,
+                                              IID_PPV_ARGS(&made.depth));
+
+        const std::uint32_t row_pitch = (width * 4u + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1u) &
+                                        ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1u);
+        D3D12_HEAP_PROPERTIES readback_heap{};
+        readback_heap.Type = D3D12_HEAP_TYPE_READBACK;
+        D3D12_RESOURCE_DESC readback_desc{};
+        readback_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        readback_desc.Width = static_cast<UINT64>(row_pitch) * height;
+        readback_desc.Height = 1;
+        readback_desc.DepthOrArraySize = 1;
+        readback_desc.MipLevels = 1;
+        readback_desc.SampleDesc.Count = 1;
+        readback_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        g_gpu.device->CreateCommittedResource(&readback_heap, D3D12_HEAP_FLAG_NONE, &readback_desc,
+                                              D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+                                              IID_PPV_ARGS(&made.readback));
+
+        ++g_gpu.stats.targets_created;
+        found = g_gpu.targets.emplace(key, std::move(made)).first;
+    } else {
+        ++g_gpu.stats.targets_reused;
+    }
+
+    g_gpu.target = found->second.colour;
+    g_gpu.depth = found->second.depth;
+    g_gpu.readback = found->second.readback;
+
+    // The views are rewritten rather than kept per target: a descriptor write
+    // is a handful of bytes and this keeps one slot in each heap.
     g_gpu.device->CreateRenderTargetView(g_gpu.target.Get(), nullptr,
                                          g_gpu.rtv_heap->GetCPUDescriptorHandleForHeapStart());
-
-    D3D12_RESOURCE_DESC depth_desc = desc;
-    depth_desc.Format = kDepthFormat;
-    depth_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-    D3D12_CLEAR_VALUE depth_clear{};
-    depth_clear.Format = kDepthFormat;
-    g_gpu.device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &depth_desc,
-                                          D3D12_RESOURCE_STATE_DEPTH_WRITE, &depth_clear,
-                                          IID_PPV_ARGS(&g_gpu.depth));
     D3D12_DEPTH_STENCIL_VIEW_DESC dsv{};
     dsv.Format = kDepthFormat;
     dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
     g_gpu.device->CreateDepthStencilView(g_gpu.depth.Get(), &dsv,
                                          g_gpu.dsv_heap->GetCPUDescriptorHandleForHeapStart());
-
-    const std::uint32_t row_pitch = (width * 4u + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1u) &
-                                    ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1u);
-    D3D12_HEAP_PROPERTIES readback_heap{};
-    readback_heap.Type = D3D12_HEAP_TYPE_READBACK;
-    D3D12_RESOURCE_DESC readback_desc{};
-    readback_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    readback_desc.Width = static_cast<UINT64>(row_pitch) * height;
-    readback_desc.Height = 1;
-    readback_desc.DepthOrArraySize = 1;
-    readback_desc.MipLevels = 1;
-    readback_desc.SampleDesc.Count = 1;
-    readback_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-    g_gpu.device->CreateCommittedResource(&readback_heap, D3D12_HEAP_FLAG_NONE, &readback_desc,
-                                          D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
-                                          IID_PPV_ARGS(&g_gpu.readback));
 }
 
 bool gpu_draw(psprecomp::Runtime &runtime, std::uint32_t primitive,
@@ -901,6 +938,8 @@ std::string gpu_report() {
         << " vertices, " << g_gpu.stats.batches_flushed << " batches\n"
         << "  gpu textures:       " << g_gpu.stats.textures_uploaded << " uploaded, "
         << g_gpu.stats.texture_cache_hits << " reused\n"
+        << "  gpu targets:        " << g_gpu.stats.targets_created << " created, "
+        << g_gpu.stats.targets_reused << " reused\n"
         << "  gpu resolves:       " << g_gpu.stats.resolves << " on "
         << (g_gpu.adapter.empty() ? "no adapter" : g_gpu.adapter) << "\n";
     return out.str();

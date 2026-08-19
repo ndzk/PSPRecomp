@@ -59,6 +59,11 @@ struct GpuStats {
     std::uint64_t textures_uploaded{};
     std::uint64_t texture_cache_hits{};
     std::uint64_t resolves{};
+    // Colour, depth and readback buffers are kept per guest frame buffer.
+    // This title flips between two, so without keeping them it built three
+    // resources and destroyed three more every single frame.
+    std::uint64_t targets_created{};
+    std::uint64_t targets_reused{};
     std::string adapter;
 };
 [[nodiscard]] GpuStats gpu_stats();
