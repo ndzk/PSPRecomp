@@ -1573,10 +1573,50 @@ int generate_relocatable(const std::filesystem::path &image_path,
     memory.copy_in(base, image);
 
     // Everything the ELF path derives from segment headers is known outright
-    // here: the image is one executable range and it is entered at its start.
+    // here: the image is one executable range.
     const auto limit = static_cast<std::uint32_t>(base + image.size());
     std::vector<psprecomp::ExecutableRange> ranges{{base, limit}};
-    std::map<std::uint32_t, std::string> seeds{{base, "relocatable_image_entry"}};
+
+    // Seeding only the start of the image covers the first routine and whatever
+    // it calls, which is not the same thing as covering the image. These images
+    // hold routines packed one after another - each opens with a stack frame and
+    // closes with `jr ra` and its delay slot - and the engine enters most of
+    // them through pointers rather than from inside the image, so nothing leads
+    // an analysis to them. One title's image held forty-two routines behind a
+    // single seed, and a run stopped inside the fortieth.
+    //
+    // The walk below is checked as it goes: every derived start must open with a
+    // stack frame, and the last routine must end exactly where the image does.
+    // Falling out of that means the assumption does not hold for this image, so
+    // it seeds the start alone rather than inventing entry points.
+    const auto word_at = [&image](std::size_t offset) {
+        std::uint32_t value{};
+        std::memcpy(&value, image.data() + offset, sizeof(value));
+        return value;
+    };
+    constexpr std::uint32_t kJrRa = 0x03E00008u;
+    std::map<std::uint32_t, std::string> seeds;
+    std::size_t offset = 0u;
+    bool packed = true;
+    while (offset + 4u <= image.size()) {
+        const std::uint32_t first = word_at(offset);
+        if ((first >> 16u) != 0x27BDu || (first & 0x8000u) == 0u) {
+            packed = false;
+            break;
+        }
+        seeds[base + static_cast<std::uint32_t>(offset)] = "relocatable_routine";
+        std::size_t scan = offset;
+        while (scan + 4u <= image.size() && word_at(scan) != kJrRa) scan += 4u;
+        if (scan + 8u > image.size()) {
+            packed = scan + 8u == image.size();
+            break;
+        }
+        offset = scan + 8u;
+    }
+    if (!packed || offset != image.size()) {
+        seeds.clear();
+        seeds[base] = "relocatable_image_entry";
+    }
     const auto program = psprecomp::analyze_image(ranges, seeds, memory);
     if (program.covered_labels.empty()) throw psprecomp::Error("no instructions were decoded");
 
@@ -1587,7 +1627,10 @@ int generate_relocatable(const std::filesystem::path &image_path,
     const std::string name = "recomp_unit_" + suffix.str();
 
     std::set<std::uint32_t> entries = program.covered_entry_labels;
-    entries.insert(base);
+    for (const auto &[seed, source] : seeds) {
+        (void)source;
+        if (program.covered_labels.contains(seed)) entries.insert(seed);
+    }
     const GeneratedFunctionInput generated_unit{
         name, base, program.covered_labels, entries, base, 0u, nullptr, nullptr,
     };
@@ -1624,6 +1667,8 @@ int generate_relocatable(const std::filesystem::path &image_path,
 
     std::cout << "  image:            " << image.size() << " bytes at "
               << psprecomp::hex32(base) << "\n"
+              << "  routines:         " << seeds.size()
+              << (packed ? "" : " (not packed, seeded the start only)") << "\n"
               << "  instructions:     " << program.covered_labels.size() << "\n"
               << "  entry points:     " << entries.size() << "\n"
               << "  unit index:       " << unit_index << "\n"
