@@ -98,6 +98,10 @@ void raster_configure_side_split();
 // Dumps a specific guest frame buffer, for comparing the one being drawn into
 // against the one on screen.
 // Dumps the host working copy directly, bypassing guest memory.
+// Whether the render scans are on, which is also what gates the extra frame
+// dumps: they are worth their cost only while something is being investigated.
+[[nodiscard]] bool frame_scan_enabled();
+
 [[nodiscard]] bool dump_host_surface(const std::string &path, std::string &error);
 
 [[nodiscard]] bool dump_named_buffer(psprecomp::Runtime &runtime, std::uint32_t address,

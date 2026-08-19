@@ -543,9 +543,16 @@ void service_guest_deadlines(Runtime &rt) {
         // rather than one visit per buffer.
         const std::string stem = "frame_" + std::to_string(g_virtual_time_us / 1000u) + "ms";
         std::string error;
-        dump_named_buffer(rt, 0x04000000u, stem + "_A.bmp", error);
-        dump_named_buffer(rt, 0x04090000u, stem + "_B.bmp", error);
-        dump_host_surface(stem + "_host.bmp", error);
+        // Both buffers and the working copy, but only while something is being
+        // chased. Writing all three on every periodic dump cost four full frame
+        // copies and 512KB of disk each time, and a run measured at 0.60 times
+        // real speed with 188 of them on disk - the instrumentation, not the
+        // title, was what made a fight take forever to load.
+        if (frame_scan_enabled()) {
+            dump_named_buffer(rt, 0x04000000u, stem + "_A.bmp", error);
+            dump_named_buffer(rt, 0x04090000u, stem + "_B.bmp", error);
+            dump_host_surface(stem + "_host.bmp", error);
+        }
         const std::string path = stem + ".bmp";
         if (dump_display(rt, path, error)) {
             ++g_frame_dumps_written;

@@ -1706,6 +1706,8 @@ bool dump_named_buffer(psprecomp::Runtime &runtime, std::uint32_t address, const
 // wrong and this says which: if the host copy holds the menu, the loss is in
 // pushing it back; if it is black too, the writes counted are going somewhere
 // this profile has not looked.
+bool frame_scan_enabled() { return g_discard_scan; }
+
 bool dump_host_surface(const std::string &path, std::string &error) {
     if (g_surface.empty() || !g_surface_target.valid()) {
         error = "no host surface";
