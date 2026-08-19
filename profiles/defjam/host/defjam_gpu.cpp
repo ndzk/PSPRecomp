@@ -111,7 +111,12 @@ float4 ps_main(VSOut input) : SV_Target {
     float4 texel = source.Load(int3(index, 0));
     // Same rule the software rasteriser applies: the texture function register
     // decides whether the vertex colour tints the texel or is thrown away.
+    // Same rule the reference applies: modulate multiplies every channel, and
+    // the other mode replaces the colour but keeps the vertex's alpha. Dropping
+    // that alpha here left the main menu's left half painted opaque black by a
+    // dimming overlay drawn at alpha 0x73, exactly as it did on the CPU path.
     if (modulate != 0u) texel *= input.color;
+    else texel.a *= input.color.a;
     return texel;
 }
 )";
