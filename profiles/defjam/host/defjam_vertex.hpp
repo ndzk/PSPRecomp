@@ -102,6 +102,10 @@ struct VertexStats {
     std::uint64_t behind_eye{};     // dropped: a vertex behind the near plane
     std::uint64_t skinned{};        // primitives blended through bone matrices
     std::uint64_t clipped{};        // primitives the near plane cut rather than dropped
+    // Drawn, but nowhere anyone can see. Distinguishes geometry that was
+    // never emitted from geometry that landed off the screen, which look
+    // the same in a picture and mean different bugs.
+    std::uint64_t offscreen{};
     std::uint64_t through_draws{};
     std::uint64_t with_uv{}, with_color{}, with_normal{};
     // The extent of decoded positions, kept apart for the two kinds of draw.

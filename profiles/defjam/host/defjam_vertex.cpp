@@ -440,8 +440,11 @@ bool to_screen(const GeMatrices &matrices, const Vertex &vertex, std::uint32_t w
             wy += by * weight;
             wz += bz * weight;
         }
-    } else if (matrices.world_seen) {
-        apply_4x3(matrices.world, x, y, z, wx, wy, wz);
+    }
+    // Bones pose, the world matrix places. See to_clip.
+    if (matrices.world_seen) {
+        const float px = wx, py = wy, pz = wz;
+        apply_4x3(matrices.world, px, py, pz, wx, wy, wz);
     }
     float vx = wx, vy = wy, vz = wz;
     if (matrices.view_seen) apply_4x3(matrices.view, wx, wy, wz, vx, vy, vz);
@@ -579,8 +582,20 @@ void to_clip(const GeMatrices &matrices, const Vertex &vertex, ClipVertex &out) 
             wy += by * weight;
             wz += bz * weight;
         }
-    } else if (matrices.world_seen) {
-        apply_4x3(matrices.world, x, y, z, wx, wy, wz);
+    }
+    // The world matrix applies either way, and that is the whole bug behind
+    // characters that were drawn and never seen.
+    //
+    // Bones pose a model in its own space: measured on a fight, they moved a
+    // vertex from (4.88, -1.49, 2.78) to (4.78, -1.05, 2.62), which is a pose
+    // and not a placement. The world matrix is what puts the posed model in the
+    // scene - the same vertex through it lands at (17.9, 16.4, 48.6). Treating
+    // the two as alternatives left every skinned model sitting near the origin
+    // while the camera looked at a scene a hundred units away, so 86 million of
+    // 98 million primitives were drawn off the screen.
+    if (matrices.world_seen) {
+        const float px = wx, py = wy, pz = wz;
+        apply_4x3(matrices.world, px, py, pz, wx, wy, wz);
     }
     float vx = wx, vy = wy, vz = wz;
     if (matrices.view_seen) apply_4x3(matrices.view, wx, wy, wz, vx, vy, vz);
@@ -640,6 +655,22 @@ void draw_clipped_triangle(Runtime &runtime, const ClipVertex &a, const ClipVert
     screen.resize(produced);
     for (std::size_t i = 0; i < produced; ++i) screen[i] = to_screen_from_clip(out[i]);
 
+    {
+        const RenderTarget target = current_render_target();
+        float min_x = screen[0].x, max_x = screen[0].x;
+        float min_y = screen[0].y, max_y = screen[0].y;
+        for (std::size_t i = 1; i < produced; ++i) {
+            min_x = std::min(min_x, screen[i].x);
+            max_x = std::max(max_x, screen[i].x);
+            min_y = std::min(min_y, screen[i].y);
+            max_y = std::max(max_y, screen[i].y);
+        }
+        if (max_x < 0.0f || max_y < 0.0f || min_x >= static_cast<float>(target.width) ||
+            min_y >= static_cast<float>(target.height)) {
+            ++g_stats.offscreen;
+        }
+    }
+
     // The clipped polygon is convex, so a fan from its first corner covers it.
     static std::vector<Vertex> triangle(3u);
     for (std::size_t i = 1u; i + 1u < produced; ++i) {
@@ -664,6 +695,58 @@ void transform_and_draw(Runtime &runtime, std::uint32_t primitive,
     for (std::size_t i = 0; i < vertices.size(); ++i) {
         if (vertices[i].weight_count != 0u) ++g_stats.skinned;
         to_clip(matrices, vertices[i], clip[i]);
+
+        // Skinned geometry is drawn and lands off the screen: 86 million of 98
+        // million primitives, against 78 million skinned. Where along the chain
+        // it goes wrong is not visible from either end, so one vertex reports
+        // every step of it.
+        static bool traced = false;
+        if (!traced && vertices[i].weight_count != 0u) {
+            traced = true;
+            const Vertex &v = vertices[i];
+            const ClipVertex &c = clip[i];
+            runtime_log_line("skinned chain: model " + std::to_string(v.x) + " " +
+                             std::to_string(v.y) + " " + std::to_string(v.z));
+            // The two steps between the model and clip space, recomputed here
+            // so the trace says which one moves the vertex out of the frustum.
+            float bx = 0.0f, by = 0.0f, bz = 0.0f;
+            for (std::uint8_t k = 0; k < v.weight_count && k < matrices.bones_seen; ++k) {
+                if (v.weights[k] == 0.0f) continue;
+                float tx{}, ty{}, tz{};
+                apply_4x3(matrices.bone[k], v.x, v.y, v.z, tx, ty, tz);
+                bx += tx * v.weights[k];
+                by += ty * v.weights[k];
+                bz += tz * v.weights[k];
+            }
+            float sum = 0.0f;
+            for (std::uint8_t k = 0; k < v.weight_count; ++k) sum += v.weights[k];
+            runtime_log_line("  after bones " + std::to_string(bx) + " " + std::to_string(by) +
+                             " " + std::to_string(bz) + "  weights sum " + std::to_string(sum));
+            float ex = bx, ey = by, ez = bz;
+            if (matrices.view_seen) apply_4x3(matrices.view, bx, by, bz, ex, ey, ez);
+            runtime_log_line("  after view " + std::to_string(ex) + " " + std::to_string(ey) +
+                             " " + std::to_string(ez));
+            if (matrices.world_seen) {
+                float ax{}, ay{}, az{};
+                apply_4x3(matrices.world, v.x, v.y, v.z, ax, ay, az);
+                runtime_log_line("  world instead " + std::to_string(ax) + " " +
+                                 std::to_string(ay) + " " + std::to_string(az));
+            }
+            runtime_log_line("  clip " + std::to_string(c.x) + " " + std::to_string(c.y) +
+                             " " + std::to_string(c.z) + " w " + std::to_string(c.w));
+            if (c.w > 0.0f) {
+                const Vertex screen = to_screen_from_clip(c);
+                runtime_log_line("  screen " + std::to_string(screen.x) + " " +
+                                 std::to_string(screen.y) + " depth " +
+                                 std::to_string(screen.z));
+            }
+            const Viewport vp = current_viewport();
+            runtime_log_line("  viewport scale " + std::to_string(vp.x_scale) + " " +
+                             std::to_string(vp.y_scale) + "  centre " +
+                             std::to_string(vp.x_center) + " " + std::to_string(vp.y_center) +
+                             "  offset " + std::to_string(vp.x_offset) + " " +
+                             std::to_string(vp.y_offset));
+        }
     }
 
     switch (primitive) {
@@ -770,7 +853,8 @@ std::string vertex_report() {
         << " indexed (" << stats.indexed_decoded << " walked, highest index "
         << stats.max_index << "), " << stats.through_draws << " through\n"
         << "  vertex transform:   " << stats.transformed << " transformed, " << stats.behind_eye
-        << " dropped behind the eye, " << stats.skinned << " skinned\n";
+        << " dropped behind the eye, " << stats.offscreen << " off screen, "
+        << stats.clipped << " clipped, " << stats.skinned << " skinned\n";
     const auto extent_line = [&out](const char *label, const VertexStats::Extent &extent) {
         if (!extent.any) return;
         out << label << " x " << extent.min_x << ".." << extent.max_x << "  y " << extent.min_y
