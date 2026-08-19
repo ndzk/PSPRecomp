@@ -325,6 +325,53 @@ void describe_white(std::uint64_t white, std::uint32_t color, const TextureState
                      std::to_string(clear_mode_active() ? 1 : 0));
 }
 
+// Every register in force for one large blended primitive.
+//
+// Two draws need opposite treatment and carry the same blend function. The main
+// menu's black quad has to add nothing or it paints the left half black; the
+// cream song banner has to cover the tiles under it or they show through. Both
+// are drawn with the enable on and 0xC6 holding 0x0101, so something else in
+// the register file separates them. Printing all of it for each and diffing the
+// two rows names that something instead of guessing at it.
+void describe_blended(std::uint64_t covered, std::uint32_t color, const TextureState &texture,
+                      bool textured, float x, float y) {
+    static int described = 0;
+    if (described >= 10) return;
+    ++described;
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
+    runtime_log_line("blended primitive at " + std::to_string(x) + "," + std::to_string(y) +
+                     "  " + std::to_string(covered) + " pixels  colour " +
+                     psprecomp::hex32(color) + "  textured " + std::to_string(textured ? 1 : 0));
+    if (textured) {
+        runtime_log_line("  texture " + psprecomp::hex32(texture.address) + " " +
+                         std::to_string(texture.width) + "x" + std::to_string(texture.height) +
+                         " format " + std::to_string(static_cast<int>(texture.format)));
+    }
+    std::string line = "  regs";
+    for (std::size_t i = 0; i < 256u; ++i) {
+        if (registers[i] == 0u) continue;
+        line += " " + psprecomp::hex32(static_cast<std::uint32_t>(i)).substr(8) + "=" +
+                std::to_string(registers[i]);
+        if (line.size() > 150u) {
+            runtime_log_line(line);
+            line = "  regs";
+        }
+    }
+    if (line.size() > 6u) runtime_log_line(line);
+}
+
+void note_blended(const PixelTally &before, std::uint32_t color, const TextureState &texture,
+                  bool textured, float x, float y) {
+    if (!g_discard_scan) return;
+    if ((ge_registers()[kCmdBlendEnable] & 1u) == 0u) return;
+    // A clear is issued as a strip of blended quads and would fill the sample
+    // with nothing else, which is exactly what happened the first time.
+    if (clear_mode_active()) return;
+    const std::uint64_t covered = g_pixels_kept - before.kept;
+    if (covered < 5000u) return;
+    describe_blended(covered, color, texture, textured, x, y);
+}
+
 // Fires on a primitive whose output is overwhelmingly pure white over an area
 // big enough to be one of the rectangles on screen.
 void note_white_block(const PixelTally &before, std::uint32_t color, const TextureState &texture,
@@ -409,14 +456,15 @@ std::uint32_t modulate(std::uint32_t texel, std::uint32_t vertex) {
 }
 
 std::uint32_t combine_texel(std::uint32_t texel, std::uint32_t vertex) {
-    // Not switched on. The register is identified and the multiply is written,
-    // but turning it on moves 6% of a frame the user confirmed looked right and
-    // fixes nothing visible: the menu it was meant to explain - a lit brick wall
-    // and seven of eight tiles, all absent - looked identical with it. Evidence
-    // for the mechanism is not evidence for the result, so it waits for a case
-    // that can show it is better.
-    (void)vertex;
-    return texel;
+    // Switched on. It was held back once because it moved a verified frame by 6%
+    // and fixed nothing visible, but the case it was waiting for has arrived:
+    // the menu that motivated it was black for an unrelated reason - a blend
+    // mode this rasteriser did not have - and now that the blend is right, the
+    // vertex colour is the remaining thing being discarded. 65,165 draws set
+    // this register, and 82% of the ones asking for 2 carry a colour that was
+    // going nowhere.
+    if (ge_registers()[kTextureFunctionCandidate] != kTextureFunctionModulate) return texel;
+    return modulate(texel, vertex);
 }
 
 void note_texture_function(std::uint32_t vertex_color) {
@@ -764,6 +812,8 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
     if (y1 > y0) fill_rows(y0, y1 - 1, x1 - x0, band);
     note_white_block(tally, second.color, texture, textured, (first.x + second.x) * 0.5f,
                      (first.y + second.y) * 0.5f);
+    note_blended(tally, second.color, texture, textured, (first.x + second.x) * 0.5f,
+                 (first.y + second.y) * 0.5f);
     end_primitive(tally);
 }
 
@@ -828,6 +878,7 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
     };
     fill_rows(min_y, max_y, max_x - min_x + 1, band);
     note_white_block(tally, a.color, texture, textured, centre_x, centre_y);
+    note_blended(tally, a.color, texture, textured, centre_x, centre_y);
     if (g_discard_scan && g_pixels_kept == tally.kept && g_pixels_dropped > tally.dropped &&
         centre_x < 240.0f) {
         describe_vanished(g_pixels_dropped - tally.dropped, a.color, texture, textured,
