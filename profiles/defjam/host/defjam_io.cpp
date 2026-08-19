@@ -499,6 +499,22 @@ std::int32_t do_read_inner(Runtime &rt, std::int32_t fd, std::uint32_t buffer, s
 // log. PSPRECOMP_DEFJAM_LOG_READS=1 turns it on, which is how you find out
 // which read delivered a given byte - the question that arrives the moment the
 // guest jumps somewhere the corpus does not cover.
+// The last few reads and where they landed. Small on purpose: this is for the
+// read that delivered the code the guest just jumped into, which is one of the
+// most recent by construction.
+struct RecentRead {
+    std::uint32_t address{};
+    std::uint32_t length{};
+    std::string path;
+};
+std::array<RecentRead, 96> g_recent_reads{};
+std::size_t g_recent_head = 0u;
+
+void remember_read(std::uint32_t address, std::uint32_t length, const std::string &path) {
+    g_recent_reads[g_recent_head] = RecentRead{address, length, path};
+    g_recent_head = (g_recent_head + 1u) % g_recent_reads.size();
+}
+
 std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::uint32_t length) {
     static const bool log_reads = [] {
         const char *text = std::getenv("PSPRECOMP_DEFJAM_LOG_READS");
@@ -508,7 +524,12 @@ std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::ui
     // An audio bank arrives as an ordinary read, by raw sector and with no name
     // attached, so this is the only place its routine can be recognised and
     // registered before the sound engine calls it.
-    if (got > 0) note_possible_bank(rt, buffer, static_cast<std::uint32_t>(got));
+    if (got > 0) {
+        const FileHandle *handle = file_at(fd);
+        remember_read(buffer, static_cast<std::uint32_t>(got),
+                      handle != nullptr ? handle->psp_path : std::string("?"));
+        note_possible_bank(rt, buffer, static_cast<std::uint32_t>(got));
+    }
     if (log_reads && got > 0) {
         const FileHandle *handle = file_at(fd);
         runtime_log_line("sceIoRead fd=" + std::to_string(fd) + " " +
@@ -582,6 +603,23 @@ void collect_async(Runtime &rt, AllegrexContext &ctx, bool polling) {
 }
 
 } // namespace
+
+std::string read_covering(std::uint32_t address) {
+    // Most recent first. Searching in storage order returns whichever entry
+    // happens to sit earliest in the ring, and a buffer gets reused: an older
+    // read of a different file covered the address that a later one had
+    // actually filled, and the answer named the wrong file.
+    for (std::size_t step = 0; step < g_recent_reads.size(); ++step) {
+        const RecentRead &read =
+            g_recent_reads[(g_recent_head + g_recent_reads.size() - 1u - step) % g_recent_reads.size()];
+        if (read.length == 0u) continue;
+        if (address < read.address || address >= read.address + read.length) continue;
+        return read.path + " read into " + psprecomp::hex32(read.address) + ".." +
+               psprecomp::hex32(read.address + read.length) + ", " +
+               std::to_string(address - read.address) + " bytes in";
+    }
+    return {};
+}
 
 IoStats io_stats() {
     IoStats stats = g_stats;

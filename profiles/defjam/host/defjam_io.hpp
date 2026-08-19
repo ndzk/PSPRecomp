@@ -35,6 +35,16 @@ struct IoStats {
     std::uint64_t lbn_opens{};       // opens addressed by raw disc sector
     std::uint32_t open_handles{};
 };
+// Which read put a byte at this address, if one of the recent ones did.
+//
+// A title that loads code at run time stops the moment it calls into something
+// the corpus does not cover, and the only useful question then is where that
+// code came from. Answering it used to need the run repeated with read logging
+// turned on, which is not something to ask of a person who reached that point
+// by playing. So the reads remember themselves, and the address explains
+// itself when the run stops.
+[[nodiscard]] std::string read_covering(std::uint32_t address);
+
 [[nodiscard]] IoStats io_stats();
 
 // Most recent path the guest failed to open, for diagnostics.

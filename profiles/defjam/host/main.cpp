@@ -1,6 +1,7 @@
 #include "defjam_atrac.hpp"
 #include "defjam_config.hpp"
 #include "defjam_ge.hpp"
+#include "defjam_gpu.hpp"
 #include "defjam_io.hpp"
 #include "defjam_mpeg.hpp"
 #include "defjam_utility.hpp"
@@ -19,6 +20,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -62,6 +64,57 @@ constexpr int kExitUsage = 2;
 constexpr int kExitMissingExecutable = 3;
 constexpr int kExitIdentityMismatch = 4;
 constexpr int kExitGuestStopped = 5;
+
+// Explains an address the run stopped at, when it can.
+//
+// The policy stops on a function the corpus does not cover, and names the
+// address. That address is the whole question when a title loads code while it
+// runs: it is worth knowing which file delivered it and whether what is there
+// even looks like code, and worth knowing from the run that hit it rather than
+// from a repeat with more logging turned on - reaching these points takes
+// playing the game.
+std::string explain_stop_address(psprecomp::Runtime &runtime, const std::string &reason) {
+    const std::size_t at = reason.find("0x");
+    if (at == std::string::npos) return {};
+    const std::uint32_t address =
+        static_cast<std::uint32_t>(std::strtoul(reason.c_str() + at, nullptr, 16));
+    if (address == 0u || !runtime.memory().contains(address, 16u)) return {};
+
+    std::string text = "  address origin:    ";
+    const std::string source = defjam::read_covering(address);
+    text += source.empty() ? "no recent read covers it" : source;
+    text += "\n  memory there:       ";
+    for (std::uint32_t offset = 0u; offset < 16u; offset += 4u) {
+        text += psprecomp::hex32(runtime.memory().load32(address + offset)) + " ";
+    }
+    // A routine begins by making itself a stack frame. Saying so distinguishes
+    // code the corpus missed from a jump through a pointer that holds rubbish.
+    const std::uint32_t first = runtime.memory().load32(address);
+    text += (first >> 16u) == 0x27BDu && (first & 0x8000u) != 0u
+                ? "\n  looks like:         a function prologue"
+                : "\n  looks like:         not a prologue, so this may be a bad jump";
+
+    // Naming the read that covers an address is a guess when the guest
+    // decompresses what it loaded: the bytes that arrived are not the bytes
+    // that ran, and a buffer holding one file's output can sit inside the range
+    // an earlier read of another file filled. Keeping the memory itself settles
+    // what the code is without having to be right about where it came from.
+    constexpr std::uint32_t kWindow = 64u * 1024u;
+    const std::uint32_t start = address >= kWindow / 2u ? address - kWindow / 2u : 0u;
+    if (runtime.memory().contains(start, kWindow)) {
+        std::vector<std::uint8_t> bytes(kWindow);
+        runtime.memory().copy_out(start, bytes);
+        const std::string path = "stop_" + psprecomp::hex32(address) + ".bin";
+        std::ofstream file(path, std::ios::binary);
+        if (file) {
+            file.write(reinterpret_cast<const char *>(bytes.data()),
+                       static_cast<std::streamsize>(bytes.size()));
+            text += "\n  memory kept:        " + std::to_string(kWindow) + " bytes from " +
+                    psprecomp::hex32(start) + " in " + path;
+        }
+    }
+    return text + "\n";
+}
 
 // A long run needs a bound so a hang cannot wedge the session.
 std::uint64_t configured_max_dispatches() {
@@ -266,6 +319,7 @@ int main(int argc, char **argv) {
         defjam::report_headless_stats();
         std::cout << "\nStopped: " << (runtime.stop_reason().empty() ? "dispatch cap reached"
                                                                     : runtime.stop_reason()) << "\n"
+                  << explain_stop_address(runtime, runtime.stop_reason())
                   << "  vblanks:            " << stats.vblanks << "\n"
                   << "  GE submissions:     " << stats.display_list_submissions << "\n"
                   << "  framebuffer sets:   " << stats.frame_buffer_sets << "\n"
@@ -278,6 +332,7 @@ int main(int argc, char **argv) {
         std::cout << defjam::vertex_report();
         std::cout << defjam::texture_report();
         std::cout << defjam::raster_report();
+        std::cout << defjam::gpu_report();
         std::cout << defjam::window_report();
         std::cout << defjam::bank_report();
         if (const std::string dump = defjam::frame_dump_path(); !dump.empty()) {
