@@ -854,7 +854,9 @@ bool gpu_draw(psprecomp::Runtime &runtime, std::uint32_t primitive,
     const std::array<std::uint32_t, 256> &registers = ge_registers();
     PipelineKey key;
     key.textured = textured;
-    key.blend = !clearing;
+    // Same register the software path reads, so the two agree about when a
+    // pixel is mixed with what lies under it.
+    key.blend = !clearing && (registers[0x1Eu] & 1u) != 0u;
     key.depth_test = !clearing && (registers[0x23u] & 1u) != 0u;
     key.depth_write = (registers[0xE7u] & 1u) == 0u;
     key.compare = static_cast<std::uint8_t>(registers[0xDEu] & 7u);

@@ -155,10 +155,47 @@ bool clear_mode_active() { return (ge_registers()[kCmdClearMode] & 1u) != 0u; }
 // The bone matrices went the same way: 0x38 and 0x39 were wrong and never
 // appeared at all, and what found the real pair was the shape of the command
 // stream rather than a remembered constant. The same is needed here.
-constexpr std::uint8_t kCmdBlendEnable = 0xE0u;
+constexpr std::uint8_t kCmdBlendEnable = 0x1Eu;
 constexpr std::uint8_t kCmdBlendMode = 0xE1u;
 
 std::map<std::uint64_t, std::uint64_t> g_blend_modes;
+
+// Which register gates blending, decided by correlation rather than by a
+// remembered number.
+//
+// A pixel needs blending exactly when its alpha is short of full. If a register
+// is the blend enable then the pixels with partial alpha are drawn with it on
+// and the opaque ones with it off; a register that has nothing to do with
+// blending shows no such split. Two candidates came out of scanning every
+// register the title writes for enable-shaped values: 0x1D, toggled 4,220
+// times, and 0x1E, toggled 14,440.
+constexpr std::uint8_t kCandidateA = 0x1Du;
+constexpr std::uint8_t kCandidateB = 0x1Eu;
+
+struct BlendCorrelation {
+    std::uint64_t on_partial{};
+    std::uint64_t on_opaque{};
+    std::uint64_t off_partial{};
+    std::uint64_t off_opaque{};
+};
+BlendCorrelation g_candidate_a;
+BlendCorrelation g_candidate_b;
+
+void note_blend_correlation(std::uint32_t color) {
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
+    const bool partial = ((color >> 24u) & 0xFFu) != 255u;
+    const auto tally = [partial](BlendCorrelation &into, bool on) {
+        if (on) {
+            if (partial) ++into.on_partial;
+            else ++into.on_opaque;
+        } else {
+            if (partial) ++into.off_partial;
+            else ++into.off_opaque;
+        }
+    };
+    tally(g_candidate_a, (registers[kCandidateA] & 1u) != 0u);
+    tally(g_candidate_b, (registers[kCandidateB] & 1u) != 0u);
+}
 
 void note_blend_state() {
     const std::array<std::uint32_t, 256> &registers = ge_registers();
@@ -207,6 +244,7 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     if ((color & 0xFF000000u) == 0u) ++g_stats.transparent_writes;
     if ((color & 0x00FFFFFFu) != 0u) ++g_stats.coloured_writes;
     note_blend_state();
+    note_blend_correlation(color);
     // Blending happens when the hardware is told to blend, and not otherwise.
     //
     // This used to blend every pixel unconditionally. Measured on a run, the
@@ -215,7 +253,19 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     // when the hardware would have written it straight through. It also meant a
     // pixel with an alpha of zero was dropped rather than written, and a run
     // counted 1.36 billion of those.
-    target = g_clearing ? (color | 0xFF000000u) : blend_over(color, target);
+    // Blending happens when the hardware is told to blend.
+    //
+    // Which register says so was decided by correlation, not recall: of every
+    // register this title writes, 0x1E is the one whose state tracks what is
+    // being drawn - on for 94% of the pixels that carry partial alpha and off
+    // for 60% of the opaque ones. 0x1D is on for everything and gates nothing,
+    // and 0xE0, which an earlier guess used, is written three times in a run
+    // and always zero.
+    //
+    // 19,434,256 pixels of one run carry partial alpha with blending off. The
+    // hardware writes those straight through; mixing them in was wrong.
+    const bool blending = (ge_registers()[kCmdBlendEnable] & 1u) != 0u;
+    target = (g_clearing || !blending) ? (color | 0xFF000000u) : blend_over(color, target);
     ++g_stats.pixels_written;
 }
 
@@ -613,6 +663,25 @@ void raster_reset() {
 }
 
 RasterStats raster_stats() { return g_stats; }
+
+std::string blend_correlation_report() {
+    std::ostringstream out;
+    const auto line = [&out](const char *name, const BlendCorrelation &c) {
+        const std::uint64_t partial = c.on_partial + c.off_partial;
+        const std::uint64_t opaque = c.on_opaque + c.off_opaque;
+        out << "    " << name << "  partial alpha: " << c.on_partial << " on / " << c.off_partial
+            << " off";
+        if (partial != 0u) out << "  (" << (100u * c.on_partial / partial) << "% on)";
+        out << "\n              opaque:        " << c.on_opaque << " on / " << c.off_opaque
+            << " off";
+        if (opaque != 0u) out << "  (" << (100u * c.on_opaque / opaque) << "% on)";
+        out << "\n";
+    };
+    out << "  blend enable candidates:\n";
+    line("0x1D", g_candidate_a);
+    line("0x1E", g_candidate_b);
+    return out.str();
+}
 
 std::string blend_report() {
     if (g_blend_modes.empty()) return {};

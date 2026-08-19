@@ -66,6 +66,10 @@ GeExecution ge_execute_list(psprecomp::Runtime &runtime, GeListState &state, std
 
 void ge_reset();
 [[nodiscard]] GeStats ge_stats();
+// Every GE register the title writes, with the values it uses. For finding a
+// register by what it does rather than by a remembered number.
+[[nodiscard]] std::string command_value_report();
+
 [[nodiscard]] std::string ge_report();
 
 // The transform matrices, as the guest streamed them in.

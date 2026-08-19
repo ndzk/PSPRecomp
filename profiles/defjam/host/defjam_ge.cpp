@@ -9,6 +9,9 @@
 #include <algorithm>
 #include <cstring>
 #include <map>
+#include <set>
+#include <sstream>
+#include <map>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -88,6 +91,21 @@ float matrix_element(std::uint32_t data) {
     float value{};
     std::memcpy(&value, &bits, sizeof(value));
     return value;
+}
+
+// Every command the title issues, with the distinct values it gives each one.
+//
+// Written to find the blend registers the way the bone matrices were found -
+// from what the stream does rather than from a remembered number. A register
+// that only ever holds zero and one is an enable bit; one holding small packed
+// fields is a mode. Guessing 0xE0 cost a reverted change and a broken frame.
+std::map<std::uint8_t, std::set<std::uint32_t>> g_command_values;
+std::map<std::uint8_t, std::uint64_t> g_command_counts;
+
+void note_command(std::uint8_t command, std::uint32_t data) {
+    ++g_command_counts[command];
+    std::set<std::uint32_t> &seen = g_command_values[command];
+    if (seen.size() < 12u) seen.insert(data);
 }
 
 void write_matrix(float *matrix, std::uint32_t size, std::uint32_t &cursor, std::uint32_t data,
@@ -189,6 +207,7 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
         // Every command latches, including the ones handled below; a backend
         // reads draw state straight out of this file.
         g_registers[command] = data;
+        note_command(command, data);
 
         switch (command) {
         case kCmdNop:
@@ -330,6 +349,25 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
             break;
         }
     }
+}
+
+std::string command_value_report() {
+    std::ostringstream out;
+    out << "  GE registers holding only small values, with the values used:\n";
+    for (const auto &entry : g_command_values) {
+        const std::set<std::uint32_t> &values = entry.second;
+        if (values.size() > 6u) continue;
+        bool small = true;
+        for (const std::uint32_t value : values) {
+            if (value > 0xFFFFu) small = false;
+        }
+        if (!small) continue;
+        out << "    0x" << std::hex << static_cast<std::uint32_t>(entry.first) << std::dec
+            << "  used " << g_command_counts[entry.first] << " times, values";
+        for (const std::uint32_t value : values) out << " " << value;
+        out << "\n";
+    }
+    return out.str();
 }
 
 std::string ge_report() {

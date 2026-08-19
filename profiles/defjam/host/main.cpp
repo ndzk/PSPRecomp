@@ -333,6 +333,8 @@ int main(int argc, char **argv) {
         std::cout << defjam::texture_report();
         std::cout << defjam::raster_report();
         std::cout << defjam::blend_report();
+        std::cout << defjam::blend_correlation_report();
+        std::cout << defjam::command_value_report();
         std::cout << defjam::window_report();
         std::cout << defjam::bank_report();
         if (const std::string dump = defjam::frame_dump_path(); !dump.empty()) {

@@ -68,6 +68,9 @@ void raster_reset();
 // Which blend equations and factors the title selects, and how often.
 [[nodiscard]] std::string blend_report();
 
+// Correlates candidate enable registers against the alpha of what is drawn.
+[[nodiscard]] std::string blend_correlation_report();
+
 [[nodiscard]] std::string raster_report();
 
 // Writes the frame buffer the display is pointed at to a BMP file. Returns
