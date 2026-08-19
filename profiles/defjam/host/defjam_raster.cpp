@@ -204,6 +204,97 @@ constexpr std::uint8_t kTextureFunctionCandidate = 0xC4u;
 
 std::map<std::uint32_t, std::pair<std::uint64_t, std::uint64_t>> g_texture_function;
 
+// Register state, split by where on the screen a primitive lands.
+//
+// The main menu gives a control pair that costs nothing to use: its right half
+// draws correctly and its left half comes out 90% pure black on both
+// rasterisers, with every counter clean - nothing skipped, nothing clipped,
+// nothing failing a depth test. So the draws are issued and rasterised and
+// their pixels are thrown away somewhere, and whatever state decides that
+// differs between the two halves.
+//
+// Rather than guess which register it is, every register is tallied for each
+// side and the ones whose values differ are printed. The same reasoning found
+// the texture function and the bone matrices; guessing found neither.
+//
+// PSPRECOMP_DEFJAM_SIDES=<x> turns it on and sets the dividing column.
+std::uint32_t g_side_split = 0u;
+
+// Register state split by whether a primitive's pixels survived.
+//
+// 72% of the pixels this title produces carry an alpha of zero and are thrown
+// away here, unconditionally, because this rasteriser has no alpha test and one
+// fixed blend. The hardware decides their fate from registers. Rather than
+// guess which, every register is tallied against the outcome that matters:
+// whether the primitive put anything on the screen. A register that governs the
+// discard will hold one set of values for the primitives that vanish and
+// another for the ones that land.
+std::uint64_t g_pixels_kept = 0u;
+std::uint64_t g_pixels_dropped = 0u;
+std::array<std::map<std::uint32_t, std::uint64_t>, 256> g_state_vanished;
+std::array<std::map<std::uint32_t, std::uint64_t>, 256> g_state_landed;
+bool g_discard_scan = false;
+
+struct PixelTally {
+    std::uint64_t kept{};
+    std::uint64_t dropped{};
+};
+
+PixelTally begin_primitive() { return PixelTally{g_pixels_kept, g_pixels_dropped}; }
+
+// One primitive that covered pixels and left none of them, described in full.
+// Correlation narrowed this to a handful of registers and then stopped being
+// useful; what is left is to look at an actual example.
+void describe_vanished(std::uint64_t dropped, std::uint32_t color, const TextureState &texture,
+                       bool textured, float x, float y) {
+    static int described = 0;
+    if (described >= 6) return;
+    ++described;
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
+    runtime_log_line("vanished primitive at " + std::to_string(x) + "," + std::to_string(y) +
+                     "  dropped " + std::to_string(dropped) + " pixels");
+    runtime_log_line("  colour " + psprecomp::hex32(color) + "  alpha " +
+                     std::to_string((color >> 24u) & 0xFFu) + "  textured " +
+                     std::to_string(textured ? 1 : 0));
+    if (textured) {
+        runtime_log_line("  texture " + psprecomp::hex32(texture.address) + " " +
+                         std::to_string(texture.width) + "x" + std::to_string(texture.height) +
+                         " format " + std::to_string(static_cast<int>(texture.format)) +
+                         " clut " + psprecomp::hex32(texture.clut_address));
+    }
+    runtime_log_line("  clearing " + std::to_string(clear_mode_active() ? 1 : 0) + "  0x1d " +
+                     std::to_string(registers[0x1Du]) + "  0x1e " +
+                     std::to_string(registers[0x1Eu]) + "  0x23 " +
+                     std::to_string(registers[0x23u]) + "  0xc4 " +
+                     std::to_string(registers[0xC4u]) + "  0xc6 " +
+                     std::to_string(registers[0xC6u]));
+}
+
+void end_primitive(const PixelTally &before) {
+    if (!g_discard_scan) return;
+    const std::uint64_t kept = g_pixels_kept - before.kept;
+    const std::uint64_t dropped = g_pixels_dropped - before.dropped;
+    if (kept + dropped == 0u) return;
+    auto &into = kept == 0u ? g_state_vanished : g_state_landed;
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
+    for (std::size_t i = 0; i < 256u; ++i) {
+        std::map<std::uint32_t, std::uint64_t> &values = into[i];
+        if (values.size() < 8u || values.count(registers[i]) != 0u) ++values[registers[i]];
+    }
+}
+std::array<std::map<std::uint32_t, std::uint64_t>, 256> g_side_left;
+std::array<std::map<std::uint32_t, std::uint64_t>, 256> g_side_right;
+
+void note_side(float centre_x) {
+    if (g_side_split == 0u) return;
+    auto &into = centre_x < static_cast<float>(g_side_split) ? g_side_left : g_side_right;
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
+    for (std::size_t i = 0; i < 256u; ++i) {
+        std::map<std::uint32_t, std::uint64_t> &values = into[i];
+        if (values.size() < 8u || values.count(registers[i]) != 0u) ++values[registers[i]];
+    }
+}
+
 // Texel times vertex colour, per channel.
 //
 // Which of the hardware's texture functions is in force was decided by
@@ -339,6 +430,14 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     // the change is half a rule. The register is identified and counted; the
     // behaviour stays as it was until the other half exists.
     (void)blending;
+    // Rejected means the pixel was not allowed to contribute, not that it
+    // happened to match what was already there. Counting equality instead
+    // called white on white and black on black discards, which put two
+    // correctly drawn primitives at the top of a report about vanishing ones
+    // and made every correlation drawn from it worthless.
+    const bool rejected = !g_clearing && ((color >> 24u) & 0xFFu) == 0u;
+    if (rejected) ++g_pixels_dropped;
+    else ++g_pixels_kept;
     target = g_clearing ? (color | 0xFF000000u) : blend_over(color, target);
     ++g_stats.pixels_written;
 }
@@ -510,6 +609,8 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
     const float span_y = std::max(1.0f, second.y - first.y);
 
     if (textured) note_texture_function(second.color);
+    note_side((first.x + second.x) * 0.5f);
+    const PixelTally tally = begin_primitive();
     const auto band = [&](std::int32_t from, std::int32_t to) {
     for (std::int32_t y = from; y <= to; ++y) {
         for (std::int32_t x = x0; x < x1; ++x) {
@@ -527,6 +628,7 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
     }
     };
     if (y1 > y0) fill_rows(y0, y1 - 1, x1 - x0, band);
+    end_primitive(tally);
 }
 
 // Flat-filled triangle with barycentric interpolation for colour and texture.
@@ -543,6 +645,10 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
     const float inverse = 1.0f / area;
 
     if (textured) note_texture_function(a.color);
+    note_side((a.x + b.x + c.x) / 3.0f);
+    const PixelTally tally = begin_primitive();
+    const float centre_x = (a.x + b.x + c.x) / 3.0f;
+    const float centre_y = (a.y + b.y + c.y) / 3.0f;
     const auto band = [&](std::int32_t from, std::int32_t to) {
     for (std::int32_t y = from; y <= to; ++y) {
         for (std::int32_t x = min_x; x <= max_x; ++x) {
@@ -585,6 +691,12 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
     }
     };
     fill_rows(min_y, max_y, max_x - min_x + 1, band);
+    if (g_discard_scan && g_pixels_kept == tally.kept && g_pixels_dropped > tally.dropped &&
+        centre_x < 240.0f) {
+        describe_vanished(g_pixels_dropped - tally.dropped, a.color, texture, textured,
+                          centre_x, centre_y);
+    }
+    end_primitive(tally);
 }
 
 } // namespace
@@ -750,6 +862,15 @@ bool rasterise(psprecomp::Runtime &runtime, std::uint32_t primitive,
     return true;
 }
 
+void raster_configure_side_split() {
+    if (const char *text = std::getenv("PSPRECOMP_DEFJAM_DISCARD_SCAN")) {
+        g_discard_scan = text[0] != 0 && text[0] != 48;
+    }
+    if (const char *text = std::getenv("PSPRECOMP_DEFJAM_SIDES")) {
+        g_side_split = static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
+    }
+}
+
 void raster_reset() {
     g_stats = RasterStats{};
     g_surface.clear();
@@ -757,6 +878,55 @@ void raster_reset() {
 }
 
 RasterStats raster_stats() { return g_stats; }
+
+std::string discard_state_report() {
+    if (!g_discard_scan) return {};
+    std::ostringstream out;
+    out << "  registers differing between primitives that vanished and landed:\n";
+    for (std::size_t i = 0; i < 256u; ++i) {
+        const auto &gone = g_state_vanished[i];
+        const auto &kept = g_state_landed[i];
+        if (gone.empty() || kept.empty()) continue;
+        bool same = gone.size() == kept.size();
+        if (same) {
+            for (const auto &entry : gone) {
+                if (kept.count(entry.first) == 0u) same = false;
+            }
+        }
+        if (same) continue;
+        out << "    0x" << std::hex << i << std::dec << "   vanished";
+        for (const auto &entry : gone) out << " " << entry.first;
+        out << "   landed";
+        for (const auto &entry : kept) out << " " << entry.first;
+        out << "\n";
+    }
+    out << "    pixels kept " << g_pixels_kept << ", dropped " << g_pixels_dropped << "\n";
+    return out.str();
+}
+
+std::string side_difference_report() {
+    if (g_side_split == 0u) return {};
+    std::ostringstream out;
+    out << "  registers differing between screen halves (split at " << g_side_split << "):\n";
+    for (std::size_t i = 0; i < 256u; ++i) {
+        const auto &left = g_side_left[i];
+        const auto &right = g_side_right[i];
+        if (left.empty() && right.empty()) continue;
+        bool same = left.size() == right.size();
+        if (same) {
+            for (const auto &entry : left) {
+                if (right.count(entry.first) == 0u) same = false;
+            }
+        }
+        if (same) continue;
+        out << "    0x" << std::hex << i << std::dec << "   left";
+        for (const auto &entry : left) out << " " << entry.first;
+        out << "   right";
+        for (const auto &entry : right) out << " " << entry.first;
+        out << "\n";
+    }
+    return out.str();
+}
 
 std::string texture_function_report() {
     if (g_texture_function.empty()) return {};

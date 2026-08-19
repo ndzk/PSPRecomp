@@ -74,6 +74,14 @@ void raster_reset();
 // Correlates the candidate texture-function register against vertex colour.
 [[nodiscard]] std::string texture_function_report();
 
+// Splits register state by which half of the screen a primitive lands in,
+// so a screen with a working half and a blank one names its own difference.
+void raster_configure_side_split();
+[[nodiscard]] std::string side_difference_report();
+
+// Splits register state by whether a primitive put anything on the screen.
+[[nodiscard]] std::string discard_state_report();
+
 [[nodiscard]] std::string raster_report();
 
 // Writes the frame buffer the display is pointed at to a BMP file. Returns

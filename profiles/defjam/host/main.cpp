@@ -284,6 +284,7 @@ int main(int argc, char **argv) {
 
         defjam::install_profile(runtime, user_arena_start);
         defjam::install_starvation_preemption();
+        defjam::raster_configure_side_split();
         defjam::install_progress_watchdog();
         defjam::install_memory_watch();
         defjam::install_dispatch_trace();
@@ -335,6 +336,8 @@ int main(int argc, char **argv) {
         std::cout << defjam::blend_report();
         std::cout << defjam::blend_correlation_report();
         std::cout << defjam::texture_function_report();
+        std::cout << defjam::side_difference_report();
+        std::cout << defjam::discard_state_report();
         std::cout << defjam::command_value_report();
         std::cout << defjam::window_report();
         std::cout << defjam::bank_report();
