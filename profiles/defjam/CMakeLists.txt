@@ -23,6 +23,7 @@ set(DEFJAM_HOST_SOURCES
     host/defjam_ge.cpp
     host/defjam_io.cpp
     host/defjam_mpeg.cpp
+    host/defjam_net.cpp
     host/defjam_present_dx12.cpp
     host/defjam_profile.cpp
     host/defjam_raster.cpp
