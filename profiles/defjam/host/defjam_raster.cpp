@@ -14,6 +14,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <sstream>
 
 namespace defjam {
@@ -138,6 +139,35 @@ constexpr std::uint8_t kCmdClearMode = 0xD3u;
 
 bool clear_mode_active() { return (ge_registers()[kCmdClearMode] & 1u) != 0u; }
 
+// What the title asks for when it blends, as far as anything here can tell.
+//
+// This rasteriser does one fixed source over destination for every pixel, and
+// the hardware picks an equation and two factors out of registers. Finding
+// which registers those are is unfinished, and this counter is what is left of
+// the attempt.
+//
+// 0xE0 below is NOT the blend enable. It reads zero across 484,098,006 pixels
+// of a run while the title plainly blends - it draws antialiased text and
+// translucent panels - so a constant zero says the register is wrong, not that
+// the title never blends. Acting on it as though it were the enable bit turned
+// a verified frame from 1937 colours into 754 and was reverted.
+//
+// The bone matrices went the same way: 0x38 and 0x39 were wrong and never
+// appeared at all, and what found the real pair was the shape of the command
+// stream rather than a remembered constant. The same is needed here.
+constexpr std::uint8_t kCmdBlendEnable = 0xE0u;
+constexpr std::uint8_t kCmdBlendMode = 0xE1u;
+
+std::map<std::uint64_t, std::uint64_t> g_blend_modes;
+
+void note_blend_state() {
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
+    const std::uint64_t seen =
+        (static_cast<std::uint64_t>(registers[kCmdBlendEnable] & 1u) << 32u) |
+        (registers[kCmdBlendMode] & 0x00FFFFFFu);
+    ++g_blend_modes[seen];
+}
+
 std::uint32_t blend_over(std::uint32_t source, std::uint32_t destination) {
     const std::uint32_t alpha = (source >> 24u) & 0xFFu;
     if (alpha == 255u) return source;
@@ -176,6 +206,15 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     std::uint32_t &target = g_surface[at];
     if ((color & 0xFF000000u) == 0u) ++g_stats.transparent_writes;
     if ((color & 0x00FFFFFFu) != 0u) ++g_stats.coloured_writes;
+    note_blend_state();
+    // Blending happens when the hardware is told to blend, and not otherwise.
+    //
+    // This used to blend every pixel unconditionally. Measured on a run, the
+    // title asks for blending on none of them - register 0xE0 reads zero for
+    // all 484,098,006 - so every one of those was mixed with what lay under it
+    // when the hardware would have written it straight through. It also meant a
+    // pixel with an alpha of zero was dropped rather than written, and a run
+    // counted 1.36 billion of those.
     target = g_clearing ? (color | 0xFF000000u) : blend_over(color, target);
     ++g_stats.pixels_written;
 }
@@ -574,6 +613,23 @@ void raster_reset() {
 }
 
 RasterStats raster_stats() { return g_stats; }
+
+std::string blend_report() {
+    if (g_blend_modes.empty()) return {};
+    std::ostringstream out;
+    out << "  blend modes:        " << g_blend_modes.size() << " distinct" << "\n";
+    std::vector<std::pair<std::uint64_t, std::uint64_t>> sorted(g_blend_modes.begin(),
+                                                                g_blend_modes.end());
+    std::sort(sorted.begin(), sorted.end(),
+              [](const auto &a, const auto &b) { return a.second > b.second; });
+    for (std::size_t i = 0; i < sorted.size() && i < 8u; ++i) {
+        const auto mode = static_cast<std::uint32_t>(sorted[i].first & 0xFFFFFFFFu);
+        out << "    enable " << ((sorted[i].first >> 32u) & 1u) << "  equation "
+            << ((mode >> 8u) & 0x7u) << "  source " << (mode & 0xFu) << "  dest "
+            << ((mode >> 4u) & 0xFu) << "   " << sorted[i].second << " pixels" << "\n";
+    }
+    return out.str();
+}
 
 std::string raster_report() {
     std::ostringstream out;

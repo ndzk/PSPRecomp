@@ -65,6 +65,9 @@ struct RasterStats {
 };
 [[nodiscard]] RasterStats raster_stats();
 void raster_reset();
+// Which blend equations and factors the title selects, and how often.
+[[nodiscard]] std::string blend_report();
+
 [[nodiscard]] std::string raster_report();
 
 // Writes the frame buffer the display is pointed at to a BMP file. Returns
