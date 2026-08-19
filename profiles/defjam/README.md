@@ -15,14 +15,16 @@ and the executable's identity, then runs the checked-in AOT corpus against an
 HLE layer: threads and synchronisation, memory partitions and the scratchpad,
 `IoFileMgrForUser` over a generated UMD layout, `sceAudio` and `sceSasCore`,
 `ModuleMgrForUser`, the utility dialogs, `sceMpeg` with a PSMF demultiplexer
-feeding an optional FFmpeg decoder, and `sceAtrac3plus` for streamed audio. 211 imports across 23 modules are implemented of the 247 this
-executable needs; the remaining 39 are the networking libraries, deliberately
-absent (see below).
+feeding an optional FFmpeg decoder, and `sceAtrac3plus` for streamed audio. Of
+the 247 imports this executable needs, 208 across 23 modules are implemented;
+the remaining 39 are the ad-hoc networking libraries, which are stubbed rather
+than emulated (see below).
 
-There is no rasteriser. `host/defjam_ge.cpp` is the front half of one: it walks
-the guest's display lists, maintains the 256-entry GE register file and
-resolves list control flow, so draw state is available to a backend. No backend
-reads it, so there are still no pixels on a screen.
+`host/defjam_ge.cpp` walks the guest's display lists, maintains the 256-entry GE
+register file and resolves list control flow. `host/defjam_vertex.cpp`,
+`host/defjam_texture.cpp` and `host/defjam_raster.cpp` read that state and turn
+it into pixels on the CPU, and `host/defjam_present_dx12.cpp` puts the result on
+screen over Direct3D 12.
 
 ## Supported executable
 
@@ -232,12 +234,19 @@ Environment overrides:
 | `PSPRECOMP_DEFJAM_ALLOW_UNVERIFIED` | Bypass the identity check, with a loud warning. Development only |
 
 Exit codes: `0` ok, `1` error, `2` usage, `3` executable not found, `4` identity
-mismatch.
+mismatch, `5` the guest was stopped — the policy caught a missing function or an
+unsupported instruction, or a watchdog budget ran out.
 
 ## Known issues and open work
 
-- **No rasteriser.** Display lists are interpreted and their state latched;
-  nothing turns that into pixels.
+- **The rasteriser draws.** Display lists are interpreted, their state latched,
+  and the geometry turned into pixels on the CPU. Eight seconds of guest time
+  into a staged run: 877 lists, 194,455 GE commands, 4,716 draws and 525,384
+  vertices, of which 3,848 were transformed and 868 passed through in screen
+  space; 2,018 textures decoded with none failing; 179,864 primitives rasterised
+  and 301,273,664 pixels written. Frames reach a window over Direct3D 12, and
+  `PSPRECOMP_DEFJAM_NO_RASTER` turns the pixel work off while leaving the list
+  interpretation in place.
 - **Movie playback runs end to end.** The opening movie decodes all 118 of its
   frames and the player's threads exit cleanly, after which the title carries
   on. Two things had to be true for that: video access units are split on H.264
@@ -272,9 +281,18 @@ mismatch.
   the plan are in `docs/DEFJAM_AUDIO_BANKS.md`.
 - **Ad-hoc multiplayer is out of scope** for the first release. The title
   imports 41 NIDs across `sceNet`, `sceNetAdhoc`, `sceNetAdhocctl`,
-  `sceNetAdhocMatching` and `sceWlanDrv`, and ships four `pspnet` PRXs. The plan
-  is to report no wireless adapter and leave the rest unimplemented, so an
-  accidental call aborts loudly rather than silently returning success.
+  `sceNetAdhocMatching` and `sceWlanDrv`, and ships four `pspnet` PRXs. Two of
+  the 41 are `sceWlanDrv` and report no wireless adapter. The other 39 are
+  registered in `host/defjam_net.cpp` as stubs that report themselves once, with
+  the guest return address they were called from, and hand back a failure.
+
+  Reporting success would be the worse lie — the title would walk into a
+  wireless session it cannot hold up and fail somewhere far from the cause —
+  and stopping the run outright takes down a single-player session over a menu
+  it wandered into. What they return is not dressed up as an SCE error code:
+  every one of the 39 call sites was read in the AOT corpus and none compares
+  the result against a constant, so any non-zero value sends the guest down the
+  no-wireless path it already has. Nothing here emulates a network.
 - **13 Sony system PRXs are loaded at runtime** from `USRDIR/assets/module/`.
   These must be intercepted and satisfied by HLE rather than recompiled. The
   interception is in place: a load is verified against the staged disc, returns
