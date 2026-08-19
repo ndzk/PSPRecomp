@@ -79,6 +79,10 @@ void raster_reset();
 void raster_configure_side_split();
 [[nodiscard]] std::string side_difference_report();
 
+// Reports whether the blend registers are being honoured, and where the
+// transparent pixels sit relative to the blend enable.
+[[nodiscard]] std::string blend_state_report();
+
 // Splits register state by whether a primitive put anything on the screen.
 [[nodiscard]] std::string discard_state_report();
 

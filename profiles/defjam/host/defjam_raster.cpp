@@ -169,6 +169,53 @@ bool clear_mode_active() { return (ge_registers()[kCmdClearMode] & 1u) != 0u; }
 constexpr std::uint8_t kCmdBlendCandidate = 0x1Eu;
 constexpr std::uint8_t kCmdBlendMode = 0xE1u;
 
+// The blend enable and the blend function, found by how often they are written.
+//
+// A run writes 0x1D 9,330 times with the values 0 and 1, and 0xC6 9,331 times
+// with the values 0 and 0x0101. Writing in lockstep to within one, one of them
+// enable-shaped and the other packing two equal one-byte fields, is the shape
+// of a switch and the parameter that goes with it. Nothing else in the register
+// file pairs like that.
+//
+// 0x0101 is the only non-zero function the title ever asks for, and it is
+// symmetric: both fields hold the same index. Source-over cannot be written
+// that way - it needs the source scaled by one thing and the destination by
+// another - so whatever 0x0101 selects, the unconditional source-over this
+// rasteriser applied to every pixel was not it. A symmetric pair whose two
+// halves are the same non-zero index is the shape of an additive blend, and
+// the frames agree: the title draws a 46,451-pixel opaque black quad across the
+// left of the main menu with the enable on, which adds nothing under addition
+// and paints a black rectangle under source-over.
+//
+// Adding that mode brought back the whole left half of the main menu - the
+// brick wall, the eight tiles, the MAIN MENU title - which had been solid black
+// under source-over.
+//
+// Only the enabled case is acted on. Turning the disabled case into a straight
+// write, which is what the hardware does when it is not blending, put solid
+// white blocks over every run of text: the title draws text from an atlas whose
+// colour is white and whose shape lives in the alpha, and writing that through
+// fills the quad. The hardware drops those texels with an alpha test this
+// rasteriser does not have, so the disabled case keeps mixing until it does.
+constexpr std::uint8_t kCmdBlendEnable = 0x1Du;
+constexpr std::uint8_t kCmdBlendFunction = 0xC6u;
+constexpr std::uint32_t kBlendAdditive = 0x0101u;
+
+// On. PSPRECOMP_DEFJAM_BLEND=0 restores the unconditional source-over this
+// replaced, so the two can still be compared on one binary.
+bool g_honour_blend_state = true;
+
+// Where the transparent pixels live relative to the blend enable.
+//
+// 72% of the pixels this title produces carry an alpha of zero and are dropped
+// here unconditionally, and dropping them is what makes the menus legible. If
+// they turn out to sit overwhelmingly on one side of the enable then the enable
+// explains them; if they are spread across both, something this rasteriser does
+// not model - an alpha test - is doing the work, and that has to be built
+// before the drop can be removed.
+std::uint64_t g_clear_alpha_blend_on = 0u;
+std::uint64_t g_clear_alpha_blend_off = 0u;
+
 std::map<std::uint64_t, std::uint64_t> g_blend_modes;
 
 // Which register gates blending, decided by correlation rather than by a
@@ -358,6 +405,16 @@ void note_blend_state() {
     ++g_blend_modes[seen];
 }
 
+std::uint32_t add_saturating(std::uint32_t source, std::uint32_t destination) {
+    const auto mix = [](std::uint32_t a, std::uint32_t b) {
+        const std::uint32_t sum = a + b;
+        return sum > 255u ? 255u : sum;
+    };
+    return 0xFF000000u | (mix((source >> 16u) & 0xFFu, (destination >> 16u) & 0xFFu) << 16u) |
+           (mix((source >> 8u) & 0xFFu, (destination >> 8u) & 0xFFu) << 8u) |
+           mix(source & 0xFFu, destination & 0xFFu);
+}
+
 std::uint32_t blend_over(std::uint32_t source, std::uint32_t destination) {
     const std::uint32_t alpha = (source >> 24u) & 0xFFu;
     if (alpha == 255u) return source;
@@ -438,7 +495,21 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     const bool rejected = !g_clearing && ((color >> 24u) & 0xFFu) == 0u;
     if (rejected) ++g_pixels_dropped;
     else ++g_pixels_kept;
-    target = g_clearing ? (color | 0xFF000000u) : blend_over(color, target);
+    if (rejected) {
+        if ((ge_registers()[kCmdBlendEnable] & 1u) != 0u) ++g_clear_alpha_blend_on;
+        else ++g_clear_alpha_blend_off;
+    }
+
+    if (g_clearing) {
+        target = color | 0xFF000000u;
+    } else if (!g_honour_blend_state) {
+        target = blend_over(color, target);
+    } else if ((ge_registers()[kCmdBlendEnable] & 1u) != 0u &&
+               (ge_registers()[kCmdBlendFunction] & 0x00FFFFFFu) == kBlendAdditive) {
+        target = add_saturating(color, target);
+    } else {
+        target = blend_over(color, target);
+    }
     ++g_stats.pixels_written;
 }
 
@@ -862,7 +933,22 @@ bool rasterise(psprecomp::Runtime &runtime, std::uint32_t primitive,
     return true;
 }
 
+std::string blend_state_report() {
+    std::ostringstream out;
+    out << "  blend state: honouring registers " << (g_honour_blend_state ? "yes" : "no") << "\n";
+    out << "    transparent pixels dropped with blending on  " << g_clear_alpha_blend_on << "\n";
+    out << "    transparent pixels dropped with blending off " << g_clear_alpha_blend_off << "\n";
+    return out.str();
+}
+
 void raster_configure_side_split() {
+    if (const char *text = std::getenv("PSPRECOMP_DEFJAM_BLEND")) {
+        g_honour_blend_state = text[0] != 0 && text[0] != 48;
+    }
+    // 137,569,380 of the transparent pixels a run produces are drawn with
+    // blending on against 424,800 with it off. The enable accounts for 99.7% of
+    // them, so the unconditional drop this rasteriser applies to every alpha of
+    // zero is very nearly the enable doing its job, not a missing alpha test.
     if (const char *text = std::getenv("PSPRECOMP_DEFJAM_DISCARD_SCAN")) {
         g_discard_scan = text[0] != 0 && text[0] != 48;
     }

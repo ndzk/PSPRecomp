@@ -337,6 +337,7 @@ int main(int argc, char **argv) {
         std::cout << defjam::blend_correlation_report();
         std::cout << defjam::texture_function_report();
         std::cout << defjam::side_difference_report();
+        std::cout << defjam::blend_state_report();
         std::cout << defjam::discard_state_report();
         std::cout << defjam::command_value_report();
         std::cout << defjam::window_report();
