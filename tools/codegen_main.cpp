@@ -1824,10 +1824,21 @@ int generate_auto(const std::filesystem::path &elf_path,
     registry << "}\n} // namespace psprecomp\n";
     const bool registry_rewritten = write_text_if_changed(registry_path, registry.str());
 
+    // A run that partitions differently leaves stale generated_unit_*.cpp behind
+    // from the previous one, and those have to go or the build compiles orphans.
+    // Sweep only what this mode emits, though.  The directory is shared with
+    // --relocatable, whose units are translated from a separate image and so are
+    // never in expected_cpp: sweeping everything named "generated_*" deleted all
+    // of them, and because nothing else refers to them the build stayed green
+    // while the recompiled code was simply gone.
+    const auto emitted_by_auto_mode = [](const std::string &filename) {
+        return filename.starts_with("generated_unit_") || filename == "generated_registry.cpp";
+    };
     for (const auto &entry : std::filesystem::directory_iterator(output_dir)) {
-        if (!entry.is_regular_file() || entry.path().extension() != ".cpp" ||
-            !entry.path().filename().string().starts_with("generated_")) continue;
-        if (!expected_cpp.contains(entry.path().filename())) std::filesystem::remove(entry.path());
+        if (!entry.is_regular_file() || entry.path().extension() != ".cpp") continue;
+        const auto filename = entry.path().filename();
+        if (!emitted_by_auto_mode(filename.string())) continue;
+        if (!expected_cpp.contains(filename)) std::filesystem::remove(entry.path());
     }
 
     std::ostringstream report;
