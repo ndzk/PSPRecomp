@@ -6,6 +6,10 @@
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
+#include <condition_variable>
+#include <functional>
+#include <mutex>
+#include <thread>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -198,6 +202,139 @@ std::uint32_t sample(const std::vector<std::uint32_t> &texels, const TextureStat
     return texels[static_cast<std::size_t>(y) * texture.width + x];
 }
 
+
+// Filling a primitive across several threads.
+//
+// Rows inside one primitive do not depend on each other - put_pixel touches a
+// single pixel and nothing reads a neighbour - so handing each thread its own
+// band of rows produces the same pixels the serial loop did, in the same order
+// per pixel. That matters more here than the speed: this rasteriser is the
+// reference the card is checked against, and a reference that changes when it
+// is made faster is worth nothing.
+//
+// Only large primitives are split. Waking threads costs more than filling a
+// triangle a few pixels tall, and a run issues millions of those; the fills
+// worth splitting are the backgrounds and the screen-clearing sprites.
+//
+// PSPRECOMP_DEFJAM_RASTER_THREADS sets the count, 1 disables it, and the
+// default is what the machine reports.
+class RowWorkers {
+public:
+    static RowWorkers &instance() {
+        static RowWorkers workers;
+        return workers;
+    }
+
+    [[nodiscard]] std::uint32_t count() const { return width_; }
+
+    void run(std::int32_t first, std::int32_t last,
+             const std::function<void(std::int32_t, std::int32_t)> &band) {
+        const std::int32_t rows = last - first + 1;
+        if (width_ <= 1u || rows < static_cast<std::int32_t>(width_)) {
+            band(first, last);
+            return;
+        }
+        {
+            std::unique_lock<std::mutex> guard(mutex_);
+            band_ = &band;
+            first_ = first;
+            rows_ = rows;
+            finished_ = 0u;
+            ++generation_;
+            start_.notify_all();
+        }
+        // The calling thread takes the first band rather than waiting for one.
+        run_band(0u);
+        {
+            std::unique_lock<std::mutex> guard(mutex_);
+            ++finished_;
+            done_.wait(guard, [this] { return finished_ == width_; });
+        }
+        band_ = nullptr;
+    }
+
+    ~RowWorkers() {
+        {
+            std::unique_lock<std::mutex> guard(mutex_);
+            stopping_ = true;
+            start_.notify_all();
+        }
+        for (std::thread &thread : threads_) {
+            if (thread.joinable()) thread.join();
+        }
+    }
+
+private:
+    RowWorkers() {
+        std::uint32_t requested = std::thread::hardware_concurrency();
+        if (requested == 0u) requested = 1u;
+        if (const char *text = std::getenv("PSPRECOMP_DEFJAM_RASTER_THREADS")) {
+            const unsigned long parsed = std::strtoul(text, nullptr, 0);
+            if (parsed != 0u) requested = static_cast<std::uint32_t>(parsed);
+        }
+        width_ = std::min<std::uint32_t>(requested, 64u);
+        for (std::uint32_t i = 1u; i < width_; ++i) {
+            threads_.emplace_back([this, i] { worker(i); });
+        }
+    }
+
+    // Contiguous bands, so a thread walks memory the way the serial loop did.
+    void run_band(std::uint32_t index) {
+        const std::int32_t base = rows_ / static_cast<std::int32_t>(width_);
+        const std::int32_t extra = rows_ % static_cast<std::int32_t>(width_);
+        const auto slot = static_cast<std::int32_t>(index);
+        const std::int32_t start = first_ + slot * base + std::min(slot, extra);
+        const std::int32_t length = base + (slot < extra ? 1 : 0);
+        if (length > 0) (*band_)(start, start + length - 1);
+    }
+
+    void worker(std::uint32_t index) {
+        std::uint32_t seen = 0u;
+        for (;;) {
+            {
+                std::unique_lock<std::mutex> guard(mutex_);
+                start_.wait(guard, [this, seen] { return stopping_ || generation_ != seen; });
+                if (stopping_) return;
+                seen = generation_;
+            }
+            run_band(index);
+            {
+                std::unique_lock<std::mutex> guard(mutex_);
+                if (++finished_ == width_) done_.notify_all();
+            }
+        }
+    }
+
+    std::vector<std::thread> threads_;
+    std::mutex mutex_;
+    std::condition_variable start_;
+    std::condition_variable done_;
+    const std::function<void(std::int32_t, std::int32_t)> *band_{};
+    std::int32_t first_{};
+    std::int32_t rows_{};
+    std::uint32_t generation_{};
+    std::uint32_t finished_{};
+    std::uint32_t width_{1u};
+    bool stopping_{};
+};
+
+// Below this a primitive is filled where it stands. Measured against the shapes
+// this title draws: its screen-clearing sprites cover 130,560 pixels and its
+// character triangles a few dozen, and only the first kind is worth waking a
+// thread for.
+constexpr std::int64_t kSplitThreshold = 16384;
+
+void fill_rows(std::int32_t first, std::int32_t last, std::int32_t width,
+               const std::function<void(std::int32_t, std::int32_t)> &band) {
+    const std::int64_t area = static_cast<std::int64_t>(last - first + 1) *
+                              static_cast<std::int64_t>(width);
+    if (area < kSplitThreshold) {
+        band(first, last);
+        return;
+    }
+    RowWorkers::instance().run(first, last, band);
+}
+
 // A sprite is two vertices: the corners of an axis-aligned rectangle. The
 // second carries the colour the hardware uses for the whole thing.
 void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<std::uint32_t> &texels,
@@ -209,7 +346,8 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
     const float span_x = std::max(1.0f, second.x - first.x);
     const float span_y = std::max(1.0f, second.y - first.y);
 
-    for (std::int32_t y = y0; y < y1; ++y) {
+    const auto band = [&](std::int32_t from, std::int32_t to) {
+    for (std::int32_t y = from; y <= to; ++y) {
         for (std::int32_t x = x0; x < x1; ++x) {
             std::uint32_t color = second.color;
             if (textured) {
@@ -221,6 +359,8 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
             put_pixel(x, y, color, second.z);
         }
     }
+    };
+    if (y1 > y0) fill_rows(y0, y1 - 1, x1 - x0, band);
 }
 
 // Flat-filled triangle with barycentric interpolation for colour and texture.
@@ -236,7 +376,8 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
     if (area == 0.0f) return;   // degenerate, nothing to fill
     const float inverse = 1.0f / area;
 
-    for (std::int32_t y = min_y; y <= max_y; ++y) {
+    const auto band = [&](std::int32_t from, std::int32_t to) {
+    for (std::int32_t y = from; y <= to; ++y) {
         for (std::int32_t x = min_x; x <= max_x; ++x) {
             const float px = static_cast<float>(x) + 0.5f;
             const float py = static_cast<float>(y) + 0.5f;
@@ -259,6 +400,8 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
             put_pixel(x, y, color, a.z * ba + b.z * bb + c.z * bc);
         }
     }
+    };
+    fill_rows(min_y, max_y, max_x - min_x + 1, band);
 }
 
 } // namespace
