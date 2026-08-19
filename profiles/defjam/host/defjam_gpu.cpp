@@ -133,9 +133,8 @@ struct GpuVertex {
 // would mean the two paths disagree about the picture, and the software one is
 // the reference.
 enum class BlendMode : std::uint8_t {
-    Write,      // a clear, or anything else that overwrites
-    SourceOver, // the guest's blend enable is off
-    Additive,   // enable on, function 0x0101: destination plus source times alpha
+    Write,      // a clear, which overwrites
+    SourceOver, // everything else
 };
 
 struct PipelineKey {
@@ -282,7 +281,7 @@ ID3D12PipelineState *pipeline_for(const PipelineKey &key) {
     // writes straight through, and arrives here with blending off.
     blend.BlendEnable = key.blend == BlendMode::Write ? FALSE : TRUE;
     blend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-    blend.DestBlend = key.blend == BlendMode::Additive ? D3D12_BLEND_ONE : D3D12_BLEND_INV_SRC_ALPHA;
+    blend.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
     blend.BlendOp = D3D12_BLEND_OP_ADD;
     blend.SrcBlendAlpha = D3D12_BLEND_ONE;
     blend.DestBlendAlpha = D3D12_BLEND_ZERO;
@@ -917,19 +916,9 @@ bool gpu_draw(psprecomp::Runtime &runtime, std::uint32_t primitive,
     key.textured = textured;
     // The same registers the software path reads, so the two agree about how a
     // pixel joins the target rather than only about when.
-    constexpr std::uint8_t kBlendEnable = 0x1Du;
-    constexpr std::uint8_t kBlendFunction = 0xC6u;
-    constexpr std::uint32_t kAdditive = 0x0101u;
     constexpr std::uint8_t kTextureFunction = 0xC4u;
     constexpr std::uint32_t kModulate = 2u;
-    if (clearing) {
-        key.blend = BlendMode::Write;
-    } else if ((registers[kBlendEnable] & 1u) != 0u &&
-               (registers[kBlendFunction] & 0x00FFFFFFu) == kAdditive) {
-        key.blend = BlendMode::Additive;
-    } else {
-        key.blend = BlendMode::SourceOver;
-    }
+    key.blend = clearing ? BlendMode::Write : BlendMode::SourceOver;
     key.modulate = textured && registers[kTextureFunction] == kModulate;
     key.depth_test = !clearing && (registers[0x23u] & 1u) != 0u;
     key.depth_write = (registers[0xE7u] & 1u) == 0u;

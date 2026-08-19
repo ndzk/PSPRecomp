@@ -307,8 +307,8 @@ void describe_white(std::uint64_t white, std::uint32_t color, const TextureState
     if (described >= 8) return;
     ++described;
     const std::array<std::uint32_t, 256> &registers = ge_registers();
-    runtime_log_line("white block at " + std::to_string(x) + "," + std::to_string(y) + "  " +
-                     std::to_string(white) + " white pixels");
+    runtime_log_line("saturated block at " + std::to_string(x) + "," + std::to_string(y) + "  " +
+                     std::to_string(white) + " pixels saturated to white");
     runtime_log_line("  vertex colour " + psprecomp::hex32(color) + "  textured " +
                      std::to_string(textured ? 1 : 0));
     if (textured) {
@@ -379,8 +379,8 @@ void note_white_block(const PixelTally &before, std::uint32_t color, const Textu
     if (!g_discard_scan) return;
     const std::uint64_t white = g_pixels_white - before.white;
     const std::uint64_t kept = g_pixels_kept - before.kept;
-    if (white < 1500u || kept == 0u) return;
-    if (white * 20u < kept * 19u) return;
+    if (white < 400u || kept == 0u) return;
+    if (white * 4u < kept) return;
     describe_white(white, color, texture, textured, x, y);
 }
 
@@ -605,7 +605,13 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
     const bool rejected = !g_clearing && ((color >> 24u) & 0xFFu) == 0u;
     if (rejected) ++g_pixels_dropped;
     else ++g_pixels_kept;
-    if (!rejected && (color & 0x00FFFFFFu) == 0x00FFFFFFu) ++g_pixels_white;
+    // Saturation, not whiteness. A pixel that arrives white and is written white
+    // is the title asking for white; a pixel that arrives coloured and comes out
+    // pure white has been added to until it ran out of range, which is the
+    // shape of the blown-out panels on the fighter and venue screens. Counting
+    // the first found nothing, because no single primitive in a stack of them
+    // is white on its own.
+    const bool source_white = (color & 0x00FFFFFFu) == 0x00FFFFFFu;
     if (rejected) {
         if ((ge_registers()[kCmdBlendEnable] & 1u) != 0u) ++g_clear_alpha_blend_on;
         else ++g_clear_alpha_blend_off;
@@ -615,12 +621,16 @@ void put_pixel(std::int32_t x, std::int32_t y, std::uint32_t color, float ndc_z)
         target = color | 0xFF000000u;
     } else if (!g_honour_blend_state) {
         target = blend_over(color, target);
-    } else if ((ge_registers()[kCmdBlendEnable] & 1u) != 0u &&
-               (ge_registers()[kCmdBlendFunction] & 0x00FFFFFFu) == kBlendAdditive) {
-        target = add_saturating(color, target);
     } else {
+        // One mode. The guest asks for exactly one non-zero blend function in a
+        // whole run, 0x0101 at register 0xC6, and reading it as additive was
+        // wrong: it blew the fighter select, the venue photographs and the
+        // autosave illustration out to solid white, each of which renders
+        // correctly mixed source-over. What additive appeared to fix was a
+        // vignette being filled flat, which is fixed where it belongs now.
         target = blend_over(color, target);
     }
+    if (!rejected && !source_white && (target & 0x00FFFFFFu) == 0x00FFFFFFu) ++g_pixels_white;
     ++g_stats.pixels_written;
 }
 
@@ -864,22 +874,35 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
                 pb = bb * b.inv_w * scale;
                 pc = bc * c.inv_w * scale;
             }
-            std::uint32_t color = a.color;
+            // The vertex colour is interpolated across the triangle whether or
+            // not there is a texture, alpha included.
+            //
+            // It used to be interpolated only for textured draws; an untextured
+            // one was filled flat with the first vertex's colour. That is what
+            // painted black rectangles over the screen and blacked out the left
+            // half of the main menu. The title darkens the edges of a scene with
+            // a quad whose colour runs from opaque black at the border to fully
+            // transparent in the middle, and taking the first vertex turns the
+            // whole vignette into a solid black slab.
+            //
+            // Treating the guest's one blend mode as additive hid this, because
+            // black adds nothing - and washed the fighter select, the venue
+            // photographs and the autosave illustration out to white in the
+            // process. The flat fill was the bug; the blend was not.
+            const auto channel = [&](std::uint32_t shift) {
+                return static_cast<float>((a.color >> shift) & 0xFFu) * pa +
+                       static_cast<float>((b.color >> shift) & 0xFFu) * pb +
+                       static_cast<float>((c.color >> shift) & 0xFFu) * pc;
+            };
+            std::uint32_t vertex = 0u;
+            for (std::uint32_t shift = 0u; shift < 32u; shift += 8u) {
+                float value = channel(shift);
+                if (value < 0.0f) value = 0.0f;
+                if (value > 255.0f) value = 255.0f;
+                vertex |= static_cast<std::uint32_t>(value + 0.5f) << shift;
+            }
+            std::uint32_t color = vertex;
             if (textured) {
-                // The vertex colour is interpolated across the triangle the same
-                // way the texture coordinates are.
-                const auto channel = [&](std::uint32_t shift) {
-                    return static_cast<float>((a.color >> shift) & 0xFFu) * pa +
-                           static_cast<float>((b.color >> shift) & 0xFFu) * pb +
-                           static_cast<float>((c.color >> shift) & 0xFFu) * pc;
-                };
-                std::uint32_t vertex = 0u;
-                for (std::uint32_t shift = 0u; shift < 32u; shift += 8u) {
-                    float value = channel(shift);
-                    if (value < 0.0f) value = 0.0f;
-                    if (value > 255.0f) value = 255.0f;
-                    vertex |= static_cast<std::uint32_t>(value + 0.5f) << shift;
-                }
                 color = combine_texel(
                     sample(texels, texture, a.u * pa + b.u * pb + c.u * pc,
                            a.v * pa + b.v * pb + c.v * pc, uv_in_texels),
