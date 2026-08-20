@@ -1,22 +1,27 @@
 # Def Jam audio banks carry executable code
 
 The title runs MIPS code out of its own audio bank files. The AOT corpus is
-built from `BOOT.BIN`, so that code is not in it, and the run stops the moment
-the sound engine calls into a bank.
+built from `BOOT.BIN`, so that code is not in it, and the run used to stop the
+moment the sound engine called into a bank.
 
-This is the next substantial piece of work on the profile. It is written down
-here because the finding is not visible from the code: nothing in the corpus
-points at it, and it only shows up once the title gets past its title screen.
+**This is solved, and solved faithfully**: the bank routines are recompiled
+ahead of time like any other guest code, not interpreted. All 158 banks on the
+disc are covered by 83 distinct routines, every one of which is recompiled. What
+follows is what they are, how the title links them, and how the three pieces
+that handle them fit together.
 
-## How it shows up
+## How it was found
+
+Before any of this was handled, the run ended like so:
 
     PSPRECOMP_DEFJAM_PULSE_BUTTONS=0x4000 DefJamNative
     ...
     Stopped: No recompiled function registered at 0x0966E26C
 
-Deterministic, and reproducible in about a minute. The pulse is needed because
-the title screen edge-detects its input; a held button never advances it. See
-`PSPRECOMP_DEFJAM_PULSE_BUTTONS` in the profile README.
+Deterministic, and reproducible in about a minute. The pulse was needed to get
+that far at all, because the title screen edge-detects its input and a held
+button never advances it. See `PSPRECOMP_DEFJAM_PULSE_BUTTONS` in the profile
+README.
 
 The jump comes from thread 7 (`SND`), out of a callback list walked at
 `0x08A6E258`: each node holds its successor at `+0`, a function at `+8` and an
@@ -42,15 +47,18 @@ had been writing frames into, which the allocator had since recycled.
 
 ## The container
 
-All 158 `.abk` files begin with the magic `ABKC`. The word at header offset
-`0x84` declares where the code block starts: `0x9C` in 91 of them, `0xDC` in
-36, other values in the rest. **Every one of the 158 has a MIPS prologue at the
-offset its own header declares**, so the field is reliable and every bank
-carries code.
+All 158 `.abk` files begin with the magic `ABKC`, and a pair of header words
+delimits the routine:
 
-The code block's length has not been pinned down yet. Candidate header fields
-are `0x88`, `0x8C`, `0x90` and `0x98`. This matters: without it, a scan runs off
-the end of the code and decodes sample data as instructions.
+    header +132   offset of the first instruction
+    header +136   offset one past the last, so the routine is [start, end)
+
+Neither is assumed. Across all 158 banks the word at the start offset is an
+`addiu sp, sp, -N` prologue, and the word at `end - 8` is `jr ra` with its delay
+slot at `end - 4`. The start offset is not a constant - it takes 31 different
+values - so it is read from the header and the *shape* is what gets validated.
+That check is what keeps a scan from running off the end and decoding sample
+data as instructions.
 
 ## The banks are linked at load time, and the linking is static
 
@@ -83,33 +91,54 @@ Nothing in that depends on runtime state. The module base is fixed, the table
 is in the image, the indices are in the file: **the linking can be reproduced
 offline, byte for byte.**
 
-## Recompiling them faithfully
+## How they are handled
 
-1. Resolve the indices offline - read the table out of the module and rewrite
-   each `jal <index>` as `jal table[index]`. This is exactly what the title's
-   own loader does, only ahead of time.
-2. Feed the linked code to the existing codegen as further corpus units. It is
-   the same MIPS, the same decoder, the same opcode set; no new machinery.
-3. Register the compiled functions at `base + offset` when a bank is loaded.
-   The runtime already exposes `register_function` for this.
+Three pieces, each doing one thing.
 
-Step 3 works because the bank code appears to be position independent: its
-internal branches are PC relative and only its calls into the module are
-absolute, and those resolve to fixed addresses.
+**`tools/extract_bank_code.cpp`** reads a bank, validates the shape above, and
+does offline exactly what the title's loader does at runtime: rewrites every
+`jal <index>` as `jal export_table[index]`. It refuses rather than guesses - an
+index past the end of the table, or an export that is not a usable address, is
+an error and not a silently linked call. The linked routine is written out so it
+can go through the analyzer and code generator like any other guest code.
+
+**`tools/recompile_bank_code.ps1`** walks every `.abk` on the disc, runs the
+extractor over each, deduplicates the results by fingerprint - the 158 banks
+share only 83 distinct routines between them - and emits
+`generated/generated_bank_routines.inc`, one `BANK_ROUTINE` line per routine.
+Because the script regenerates from the whole disc, coverage is complete by
+construction rather than by anybody remembering to add an entry.
+
+**`host/defjam_banks.cpp`** does the runtime half. `note_possible_bank` is
+called from the file read path, so a bank is recognised as it arrives and
+*before* the title links it; that is why the fingerprint is taken over the raw
+bytes and why the offline tool and the runtime cannot disagree about what a
+routine is. A buffer that has the prologue and the terminating `jr ra` in the
+right places is fingerprinted, and the matching recompiled unit is registered at
+the address the bank was loaded to.
+
+A routine that is not in the list does not fail quietly. It is counted, and its
+fingerprint and byte count are printed, which is exactly what
+`recompile_bank_code.ps1` needs to be pointed at to fix it. `bank_report()`
+summarises banks seen, routines registered and routines missing at the end of a
+run.
+
+Registering at the load address works because the routines are position
+independent: their internal branches are PC relative, and their only absolute
+transfers are the calls into the module, which resolve to fixed addresses.
 
 An interpreter is **not** the answer here, however tempting it looks on first
-contact with `jal 0` in the file. The relocation is resolvable ahead of time,
-so interpreting would give up faithful recompilation for nothing. Keep the
-interpreter idea for code that genuinely cannot be seen before it runs.
+contact with `jal 0` in the file. The relocation is resolvable ahead of time, so
+interpreting would have given up faithful recompilation for nothing. Keep that
+idea for code that genuinely cannot be seen before it runs.
 
-## What is verified and what is not
+## Coverage
 
-Verified: the code is executed; it comes from `Fe_Sfx_1.abk` at `0x9C`; the
-seven relocations and their targets; the import table's location; that all 158
-banks declare a code offset and have a prologue there.
+Every bank on the disc is accounted for: 158 banks, 83 distinct routines, all
+83 recompiled and none missing. That was confirmed independently of the
+generator by computing the same FNV-1a fingerprint over each bank's declared
+code range straight from the files and checking it against the generated list.
 
-Not yet verified: that the seven relocations are the *whole* relocation set for
-every bank, and that no bank makes an absolute call inside itself. Both need
-the code length field first - scanning a fixed number of words past the end
-decodes data as instructions and reports internal jumps that are not there.
-The one bank examined end to end had no internal absolute call.
+The check is worth repeating after any change to the extractor, the header
+field offsets or the export table address, since all three are measured rather
+than documented by the format.
