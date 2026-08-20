@@ -369,6 +369,12 @@ int main(int argc, char **argv) {
         std::cout << defjam::ge_report();
         std::cout << defjam::vertex_report();
         std::cout << defjam::texture_report();
+        // These two went missing when the branches were merged: the functions
+        // stayed and the calls did not, so the GE audit quietly stopped being
+        // printed.
+        std::cout << defjam::flat_texture_report();
+        std::cout << defjam::texture_function_split_report();
+        std::cout << defjam::register_audit_report();
         std::cout << defjam::raster_report();
         std::cout << defjam::blend_report();
         std::cout << defjam::blend_correlation_report();

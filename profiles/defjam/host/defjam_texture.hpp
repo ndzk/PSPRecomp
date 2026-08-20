@@ -104,6 +104,16 @@ struct TextureStats {
 void texture_reset();
 [[nodiscard]] std::string texture_report();
 
+// Lists textures that decode to a single flat colour, and whether their source
+// bytes were flat too, which separates one the title never wrote from one this
+// decoder is getting wrong.
+[[nodiscard]] std::string flat_texture_report();
+
+// Records the texture registers in force for one draw, against whether the
+// texture it samples carries any colour of its own.
+void note_texture_function_use(std::uint32_t address, std::uint32_t function, std::uint32_t mode);
+[[nodiscard]] std::string texture_function_split_report();
+
 // Called by the display-list interpreter for each PRIM.
 void note_texture_draw(psprecomp::Runtime &runtime);
 

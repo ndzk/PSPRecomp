@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <cstring>
 #include <map>
+#include <mutex>
 #include <set>
 #include <sstream>
 
@@ -156,6 +157,7 @@ void note_flat_texture(const TextureState &state, const std::vector<std::uint32_
                        const std::vector<std::uint8_t> &linear);
 void note_colourless_texture(psprecomp::Runtime &runtime, const TextureState &state,
                              const std::vector<std::uint32_t> &out);
+void remember_colourless(std::uint32_t address);
 
 bool decode_texture(psprecomp::Runtime &runtime, const TextureState &state,
                     std::vector<std::uint32_t> &out, std::string &error) {
@@ -339,6 +341,16 @@ std::string flat_texture_report() {
     return out.str();
 }
 
+// Which textures carry no colour at all, so a draw using one can be told apart
+// from a draw using an ordinary picture.
+std::set<std::uint32_t> g_colourless;
+std::mutex g_colourless_lock;
+
+void remember_colourless(std::uint32_t address) {
+    std::lock_guard<std::mutex> guard(g_colourless_lock);
+    g_colourless.insert(address);
+}
+
 // Textures whose every texel is black, whatever their alpha does.
 //
 // A fight draws a 64x64 paletted texture sixteen times with a half-transparent
@@ -352,14 +364,28 @@ std::string flat_texture_report() {
 void note_colourless_texture(psprecomp::Runtime &runtime, const TextureState &state,
                              const std::vector<std::uint32_t> &out) {
     if (out.empty() || !texture_format_is_paletted(state.format)) return;
+    // Nearly colourless, not perfectly so, and the share is printed.
+    //
+    // Asking for every texel to be exactly zero found nothing, while the pixel
+    // counter that raised the question used a threshold of 8 per channel. A test
+    // stricter than the thing it is testing for returns nothing and proves
+    // nothing, which has happened enough times in this profile to be worth
+    // saying out loud in a comment.
+    std::uint64_t dark = 0;
     bool any_alpha = false;
     for (const std::uint32_t texel : out) {
-        if ((texel & 0x00FFFFFFu) != 0u) return;
+        const std::uint32_t red = (texel >> 16u) & 0xFFu;
+        const std::uint32_t green = (texel >> 8u) & 0xFFu;
+        const std::uint32_t blue = texel & 0xFFu;
+        if (red <= 16u && green <= 16u && blue <= 16u) ++dark;
         if (((texel >> 24u) & 0xFFu) != 0u) any_alpha = true;
     }
+    if (dark * 10u < out.size() * 9u) return;
+    remember_colourless(state.address);
     static std::set<std::uint32_t> reported;
     if (!reported.insert(state.address).second) return;
-    std::string line = "colourless texture " + psprecomp::hex32(state.address) + " " +
+    std::string line = "colourless texture " + psprecomp::hex32(state.address) + "  " +
+                       std::to_string(100u * dark / out.size()) + "% dark  " +
                        std::to_string(state.width) + "x" + std::to_string(state.height) +
                        " format " + texture_format_name(state.format) + "  alpha varies " +
                        std::to_string(any_alpha ? 1 : 0) + "  clut " +
@@ -378,6 +404,49 @@ void note_colourless_texture(psprecomp::Runtime &runtime, const TextureState &st
         bytes += " " + psprecomp::hex32(word);
     }
     runtime_log_line(bytes);
+}
+
+// The texture function and mode registers, split by whether the texture being
+// sampled has any colour of its own.
+//
+// The rule this profile applies for 0xC4 came from correlating it against "is
+// the vertex colour white", using a test that read only the RGB and so could not
+// see the alpha that turned out to decide everything. That makes the rule
+// unreliable, not merely incomplete, so the register is treated as unknown again
+// and re-derived from a question that cannot be answered by accident: a texture
+// whose every texel is black carries no picture, and a draw that sends it a
+// coloured vertex expects the colour to come from somewhere. If those draws
+// carry a distinct value here, that value is the mode where they do.
+std::map<std::uint32_t, std::uint64_t> g_function_colourless;
+std::map<std::uint32_t, std::uint64_t> g_function_ordinary;
+std::map<std::uint32_t, std::uint64_t> g_mode_colourless;
+std::map<std::uint32_t, std::uint64_t> g_mode_ordinary;
+std::mutex g_function_lock;
+
+void note_texture_function_use(std::uint32_t address, std::uint32_t function, std::uint32_t mode) {
+    std::lock_guard<std::mutex> guard(g_colourless_lock);
+    const bool colourless = g_colourless.count(address) != 0u;
+    std::lock_guard<std::mutex> other(g_function_lock);
+    ++(colourless ? g_function_colourless : g_function_ordinary)[function];
+    ++(colourless ? g_mode_colourless : g_mode_ordinary)[mode];
+}
+
+std::string texture_function_split_report() {
+    std::lock_guard<std::mutex> guard(g_function_lock);
+    if (g_function_colourless.empty() && g_function_ordinary.empty()) return {};
+    std::ostringstream out;
+    const auto dump = [&out](const char *name, const std::map<std::uint32_t, std::uint64_t> &a,
+                             const std::map<std::uint32_t, std::uint64_t> &b) {
+        out << "    " << name << " on colourless textures:";
+        for (const auto &entry : a) out << "  " << entry.first << " x" << entry.second;
+        out << "\n    " << name << " on ordinary textures: ";
+        for (const auto &entry : b) out << "  " << entry.first << " x" << entry.second;
+        out << "\n";
+    };
+    out << "  texture registers, split by whether the texture has colour:\n";
+    dump("0xC4", g_function_colourless, g_function_ordinary);
+    dump("0xC2", g_mode_colourless, g_mode_ordinary);
+    return out.str();
 }
 
 void texture_reset() {
@@ -415,6 +484,8 @@ void note_texture_draw(psprecomp::Runtime &runtime) {
         ++g_stats.unusable_state;
         return;
     }
+
+    note_texture_function_use(state.address, ge_registers()[0xC4u], ge_registers()[0xC2u]);
 
     const auto index = static_cast<std::size_t>(state.format);
     if (index < std::size(g_stats.format_counts)) ++g_stats.format_counts[index];
