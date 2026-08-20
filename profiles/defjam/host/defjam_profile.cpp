@@ -521,10 +521,19 @@ std::uint64_t g_frame_dump_interval_us = 0u;
 std::uint64_t g_next_frame_dump_us = 0u;
 std::uint64_t g_frame_dumps_written = 0u;
 std::uint64_t g_heartbeat_seconds = 0u;
+// Whether each heartbeat also names what every live thread is waiting on.
+bool g_heartbeat_threads = false;
 std::uint64_t g_hook_dispatches = 0u;
 std::chrono::steady_clock::time_point g_last_flip{};
 std::chrono::steady_clock::time_point g_last_heartbeat{};
 bool g_stall_reported = false;
+// What the previous heartbeat saw, so each one can state how far the guest got
+// rather than only where it stands. A title that hangs while still drawing is
+// invisible to the flip watchdog above, and the pair of deltas is what tells
+// the two cases apart: work moves both numbers, while a guest asleep on a wait
+// it will never be woken from moves guest time alone.
+std::uint64_t g_last_heartbeat_guest_us = 0u;
+std::uint64_t g_last_heartbeat_dispatches = 0u;
 
 void note_frame_flip() { g_last_flip = std::chrono::steady_clock::now(); }
 
@@ -632,10 +641,19 @@ void check_progress(Runtime &rt, std::int32_t dispatch_thread_uid) {
 
     if (g_heartbeat_seconds != 0u && since(g_last_heartbeat) >= g_heartbeat_seconds) {
         g_last_heartbeat = now;
+        const std::uint64_t guest_delta = g_virtual_time_us - g_last_heartbeat_guest_us;
+        const std::uint64_t dispatch_delta = g_hook_dispatches - g_last_heartbeat_dispatches;
+        g_last_heartbeat_guest_us = g_virtual_time_us;
+        g_last_heartbeat_dispatches = g_hook_dispatches;
         runtime_log_line("heartbeat: guest " + std::to_string(g_virtual_time_us) + "us, " +
                          std::to_string(g_hook_dispatches) + " dispatches, thread " +
                          std::to_string(dispatch_thread_uid) + ", " +
-                         std::to_string(since(g_last_flip)) + "s since the last frame");
+                         std::to_string(since(g_last_flip)) + "s since the last frame, +" +
+                         std::to_string(guest_delta) + "us +" + std::to_string(dispatch_delta) +
+                         " since the last one");
+        // Asking for the states costs a walk of the thread table, so it is only
+        // done when a run is looking for a hang rather than on every run.
+        if (g_heartbeat_threads) runtime_log_line("heartbeat threads:\n" + thread_report());
     }
 
     if (g_stall_seconds == 0u || g_stall_reported || since(g_last_flip) < g_stall_seconds) return;
@@ -1311,6 +1329,7 @@ void install_progress_watchdog() {
         return std::strtoull(text, nullptr, 0);
     };
     g_stall_seconds = number("PSPRECOMP_DEFJAM_STALL_SECONDS");
+    g_heartbeat_threads = std::getenv("PSPRECOMP_DEFJAM_HEARTBEAT_THREADS") != nullptr;
     g_heartbeat_seconds = number("PSPRECOMP_DEFJAM_HEARTBEAT_SECONDS");
     g_stop_at_guest_us = number("PSPRECOMP_DEFJAM_STOP_AT_GUEST_US");
     g_frame_dump_interval_us = number("PSPRECOMP_DEFJAM_FRAME_EVERY_US");
