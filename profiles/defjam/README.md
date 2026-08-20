@@ -284,11 +284,15 @@ unsupported instruction, or a watchdog budget ran out.
   timestamps only 8 of its 63 video packets, so a timestamp split hands the
   decoder fifteen frames where the title asked for one), and the vblank
   sub-interrupt actually reaches the guest.
-- **Callbacks and alarms are registered but never delivered.**
+- **Callbacks are registered but never delivered.**
   `sceKernelCreateCallback` records its handler, `sceKernelCheckCallback` always
-  reports nothing pending, and `sceKernelSetAlarm` hands back a uid for an alarm
-  that never fires; the `...CB` wait variants block exactly like their plain
-  forms. A title that arms an alarm or waits on a callback waits forever, which
+  reports nothing pending, and the `...CB` wait variants block exactly like
+  their plain forms.
+
+  Alarms are no longer among them: `sceKernelSetAlarm` arms one, the handler
+  runs when virtual time reaches the deadline, and its return value re-arms it
+  or retires it the way hardware reads it. This title arms a periodic tick that
+  walks a table of registered work, and it had never run once. A title that arms an alarm or waits on a callback waits forever, which
   reads as a deadlock rather than a missing feature - worth checking early when
   a thread is parked for no visible reason.
 

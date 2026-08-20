@@ -216,6 +216,17 @@ struct SubInterruptHandler {
 
 // Keyed by interrupt code and sub code together.
 std::map<std::uint32_t, SubInterruptHandler> g_sub_interrupts;
+
+// An armed alarm. The handler runs when virtual time reaches the deadline and
+// decides for itself whether there is a next one: hardware reads its return
+// value as the delay until it should run again, and retires the alarm on zero.
+struct AlarmRecord {
+    std::uint64_t due_us{};
+    std::uint32_t handler{};
+    std::uint32_t common{};
+    bool in_flight{};
+};
+std::map<std::int32_t, AlarmRecord> g_alarms;
 constexpr std::uint32_t kVblankInterrupt = 30u;   // PSP_VBLANK_INT
 
 std::uint32_t sub_interrupt_key(std::uint32_t interrupt, std::uint32_t sub) {
@@ -784,6 +795,7 @@ void pump_vblank_clock() {
 }
 
 void deliver_vblank_interrupt(AllegrexContext &ctx);
+void deliver_due_alarm(AllegrexContext &ctx);
 
 // Switches to the next runnable thread. Returns false when nothing can run,
 // which the caller reports as a deadlock rather than spinning.
@@ -823,6 +835,7 @@ bool activate_next_thread(Runtime &rt, AllegrexContext &ctx, const char *reason)
     // hardware would have interrupted.
     pump_vblank_clock();
     deliver_vblank_interrupt(ctx);
+    deliver_due_alarm(ctx);
     (void)rt;
     (void)reason;
     return true;
@@ -964,6 +977,36 @@ void deliver_vblank_interrupt(AllegrexContext &ctx) {
                          g_vblank_in_flight = false;
                          return resume_v0;
                      });
+}
+
+// Runs an alarm whose deadline has passed, on the resuming thread and through
+// the same path as an interrupt. Only one at a time: the handler runs guest
+// code, and a second one entered on top of it would resume into the first.
+void deliver_due_alarm(AllegrexContext &ctx) {
+    const ThreadRecord *resuming = current_thread();
+    if (resuming == nullptr || resuming->interrupts_masked) return;
+    for (auto &entry : g_alarms) {
+        AlarmRecord &alarm = entry.second;
+        if (alarm.in_flight || alarm.handler == 0u || g_virtual_time_us < alarm.due_us) continue;
+
+        alarm.in_flight = true;
+        const std::int32_t uid = entry.first;
+        const std::uint32_t resume_v0 = ctx.gpr[2];
+        enter_guest_call(ctx, PendingGuestCall{alarm.handler, alarm.common, 0u, 0u}, ctx,
+                         [uid, resume_v0](Runtime &, std::uint32_t returned) {
+                             const auto found = g_alarms.find(uid);
+                             if (found != g_alarms.end()) {
+                                 if (returned == 0u) {
+                                     g_alarms.erase(found);
+                                 } else {
+                                     found->second.in_flight = false;
+                                     found->second.due_us = g_virtual_time_us + returned;
+                                 }
+                             }
+                             return resume_v0;
+                         });
+        return;
+    }
 }
 
 // Ends an HLE call that queued guest work. `result` is what the caller sees in
@@ -1284,6 +1327,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     g_guest_deadline_due = false;
     g_vblanks = 0;
     g_sub_interrupts.clear();
+    g_alarms.clear();
     g_vblank_next_us = kVblankPeriodUs;
     g_vblank_pending = false;
     g_vblank_in_flight = false;
@@ -1865,10 +1909,13 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         set_success(ctx);
     });
     runtime.register_hle("ThreadManForUser", 0x6652B8CAu, [](Runtime &, AllegrexContext &ctx) {
-        // Alarms are not delivered yet; hand back a uid so the caller proceeds.
-        set_return(ctx, static_cast<std::uint32_t>(allocate_kernel_uid()));
+        // sceKernelSetAlarm(delay_us, handler, common)
+        const std::int32_t uid = allocate_kernel_uid();
+        g_alarms[uid] = AlarmRecord{g_virtual_time_us + ctx.gpr[4], ctx.gpr[5], ctx.gpr[6], false};
+        set_return(ctx, static_cast<std::uint32_t>(uid));
     });
     runtime.register_hle("ThreadManForUser", 0x7E65B999u, [](Runtime &, AllegrexContext &ctx) {
+        g_alarms.erase(static_cast<std::int32_t>(ctx.gpr[4]));
         set_success(ctx);
     });
 
