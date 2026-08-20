@@ -873,6 +873,46 @@ void test_io_surface() {
     call_hle(runtime, "IoFileMgrForUser", kWrite, ctx);
     require(static_cast<std::int32_t>(ctx.gpr[2]) < 0, "an oversized write was not refused");
 
+    // Enumerating a directory hands back the two records a UMD directory opens
+    // with before any staged name, which is what the image this profile builds
+    // already contains and what hardware returns. A title that steps over the
+    // pair was losing two files per directory while they were missing.
+    constexpr std::uint32_t kDopen = 0xB29DDF9Cu, kDread = 0xE3EB004Cu, kDclose = 0xEB092469u;
+    constexpr std::uint32_t kNameOffset = 88u;   // sizeof(SceIoStat)
+    const std::uint32_t dirent = kIoScratch + 0x400u;
+    const auto entry_name = [&runtime, dirent] {
+        std::string text;
+        for (std::uint32_t i = 0; i < 32u; ++i) {
+            const auto byte = runtime.memory().load8(dirent + kNameOffset + i);
+            if (byte == 0u) break;
+            text.push_back(static_cast<char>(byte));
+        }
+        return text;
+    };
+
+    write_guest_string(runtime, path_address, "disc0:/PSP_GAME");
+    ctx.set_gpr(4, path_address);
+    call_hle(runtime, "IoFileMgrForUser", kDopen, ctx);
+    const auto dir = static_cast<std::int32_t>(ctx.gpr[2]);
+    require(dir > 0, "opening a staged directory failed");
+
+    std::vector<std::string> names;
+    for (int guard = 0; guard < 16; ++guard) {
+        ctx.set_gpr(4, static_cast<std::uint32_t>(dir));
+        ctx.set_gpr(5, dirent);
+        call_hle(runtime, "IoFileMgrForUser", kDread, ctx);
+        if (ctx.gpr[2] == 0u) break;
+        require(ctx.gpr[2] == 1u, "a directory read reported neither an entry nor the end");
+        names.push_back(entry_name());
+    }
+    require(names.size() == 3u, "the directory did not enumerate its two records and one file");
+    require(names[0] == ".", "the first directory entry is not the directory itself");
+    require(names[1] == "..", "the second directory entry is not the parent");
+    require(names[2] == "DATA.BIN", "the staged file did not follow the two records");
+
+    ctx.set_gpr(4, static_cast<std::uint32_t>(dir));
+    call_hle(runtime, "IoFileMgrForUser", kDclose, ctx);
+
     // sceIoGetstat on a real file reports its real length, and on a path it
     // cannot measure reports zero rather than uintmax_t(-1).
     write_guest_string(runtime, path_address, "disc0:/PSP_GAME/DATA.BIN");

@@ -83,9 +83,19 @@ struct FileHandle {
 
 struct DirHandle {
     std::string psp_path;
+    std::filesystem::path host_path;
     std::vector<std::filesystem::directory_entry> entries;
     std::size_t index{};
 };
+
+// A UMD directory begins with the records for itself and its parent, and the
+// image this profile builds writes both. Reading the same directory through
+// sceIoDread enumerated the staged tree instead, so it began at the first real
+// name and left the two views of one disc disagreeing. A title that walks a
+// directory has to cope with the pair on hardware, and one that copes by
+// stepping over the first two entries was quietly losing two files per
+// directory here.
+constexpr std::size_t kDotEntries = 2u;
 
 std::map<std::int32_t, FileHandle> g_files;
 std::map<std::int32_t, DirHandle> g_dirs;
@@ -810,6 +820,7 @@ void install_io_hle(Runtime &runtime, const std::string &game_root) {
         }
         DirHandle handle;
         handle.psp_path = path;
+        handle.host_path = host_path;
         for (const auto &entry : std::filesystem::directory_iterator(host_path, ec))
             handle.entries.push_back(entry);
         // Deterministic order; the host filesystem's is not guaranteed.
@@ -824,9 +835,33 @@ void install_io_hle(Runtime &runtime, const std::string &game_root) {
         const auto it = g_dirs.find(static_cast<std::int32_t>(ctx.gpr[4]));
         if (it == g_dirs.end()) { set_return(ctx, static_cast<std::uint32_t>(kErrorNoFile)); return; }
         DirHandle &handle = it->second;
-        if (handle.index >= handle.entries.size()) { set_return(ctx, 0u); return; }
-        const auto &entry = handle.entries[handle.index++];
+        if (handle.index >= handle.entries.size() + kDotEntries) { set_return(ctx, 0u); return; }
         const std::uint32_t dirent = ctx.gpr[5];
+        if (handle.index < kDotEntries) {
+            const bool self = handle.index == 0u;
+            const std::string name = self ? "." : "..";
+            ++handle.index;
+            if (dirent != 0u) {
+                // The parent of the root is the root, which is what the image
+                // writes there too.
+                const std::string parent_path =
+                    handle.psp_path.substr(0u, handle.psp_path.find_last_of('/'));
+                const auto on_disc = iso_lookup(self || parent_path.empty() ? handle.psp_path
+                                                                            : parent_path);
+                const std::filesystem::path host =
+                    self ? handle.host_path : handle.host_path.parent_path();
+                write_stat(rt, dirent, host, true, on_disc ? on_disc->sector : 0u);
+                rt.memory().zero(dirent + kDirentNameOffset, kDirentNameCapacity);
+                for (std::size_t i = 0; i < name.size(); ++i) {
+                    rt.memory().store8(dirent + kDirentNameOffset + static_cast<std::uint32_t>(i),
+                                       static_cast<std::uint8_t>(name[i]));
+                }
+                rt.memory().store32(dirent + kDirentPrivateOffset, 0u);
+            }
+            set_return(ctx, 1u);
+            return;
+        }
+        const auto &entry = handle.entries[handle.index++ - kDotEntries];
         if (dirent != 0u) {
             std::error_code ec;
             const bool is_dir = entry.is_directory(ec);
