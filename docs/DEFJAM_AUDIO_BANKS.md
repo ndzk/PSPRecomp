@@ -81,8 +81,16 @@ The `jal` fields in the file are not addresses but **indices**:
 | 35 | `0x08A6C43C` |
 
 They index a flat table of function addresses inside the module, at **file
-offset `0x2DD518`**, which is `0x08AE1518` once relocated against the load base
-`0x08804000`. Entries 0-11 are a contiguous run of `0x08A6Bxxx`-`0x08A6Dxxx`
+offset `0x2DD518`**, which is **`0x08AE1418`** in the running guest. The
+conversion is not a bare addition of the load base: the module's first program
+segment begins at file offset `0x100` with a virtual address of zero, so a file
+offset maps as `offset - 0x100 + load_base`. Forgetting the `0x100` puts every
+address 256 bytes past where it lives, and the corpus then shows no reference to
+it at all - which is how this one was caught.
+
+`tools/corpus_xrefs.py` finds the site that builds this address:
+`generated_unit_0154.cpp`, where the `lui` sits eight lines above the half that
+completes it. Entries 0-11 are a contiguous run of `0x08A6Bxxx`-`0x08A6Dxxx`
 functions: the sound engine's API surface, exposed to the banks. Searching the
 module image for the seven observed targets in index order gives exactly one
 match, so the table is identified rather than guessed.
