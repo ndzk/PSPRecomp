@@ -450,6 +450,35 @@ bool to_screen(const GeMatrices &matrices, const Vertex &vertex, std::uint32_t w
     float vx = wx, vy = wy, vz = wz;
     if (matrices.view_seen) apply_4x3(matrices.view, wx, wy, wz, vx, vy, vz);
 
+    // The matrices, once, with the position they produce.
+    //
+    // Every transformed vertex in a 3D scene comes out at the near plane -
+    // 400,840 of them in one run - and with the projection this title sets, that
+    // happens only when the view-space z is exactly -1 for all of them. The
+    // depth is therefore being lost before the projection, in the world or view
+    // step. The report that would have shown these sits in a branch this profile
+    // never takes: it went into transform_to_screen, and every draw goes through
+    // the clipping path instead.
+    static bool shown = false;
+    if (!shown) {
+        shown = true;
+        const auto row = [](const char *label, const float *m, std::uint32_t count) {
+            std::string text = label;
+            for (std::uint32_t i = 0; i < count; ++i) text += " " + std::to_string(m[i]);
+            runtime_log_line(text);
+        };
+        runtime_log_line("transform chain, first vertex:");
+        runtime_log_line("  model " + std::to_string(x) + " " + std::to_string(y) + " " +
+                         std::to_string(z) + "   world seen " +
+                         std::to_string(matrices.world_seen ? 1 : 0) + "  view seen " +
+                         std::to_string(matrices.view_seen ? 1 : 0));
+        if (matrices.world_seen) row("  world", matrices.world, 12u);
+        if (matrices.view_seen) row("  view ", matrices.view, 12u);
+        runtime_log_line("  world-space " + std::to_string(wx) + " " + std::to_string(wy) + " " +
+                         std::to_string(wz) + "   view-space " + std::to_string(vx) + " " +
+                         std::to_string(vy) + " " + std::to_string(vz));
+    }
+
     const float *p = matrices.projection;
     float cx = vx, cy = vy, cz = vz, cw = 1.0f;
     if (matrices.projection_seen) {
@@ -626,6 +655,34 @@ void to_clip(const GeMatrices &matrices, const Vertex &vertex, ClipVertex &out) 
     }
     float vx = wx, vy = wy, vz = wz;
     if (matrices.view_seen) apply_4x3(matrices.view, wx, wy, wz, vx, vy, vz);
+
+    // The matrices, once, from the path every draw actually takes.
+    //
+    // Every transformed vertex in a 3D scene lands at the near plane - 400,840
+    // of them in one run - and with this title's projection that happens only if
+    // the view-space z is exactly -1 throughout, so the depth is lost before the
+    // projection. An earlier version of this report went into
+    // transform_to_screen, which nothing calls: the clipping path is where the
+    // work happens, and it printed nothing at all.
+    static bool chain_shown = false;
+    if (!chain_shown) {
+        chain_shown = true;
+        const auto row = [](const char *label, const float *m, std::uint32_t count) {
+            std::string text = label;
+            for (std::uint32_t i = 0; i < count; ++i) text += " " + std::to_string(m[i]);
+            runtime_log_line(text);
+        };
+        runtime_log_line("transform chain, first vertex:");
+        runtime_log_line("  model " + std::to_string(x) + " " + std::to_string(y) + " " +
+                         std::to_string(z) + "   world seen " +
+                         std::to_string(matrices.world_seen ? 1 : 0) + "  view seen " +
+                         std::to_string(matrices.view_seen ? 1 : 0));
+        if (matrices.world_seen) row("  world", matrices.world, 12u);
+        if (matrices.view_seen) row("  view ", matrices.view, 12u);
+        runtime_log_line("  world-space " + std::to_string(wx) + " " + std::to_string(wy) + " " +
+                         std::to_string(wz) + "   view-space " + std::to_string(vx) + " " +
+                         std::to_string(vy) + " " + std::to_string(vz));
+    }
 
     const float *p = matrices.projection;
     out.x = p[0] * vx + p[4] * vy + p[8] * vz + p[12];
