@@ -472,6 +472,12 @@ std::uint64_t g_trap_after_us = 0u;
 // line. A trap says what a call was given; this says what the state was when it
 // was given, and the two have to come from the same instant to mean anything.
 std::uint32_t g_trap_show = 0u;
+// "a0+N" reads the word relative to the first argument instead of from a fixed
+// address. A structure created while the title runs does not sit at the same
+// place twice, so naming it by the register that carries it is the only form
+// that survives a rerun.
+bool g_trap_show_relative = false;
+std::uint32_t g_trap_show_offset = 0u;
 
 // Checks the watched words. This runs between dispatches rather than inside the
 // store path, so it names the unit that changed a value rather than the exact
@@ -662,10 +668,15 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch
                              " a2=" + psprecomp::hex32(ctx.gpr[6]) + " a3=" +
                              psprecomp::hex32(ctx.gpr[7]) + " ra=" + psprecomp::hex32(ctx.gpr[31]) +
                              " thread " + std::to_string(dispatch_thread_uid) +
-                             (g_trap_show != 0u && rt.memory().contains(g_trap_show, 4u)
-                                  ? " [" + psprecomp::hex32(g_trap_show) + "]=" +
-                                        std::to_string(rt.memory().load32(g_trap_show))
-                                  : std::string{}));
+                             [&] {
+                                 const std::uint32_t at =
+                                     g_trap_show_relative ? ctx.gpr[4] + g_trap_show_offset
+                                                          : g_trap_show;
+                                 if (!g_trap_show_relative && g_trap_show == 0u) return std::string{};
+                                 if (!rt.memory().contains(at, 4u)) return std::string{};
+                                 return " [" + psprecomp::hex32(at) + "]=" +
+                                        psprecomp::hex32(rt.memory().load32(at));
+                             }());
             break;
         }
     }
@@ -1220,8 +1231,15 @@ void install_dispatch_traps() {
     if (text == nullptr || text[0] == 0) return;
     if (const char *after = std::getenv("PSPRECOMP_DEFJAM_TRAP_AFTER_US"))
         g_trap_after_us = std::strtoull(after, nullptr, 0);
-    if (const char *show = std::getenv("PSPRECOMP_DEFJAM_TRAP_SHOW"))
-        g_trap_show = static_cast<std::uint32_t>(std::strtoul(show, nullptr, 0));
+    if (const char *show = std::getenv("PSPRECOMP_DEFJAM_TRAP_SHOW")) {
+        const std::string text(show);
+        if (text.rfind("a0+", 0u) == 0u) {
+            g_trap_show_relative = true;
+            g_trap_show_offset = static_cast<std::uint32_t>(std::strtoul(text.c_str() + 3, nullptr, 0));
+        } else {
+            g_trap_show = static_cast<std::uint32_t>(std::strtoul(show, nullptr, 0));
+        }
+    }
     const std::string list(text);
     std::size_t cursor = 0u;
     while (cursor <= list.size()) {
