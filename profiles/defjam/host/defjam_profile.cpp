@@ -463,6 +463,11 @@ std::vector<std::uint32_t> g_traps;
 // hunted, and a hundred of them is still a readable log.
 std::set<std::pair<std::uint32_t, std::uint32_t>> g_trap_seen;
 constexpr std::size_t kTrapDistinctLimit = 100u;
+// PSPRECOMP_DEFJAM_TRAP_AFTER_US switches the filter off past a guest time and
+// reports every call from then on. Distinct-only answers "which values exist",
+// which is the wrong question when the call that matters is late and carries a
+// value that was already seen during boot.
+std::uint64_t g_trap_after_us = 0u;
 
 // Checks the watched words. This runs between dispatches rather than inside the
 // store path, so it names the unit that changed a value rather than the exact
@@ -643,10 +648,11 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch
         watchdog_needs_wall_clock_sampling(current_watchdog_settings())) {
         check_progress(rt, dispatch_thread_uid);
     }
-    if (!g_traps.empty() && g_trap_seen.size() < kTrapDistinctLimit) {
+    const bool trap_everything = g_trap_after_us != 0u && g_virtual_time_us >= g_trap_after_us;
+    if (!g_traps.empty() && (trap_everything || g_trap_seen.size() < kTrapDistinctLimit)) {
         for (const std::uint32_t trap : g_traps) {
             if (trap != dispatch_pc) continue;
-            if (!g_trap_seen.insert({dispatch_pc, ctx.gpr[4]}).second) break;
+            if (!trap_everything && !g_trap_seen.insert({dispatch_pc, ctx.gpr[4]}).second) break;
             runtime_log_line("trap " + psprecomp::hex32(dispatch_pc) + " a0=" +
                              psprecomp::hex32(ctx.gpr[4]) + " a1=" + psprecomp::hex32(ctx.gpr[5]) +
                              " a2=" + psprecomp::hex32(ctx.gpr[6]) + " a3=" +
@@ -1204,6 +1210,8 @@ bool dispatch_trace_enabled() { return !g_trace.empty(); }
 void install_dispatch_traps() {
     const char *text = std::getenv("PSPRECOMP_DEFJAM_TRAP");
     if (text == nullptr || text[0] == 0) return;
+    if (const char *after = std::getenv("PSPRECOMP_DEFJAM_TRAP_AFTER_US"))
+        g_trap_after_us = std::strtoull(after, nullptr, 0);
     const std::string list(text);
     std::size_t cursor = 0u;
     while (cursor <= list.size()) {
