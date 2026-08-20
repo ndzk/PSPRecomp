@@ -51,3 +51,9 @@ SAVEDATA/
 # Python
 __pycache__/
 *.pyc
+
+# Run artifacts
+# A stopped run drops a memory dump beside itself, and the frame dump and scan
+# paths write bitmaps named after the guest time they were taken at.
+stop_*.bin
+frame_*.bmp
