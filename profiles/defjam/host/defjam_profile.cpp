@@ -468,6 +468,10 @@ constexpr std::size_t kTrapDistinctLimit = 100u;
 // which is the wrong question when the call that matters is late and carries a
 // value that was already seen during boot.
 std::uint64_t g_trap_after_us = 0u;
+// PSPRECOMP_DEFJAM_TRAP_SHOW names a guest word to print beside every trap
+// line. A trap says what a call was given; this says what the state was when it
+// was given, and the two have to come from the same instant to mean anything.
+std::uint32_t g_trap_show = 0u;
 
 // Checks the watched words. This runs between dispatches rather than inside the
 // store path, so it names the unit that changed a value rather than the exact
@@ -657,7 +661,11 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch
                              psprecomp::hex32(ctx.gpr[4]) + " a1=" + psprecomp::hex32(ctx.gpr[5]) +
                              " a2=" + psprecomp::hex32(ctx.gpr[6]) + " a3=" +
                              psprecomp::hex32(ctx.gpr[7]) + " ra=" + psprecomp::hex32(ctx.gpr[31]) +
-                             " thread " + std::to_string(dispatch_thread_uid));
+                             " thread " + std::to_string(dispatch_thread_uid) +
+                             (g_trap_show != 0u && rt.memory().contains(g_trap_show, 4u)
+                                  ? " [" + psprecomp::hex32(g_trap_show) + "]=" +
+                                        std::to_string(rt.memory().load32(g_trap_show))
+                                  : std::string{}));
             break;
         }
     }
@@ -1212,6 +1220,8 @@ void install_dispatch_traps() {
     if (text == nullptr || text[0] == 0) return;
     if (const char *after = std::getenv("PSPRECOMP_DEFJAM_TRAP_AFTER_US"))
         g_trap_after_us = std::strtoull(after, nullptr, 0);
+    if (const char *show = std::getenv("PSPRECOMP_DEFJAM_TRAP_SHOW"))
+        g_trap_show = static_cast<std::uint32_t>(std::strtoul(show, nullptr, 0));
     const std::string list(text);
     std::size_t cursor = 0u;
     while (cursor <= list.size()) {
