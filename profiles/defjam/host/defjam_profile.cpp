@@ -478,6 +478,9 @@ std::uint32_t g_trap_show = 0u;
 // that survives a rerun.
 bool g_trap_show_relative = false;
 std::uint32_t g_trap_show_offset = 0u;
+// "s:" in front reads a guest string there instead of a word, because what is
+// worth seeing at a pointer is usually the text, not its first four bytes.
+bool g_trap_show_string = false;
 
 // Checks the watched words. This runs between dispatches rather than inside the
 // store path, so it names the unit that changed a value rather than the exact
@@ -674,6 +677,16 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch
                                                           : g_trap_show;
                                  if (!g_trap_show_relative && g_trap_show == 0u) return std::string{};
                                  if (!rt.memory().contains(at, 4u)) return std::string{};
+                                 if (g_trap_show_string) {
+                                     std::string text;
+                                     for (std::uint32_t k = 0; k < 48u; ++k) {
+                                         if (!rt.memory().contains(at + k, 1u)) break;
+                                         const auto c = rt.memory().load8(at + k);
+                                         if (c == 0u) break;
+                                         text += (c >= 0x20u && c < 0x7Fu) ? static_cast<char>(c) : '.';
+                                     }
+                                     return " [" + psprecomp::hex32(at) + "]=\"" + text + "\"";
+                                 }
                                  return " [" + psprecomp::hex32(at) + "]=" +
                                         psprecomp::hex32(rt.memory().load32(at));
                              }());
@@ -1232,7 +1245,11 @@ void install_dispatch_traps() {
     if (const char *after = std::getenv("PSPRECOMP_DEFJAM_TRAP_AFTER_US"))
         g_trap_after_us = std::strtoull(after, nullptr, 0);
     if (const char *show = std::getenv("PSPRECOMP_DEFJAM_TRAP_SHOW")) {
-        const std::string text(show);
+        std::string text(show);
+        if (text.rfind("s:", 0u) == 0u) {
+            g_trap_show_string = true;
+            text.erase(0u, 2u);
+        }
         if (text.rfind("a0+", 0u) == 0u) {
             g_trap_show_relative = true;
             g_trap_show_offset = static_cast<std::uint32_t>(std::strtoul(text.c_str() + 3, nullptr, 0));
