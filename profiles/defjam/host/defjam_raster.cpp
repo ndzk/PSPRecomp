@@ -574,6 +574,9 @@ void note_census(const PixelTally &before, bool textured, float x, std::uint64_t
     if (textured) ++into.textured;
 }
 
+// The runtime, so a scan can read guest memory while describing a primitive.
+psprecomp::Runtime *g_scan_runtime = nullptr;
+
 // A primitive that paints opaque black over the left half, described in full.
 //
 // The menu's left half takes 130,876 writes in a frame, 96.6% of them fully
@@ -614,6 +617,29 @@ void note_black_painter(const PixelTally &before, std::uint32_t color,
                          psprecomp::hex32(texture.clut_address) + " swizzled " +
                          std::to_string(texture.swizzled ? 1 : 0) + " stride " +
                          std::to_string(texture.stride));
+        // The palette itself, read out of guest memory.
+        //
+        // A fight draws sixteen of these with a half-transparent teal vertex
+        // colour, 0x8060C0C0, and every pixel comes out black. Under modulation
+        // the result is texel times vertex, and the vertex is not black, so the
+        // texel has to be - which means the palette entries are. Whether they
+        // are black in the title's own data or only after this profile decodes
+        // them is the whole question, and the bytes answer it.
+        runtime_log_line("  clut format register 0x" +
+                         psprecomp::hex32(ge_registers()[0xC5u]).substr(2) + "  shift " +
+                         std::to_string(texture.clut_shift) + "  mask " +
+                         std::to_string(texture.clut_mask) + "  offset " +
+                         std::to_string(texture.clut_offset));
+        std::string entries = "  palette bytes:";
+        for (std::uint32_t i = 0; i < 8u; ++i) {
+            std::uint32_t word = 0u;
+            if (g_scan_runtime != nullptr &&
+                g_scan_runtime->memory().contains(texture.clut_address + i * 4u, 4u)) {
+                word = g_scan_runtime->memory().load32(texture.clut_address + i * 4u);
+            }
+            entries += " " + psprecomp::hex32(word);
+        }
+        runtime_log_line(entries);
     }
 }
 
@@ -1507,6 +1533,8 @@ std::string blend_state_report() {
     out << "    transparent pixels dropped with blending off " << g_clear_alpha_blend_off << "\n";
     return out.str();
 }
+
+void raster_set_scan_runtime(psprecomp::Runtime &runtime) { g_scan_runtime = &runtime; }
 
 void raster_configure_side_split() {
     if (const char *text = std::getenv("PSPRECOMP_DEFJAM_BLEND")) {

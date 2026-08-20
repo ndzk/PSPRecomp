@@ -295,6 +295,7 @@ int main(int argc, char **argv) {
 
         defjam::install_profile(runtime, user_arena_start);
         defjam::install_starvation_preemption();
+        defjam::raster_set_scan_runtime(runtime);
         defjam::raster_configure_side_split();
         defjam::install_progress_watchdog();
         defjam::install_memory_watch();

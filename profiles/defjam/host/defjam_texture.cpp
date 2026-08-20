@@ -154,6 +154,8 @@ void unswizzle(const std::uint8_t *source, std::size_t source_size, std::uint32_
 
 void note_flat_texture(const TextureState &state, const std::vector<std::uint32_t> &out,
                        const std::vector<std::uint8_t> &linear);
+void note_colourless_texture(psprecomp::Runtime &runtime, const TextureState &state,
+                             const std::vector<std::uint32_t> &out);
 
 bool decode_texture(psprecomp::Runtime &runtime, const TextureState &state,
                     std::vector<std::uint32_t> &out, std::string &error) {
@@ -263,6 +265,7 @@ bool decode_texture(psprecomp::Runtime &runtime, const TextureState &state,
         }
     }
     note_flat_texture(state, out, linear);
+    note_colourless_texture(runtime, state, out);
     return true;
 }
 
@@ -334,6 +337,47 @@ std::string flat_texture_report() {
             << (entry->source_flat ? "flat" : "varied") << "  x" << entry->decodes << "\n";
     }
     return out.str();
+}
+
+// Textures whose every texel is black, whatever their alpha does.
+//
+// A fight draws a 64x64 paletted texture sixteen times with a half-transparent
+// teal vertex colour, 0x8060C0C0, and every pixel of it comes out black. Under
+// modulation the result is texel times vertex, and that vertex is not black, so
+// the texel must be. Either the title's palette really is black - which would
+// make this an alpha mask, meant to be tinted by the vertex, and the fault is in
+// multiplying a colour by zero - or the palette has colour and this decoder is
+// losing it. The bytes settle it, and this runs once per decode rather than once
+// per pixel, so it costs nothing on either backend.
+void note_colourless_texture(psprecomp::Runtime &runtime, const TextureState &state,
+                             const std::vector<std::uint32_t> &out) {
+    if (out.empty() || !texture_format_is_paletted(state.format)) return;
+    bool any_alpha = false;
+    for (const std::uint32_t texel : out) {
+        if ((texel & 0x00FFFFFFu) != 0u) return;
+        if (((texel >> 24u) & 0xFFu) != 0u) any_alpha = true;
+    }
+    static std::set<std::uint32_t> reported;
+    if (!reported.insert(state.address).second) return;
+    std::string line = "colourless texture " + psprecomp::hex32(state.address) + " " +
+                       std::to_string(state.width) + "x" + std::to_string(state.height) +
+                       " format " + texture_format_name(state.format) + "  alpha varies " +
+                       std::to_string(any_alpha ? 1 : 0) + "  clut " +
+                       psprecomp::hex32(state.clut_address) + " format " +
+                       std::to_string(static_cast<int>(state.clut_format)) + " shift " +
+                       std::to_string(state.clut_shift) + " mask " +
+                       std::to_string(state.clut_mask) + " offset " +
+                       std::to_string(state.clut_offset);
+    runtime_log_line(line);
+    std::string bytes = "  palette words:";
+    for (std::uint32_t i = 0; i < 12u; ++i) {
+        std::uint32_t word = 0u;
+        if (runtime.memory().contains(state.clut_address + i * 4u, 4u)) {
+            word = runtime.memory().load32(state.clut_address + i * 4u);
+        }
+        bytes += " " + psprecomp::hex32(word);
+    }
+    runtime_log_line(bytes);
 }
 
 void texture_reset() {

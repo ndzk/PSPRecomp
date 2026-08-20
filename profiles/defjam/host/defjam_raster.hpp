@@ -76,6 +76,9 @@ void raster_reset();
 
 // Splits register state by which half of the screen a primitive lands in,
 // so a screen with a working half and a blank one names its own difference.
+// Lets the scans read guest memory when describing what they caught.
+void raster_set_scan_runtime(psprecomp::Runtime &runtime);
+
 void raster_configure_side_split();
 [[nodiscard]] std::string side_difference_report();
 
