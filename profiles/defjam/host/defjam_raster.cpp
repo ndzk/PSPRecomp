@@ -868,6 +868,67 @@ std::uint32_t add_saturating(std::uint32_t source, std::uint32_t destination) {
            mix(source & 0xFFu, destination & 0xFFu);
 }
 
+// Fog: a pixel mixed toward a constant colour by how far away it is.
+//
+// The register block has the shape of one - 0x54 written once per draw, 0x55
+// beside it, 0x56 holding a colour, and two enables at 0x21 and 0x22 that this
+// profile has never read - and the symptom fits: an arena whose walls come out
+// three times darker than its floor while their textures are bright and fully
+// opaque, which is what distant geometry looks like when whatever the hardware
+// adds to it is missing.
+//
+// Applied only when the parameters describe a usable gradient. Read literally
+// from a boot-to-menu run they do not: 0x54 is zero at 172,198 of 172,204
+// draws, and the usual fog formula turns that into "fully fogged everywhere",
+// which would paint the whole game the fog colour - white. A menu has no depth,
+// so those values say nothing about a fight; until a run with one says
+// otherwise, degenerate parameters mean no fog rather than total fog. That
+// guard is what stops this from repeating the modulation mistake, where a rule
+// derived from menus was switched on everywhere and blacked out the arena.
+constexpr std::uint8_t kCmdFogEnd = 0x54u;
+constexpr std::uint8_t kCmdFogScale = 0x55u;
+constexpr std::uint8_t kCmdFogColour = 0x56u;
+constexpr std::uint8_t kCmdFogEnableA = 0x21u;
+constexpr std::uint8_t kCmdFogEnableB = 0x22u;
+
+float register_float(std::uint8_t command) {
+    const std::uint32_t raw = (ge_registers()[command] & 0x00FFFFFFu) << 8u;
+    float value{};
+    std::memcpy(&value, &raw, 4u);
+    return value;
+}
+
+bool fog_active() {
+    static const bool allowed = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_FOG");
+        return text == nullptr || (text[0] != 0 && text[0] != 48);
+    }();
+    if (!allowed) return false;
+    const std::array<std::uint32_t, 256> &registers = ge_registers();
+    if ((registers[kCmdFogEnableA] & 1u) == 0u && (registers[kCmdFogEnableB] & 1u) == 0u) {
+        return false;
+    }
+    const float scale = register_float(kCmdFogScale);
+    const float end = register_float(kCmdFogEnd);
+    return std::isfinite(scale) && std::isfinite(end) && scale > 0.0f && end > 0.0f;
+}
+
+std::uint32_t apply_fog(std::uint32_t color, float inv_w) {
+    if (!(inv_w > 0.0f)) return color;
+    const float distance = 1.0f / inv_w;
+    float factor = (register_float(kCmdFogEnd) - distance) * register_float(kCmdFogScale);
+    if (!(factor > 0.0f)) factor = 0.0f;
+    if (factor > 1.0f) factor = 1.0f;
+    const std::uint32_t fog = ge_registers()[kCmdFogColour] & 0x00FFFFFFu;
+    const auto mix = [factor](std::uint32_t pixel, std::uint32_t target) {
+        return static_cast<std::uint32_t>(static_cast<float>(pixel) * factor +
+                                          static_cast<float>(target) * (1.0f - factor) + 0.5f);
+    };
+    return (color & 0xFF000000u) | (mix((color >> 16u) & 0xFFu, (fog >> 16u) & 0xFFu) << 16u) |
+           (mix((color >> 8u) & 0xFFu, (fog >> 8u) & 0xFFu) << 8u) |
+           mix(color & 0xFFu, fog & 0xFFu);
+}
+
 std::uint32_t blend_over(std::uint32_t source, std::uint32_t destination) {
     const std::uint32_t alpha = (source >> 24u) & 0xFFu;
     if (alpha == 255u) return source;
@@ -1260,6 +1321,7 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
 
     if (textured) note_texture_function(a.color);
     note_side((a.x + b.x + c.x) / 3.0f);
+    const bool fogging = fog_active();
     const PixelTally tally = begin_primitive();
     const float centre_x = (a.x + b.x + c.x) / 3.0f;
     const float centre_y = (a.y + b.y + c.y) / 3.0f;
@@ -1326,6 +1388,9 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
                            a.v * pa + b.v * pb + c.v * pc, uv_in_texels),
                     vertex);
             }
+            // Fog last, because it acts on the finished colour and not on the
+            // texel that went into it.
+            if (fogging) color = apply_fog(color, inv_w);
             // Depth stays linear in screen space: that is what a depth buffer
             // stores, and it is already the divided value.
             put_pixel(x, y, color, a.z * ba + b.z * bb + c.z * bc);
