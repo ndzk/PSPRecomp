@@ -10,15 +10,17 @@ is git-ignored.
 
 ## Current status
 
-**Runs headless; nothing is drawn yet.** `DefJamNative` validates its manifest
-and the executable's identity, then runs the checked-in AOT corpus against an
-HLE layer: threads and synchronisation, memory partitions and the scratchpad,
-`IoFileMgrForUser` over a generated UMD layout, `sceAudio` and `sceSasCore`,
-`ModuleMgrForUser`, the utility dialogs, `sceMpeg` with a PSMF demultiplexer
-feeding an optional FFmpeg decoder, and `sceAtrac3plus` for streamed audio. Of
-the 247 imports this executable needs, 208 across 23 modules are implemented;
-the remaining 39 are the ad-hoc networking libraries, which are stubbed rather
-than emulated (see below).
+**Runs, and draws.** Display lists are rasterised into real frames. The run is
+headless by default: on Windows `PSPRECOMP_DEFJAM_WINDOW` opens a Direct3D 12
+window, and on any platform `PSPRECOMP_DEFJAM_FRAME_DUMP` writes frames to disk.
+`DefJamNative` validates its manifest and the executable's identity, then runs
+the checked-in AOT corpus against an HLE layer: threads and synchronisation,
+memory partitions and the scratchpad, `IoFileMgrForUser` over a generated UMD
+layout, `sceAudio` and `sceSasCore`, `ModuleMgrForUser`, the utility dialogs,
+`sceMpeg` with a PSMF demultiplexer feeding an optional FFmpeg decoder, and
+`sceAtrac3plus` for streamed audio. Of the 247 imports this executable needs,
+208 across 23 modules are implemented; the remaining 39 are the ad-hoc
+networking libraries, which are stubbed rather than emulated (see below).
 
 `host/defjam_ge.cpp` walks the guest's display lists, maintains the 256-entry GE
 register file and resolves list control flow. `host/defjam_vertex.cpp`,
