@@ -768,6 +768,33 @@ void check_progress(Runtime &rt, std::int32_t dispatch_thread_uid) {
     rt.stop(headline);
 }
 
+// Chained calls never reach the outer dispatcher, so a window keyed on
+// dispatch_pc cannot see a function that is only ever entered by chaining --
+// measured: zero opens for a function whose own crash dump proves it ran.
+// This hook fires on the chained entry itself.
+void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t target_pc,
+                           std::uint32_t native_depth) {
+    (void)native_depth;
+    if (g_watch_window_entry == 0u || target_pc != g_watch_window_entry) return;
+    g_watch_window_open = true;
+    g_watch_window_return = ctx.gpr[31];
+    ++g_watch_window_entries;
+    if (g_watch_window_entries <= 24u || (g_watch_window_entries % 5000u) == 0u) {
+        // a0 measures as sp+0x20, so the 16 KiB block at [a0+16384] is stack,
+        // not heap: print the word the routine treats as its table pointer.
+        std::string table = " [a0+16384]=?";
+        if (rt.memory().contains(ctx.gpr[4] + 16384u, 4u)) {
+            table = " [a0+16384]=" + psprecomp::hex32(rt.memory().load32(ctx.gpr[4] + 16384u));
+        }
+        runtime_log_line("chained entry #" + std::to_string(g_watch_window_entries) +
+                         " a0=" + psprecomp::hex32(ctx.gpr[4]) +
+                         " sp=" + psprecomp::hex32(ctx.gpr[29]) +
+                         " ra=" + psprecomp::hex32(ctx.gpr[31]) + table +
+                         " a1=" + psprecomp::hex32(ctx.gpr[5]) +
+                         " a2=" + psprecomp::hex32(ctx.gpr[6]));
+    }
+}
+
 void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch_pc,
                        std::int32_t dispatch_thread_uid) {
     // Reading a clock on every dispatch would cost more than the thing it is
@@ -841,6 +868,16 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch
             ++g_watch_window_entries;
         } else if (g_watch_window_open && dispatch_pc == g_watch_window_return) {
             g_watch_window_open = false;
+        }
+        // How often the window opens, and where its buffer sits, are both
+        // measurements. A trap on this address counted nine calls while a
+        // register sampled inside took 66,413 distinct values; those two cannot
+        // both describe the same function, so log the frame each time.
+        if (dispatch_pc == g_watch_window_entry &&
+            (g_watch_window_entries <= 24u || (g_watch_window_entries % 5000u) == 0u)) {
+            runtime_log_line("window open #" + std::to_string(g_watch_window_entries) +
+                             " a0=" + psprecomp::hex32(ctx.gpr[4]) + " sp=" + psprecomp::hex32(ctx.gpr[29]) +
+                             " ra=" + psprecomp::hex32(ctx.gpr[31]));
         }
     }
     if (!g_watches.empty()) check_watches(rt, dispatch_pc, dispatch_thread_uid);
@@ -1459,10 +1496,13 @@ void install_dispatch_traps() {
 
 void install_memory_watch() {
     const char *text = std::getenv("PSPRECOMP_DEFJAM_WATCH");
-    if (text == nullptr || text[0] == 0) return;
+    const char *window_only = std::getenv("PSPRECOMP_DEFJAM_WATCH_WINDOW");
+    if ((text == nullptr || text[0] == 0) && (window_only == nullptr || window_only[0] == 0)) {
+        return;
+    }
 
     // A comma-separated list of guest addresses, each watched as a 32-bit word.
-    const std::string list(text);
+    const std::string list(text != nullptr ? text : "");
     std::size_t cursor = 0u;
     while (cursor <= list.size()) {
         const std::size_t comma = list.find(',', cursor);
@@ -1475,16 +1515,23 @@ void install_memory_watch() {
         if (comma == std::string::npos) break;
         cursor = comma + 1u;
     }
-    if (g_watches.empty()) return;
+    // The window is useful on its own, without any address to watch: it counts
+    // how often a function is entered. So parse it before giving up on watches.
+    if (const char *window = std::getenv("PSPRECOMP_DEFJAM_WATCH_WINDOW")) {
+        g_watch_window_entry = static_cast<std::uint32_t>(std::strtoul(window, nullptr, 0));
+    }
+    if (g_watches.empty() && g_watch_window_entry == 0u) return;
 
     std::string summary;
     for (const MemoryWatch &watch : g_watches) summary += " " + psprecomp::hex32(watch.address);
-    if (const char *window = std::getenv("PSPRECOMP_DEFJAM_WATCH_WINDOW")) {
-        g_watch_window_entry = static_cast<std::uint32_t>(std::strtoul(window, nullptr, 0));
+    if (g_watch_window_entry != 0u) {
         summary += " (only while " + psprecomp::hex32(g_watch_window_entry) + " is running)";
     }
     runtime_log_line("watching" + summary);
     psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
+    if (g_watch_window_entry != 0u) {
+        psprecomp::set_runtime_pre_chained_call_hook(&pre_chained_call_hook);
+    }
 }
 
 void install_progress_watchdog() {
