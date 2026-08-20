@@ -2040,23 +2040,6 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             std::sort(entries.begin(), entries.end());
             return entries;
         }();
-        std::uint32_t scripted = 0u;
-        for (const auto &entry : timeline) {
-            if (g_virtual_time_us < entry.first) break;
-            scripted = entry.second;
-        }
-
-        constexpr std::uint64_t kPulseHalfUs = 250000u;
-        const bool pulse_down = (g_virtual_time_us / kPulseHalfUs) % 2u == 1u;
-        // A real key press is ORed onto the scripted masks rather than
-        // replacing them, so the measurement runs this profile was built with
-        // keep behaving identically with a window open.
-        std::uint8_t analog_x = 128u;
-        std::uint8_t analog_y = 128u;
-        window_analog(analog_x, analog_y);
-        const std::uint32_t buttons =
-            held | scripted | (pulse_down ? pulsed : 0u) | window_buttons();
-
         // This is the blocking read. Controller data is sampled once per
         // cycle: the first read in a cycle takes the sample already waiting and
         // returns, and only a second read inside the same cycle waits for the
@@ -2085,17 +2068,77 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         // cycle into the past, and a title deriving its frame interval from
         // consecutive readings measures the wrong one.
         const auto sample_time = static_cast<std::uint32_t>(g_virtual_time_us + wait);
+
+        // The buttons belong to the sample being handed over, so they are read
+        // at the time that sample was taken - not at the time of the call.
+        //
+        // Reading them before the wait hands the caller the previous cycle's
+        // state stamped with the next cycle's time. A press that begins inside
+        // the wait window then never reaches the guest at all: the state it
+        // sees jumps from before the press to after it. Holding a direction
+        // survives that, because any one sample still shows it, but a short
+        // press meant to be seen going down and coming back up does not, which
+        // is what an on-screen keyboard needs to register a key at all.
+        const std::uint64_t sampled_at = g_virtual_time_us + wait;
+        std::uint32_t scripted = 0u;
+        for (const auto &entry : timeline) {
+            if (sampled_at < entry.first) break;
+            scripted = entry.second;
+        }
+        constexpr std::uint64_t kPulseHalfUs = 250000u;
+        const bool pulse_down = (sampled_at / kPulseHalfUs) % 2u == 1u;
+        // A real key press is ORed onto the scripted masks rather than
+        // replacing them, so the measurement runs this profile was built with
+        // keep behaving identically with a window open.
+        std::uint8_t analog_x = 128u;
+        std::uint8_t analog_y = 128u;
+        window_analog(analog_x, analog_y);
+        const std::uint32_t buttons =
+            held | scripted | (pulse_down ? pulsed : 0u) | window_buttons();
         if (reader != nullptr) {
             reader->ctrl_sampled = true;
             reader->last_ctrl_cycle = already_read ? cycle + 1u : cycle;
         }
 
+        // The hardware keeps a ring of past samples and hands back the most
+        // recent ones, each with its own time and its own buttons. This title
+        // asks for eight of them at a time.
+        //
+        // Filling all eight with a copy of the present is not a smaller
+        // version of that, it is a different thing: a caller looking for a
+        // press *inside* the buffer - which is how a key is registered from a
+        // sample history rather than from a single reading - can never find
+        // one, because eight identical samples contain no change.
+        static std::array<std::pair<std::uint32_t, std::uint32_t>, 64> history{};
+        static std::size_t history_head = 0u;
+        static std::uint64_t history_cycle = 0u;
+        static bool history_primed = false;
+
+        const std::uint64_t sample_cycle = sampled_at / kSamplePeriodUs;
+        if (!history_primed) {
+            history.fill({sample_time, buttons});
+            history_cycle = sample_cycle;
+            history_primed = true;
+        }
+        // One entry per elapsed cycle, so the gaps a sleeping guest leaves are
+        // filled with the state that held through them rather than collapsing.
+        for (std::uint64_t c = history_cycle + 1u; c <= sample_cycle && c <= history_cycle + 64u; ++c) {
+            history_head = (history_head + 1u) % history.size();
+            history[history_head] = {static_cast<std::uint32_t>(c * kSamplePeriodUs), buttons};
+        }
+        if (sample_cycle > history_cycle) history_cycle = sample_cycle;
+        history[history_head] = {sample_time, buttons};
+
         const std::uint32_t buffer = ctx.gpr[4];
         const std::uint32_t count = std::max(1u, ctx.gpr[5]);
+        // Oldest first, newest last, so the caller reads them in the order they
+        // were taken.
         for (std::uint32_t i = 0; i < count; ++i) {
+            const std::size_t age = count - 1u - i;
+            const std::size_t at = (history_head + history.size() - (age % history.size())) % history.size();
             const std::uint32_t entry = buffer + i * 16u;
-            rt.memory().store32(entry, sample_time);
-            rt.memory().store32(entry + 4u, buttons);
+            rt.memory().store32(entry, history[at].first);
+            rt.memory().store32(entry + 4u, history[at].second);
             rt.memory().store8(entry + 8u, analog_x);
             rt.memory().store8(entry + 9u, analog_y);
         }
