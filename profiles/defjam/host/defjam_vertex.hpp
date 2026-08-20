@@ -144,6 +144,10 @@ struct VertexStats {
 };
 [[nodiscard]] VertexStats vertex_stats();
 void vertex_reset();
+// How the transformed depths are spread, which says whether the depth buffer
+// can do anything at all.
+[[nodiscard]] std::string depth_spread_report();
+
 [[nodiscard]] std::string vertex_report();
 
 // Called by the display-list interpreter for each PRIM.

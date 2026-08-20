@@ -368,6 +368,7 @@ int main(int argc, char **argv) {
                   << "  guest time:         " << stats.virtual_time_us << " us\n";
         std::cout << defjam::ge_report();
         std::cout << defjam::vertex_report();
+        std::cout << defjam::depth_spread_report();
         std::cout << defjam::texture_report();
         // These two went missing when the branches were merged: the functions
         // stayed and the calls did not, so the GE audit quietly stopped being

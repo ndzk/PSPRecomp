@@ -489,6 +489,16 @@ bool to_screen(const GeMatrices &matrices, const Vertex &vertex, std::uint32_t w
 
 } // namespace
 
+// The spread of depths a run actually produces.
+//
+// A note in this file says every transformed vertex lands at 65535, the near
+// end of an inverted range, which would make the depth buffer inert and leave
+// the scene assembled purely in draw order. It was never checked again, and
+// zero depth rejections across a whole run - reported all day - is exactly what
+// that would look like.
+std::array<std::atomic<std::uint64_t>, 16> g_depth_bins{};
+std::atomic<std::uint64_t> g_depth_total{0};
+
 bool transform_to_screen(std::vector<Vertex> &vertices, std::uint32_t width, std::uint32_t height) {
     const GeMatrices &matrices = ge_matrices();
     if (!matrices.projection_seen) return false;   // nothing to transform with
@@ -523,6 +533,14 @@ bool transform_to_screen(std::vector<Vertex> &vertices, std::uint32_t width, std
         }
     }
 
+    // The spread of depths a run actually produces.
+    //
+    // A note left in this file says every transformed vertex lands at 65535,
+    // the near end of an inverted range, which would make the depth buffer
+    // inert and leave the scene assembled purely in draw order. That was never
+    // checked again, and zero depth rejections across a whole run - which this
+    // profile has reported all day - is exactly what it would look like. A
+    // histogram settles whether the geometry has depth at all.
     for (Vertex &vertex : vertices) {
         float sx{}, sy{}, sz{};
         if (vertex.weight_count != 0u) {
@@ -559,6 +577,14 @@ bool transform_to_screen(std::vector<Vertex> &vertices, std::uint32_t width, std
         vertex.x = sx;
         vertex.y = sy;
         vertex.z = sz;
+        {
+            float clamped = sz;
+            if (clamped < 0.0f) clamped = 0.0f;
+            if (clamped > 65535.0f) clamped = 65535.0f;
+            const auto bin = static_cast<std::size_t>(clamped / 4096.0f);
+            ++g_depth_bins[bin < g_depth_bins.size() ? bin : g_depth_bins.size() - 1u];
+            ++g_depth_total;
+        }
     }
     ++g_stats.transformed;
     return true;
@@ -624,6 +650,31 @@ Vertex to_screen_from_clip(const ClipVertex &clip) {
     out.x = ndc_x * viewport.x_scale + viewport.x_center - viewport.x_offset;
     out.y = ndc_y * viewport.y_scale + viewport.y_center - viewport.y_offset;
     out.z = ndc_z * viewport.z_scale + viewport.z_center;
+    // The projection's depth row, once, with a clip-space sample beside it.
+    //
+    // Every transformed vertex in a run lands in the top band of the depth
+    // range, which is what a clip z of exactly -w gives. Either the title sets a
+    // projection that flattens depth, or this pipeline is reading the wrong
+    // elements of it. The matrix says which, and it has never been printed.
+    static bool shown = false;
+    if (!shown) {
+        shown = true;
+        const GeMatrices &m = ge_matrices();
+        std::string row = "projection depth row:";
+        for (std::uint32_t i = 0; i < 16u; ++i) row += " " + std::to_string(m.projection[i]);
+        runtime_log_line(row);
+        runtime_log_line("  clip z=" + std::to_string(clip.z) + " w=" + std::to_string(clip.w) +
+                         "  ndc z=" + std::to_string(ndc_z) + "  screen z=" +
+                         std::to_string(out.z));
+    }
+    {
+        float clamped = out.z;
+        if (clamped < 0.0f) clamped = 0.0f;
+        if (clamped > 65535.0f) clamped = 65535.0f;
+        const auto bin = static_cast<std::size_t>(clamped / 4096.0f);
+        ++g_depth_bins[bin < g_depth_bins.size() ? bin : g_depth_bins.size() - 1u];
+        ++g_depth_total;
+    }
     out.inv_w = inverse;
     out.u = clip.u;
     out.v = clip.v;
@@ -1028,6 +1079,18 @@ void note_draw(Runtime &runtime, std::uint32_t primitive, std::uint32_t vtype,
     // path returned above.
     VertexStats::Extent &extent = g_stats.screen;
     for (const Vertex &vertex : vertices) extent.add(vertex.x, vertex.y, vertex.z);
+}
+
+std::string depth_spread_report() {
+    std::ostringstream out;
+    const std::uint64_t total = g_depth_total.load();
+    if (total == 0u) return {};
+    out << "  transformed depth, in sixteen bands of 4096 (0 far, 65535 near):\n   ";
+    for (const auto &bin : g_depth_bins) {
+        out << " " << (100u * bin.load() / total) << "%";
+    }
+    out << "\n";
+    return out.str();
 }
 
 std::string vertex_report() {
