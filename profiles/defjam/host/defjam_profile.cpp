@@ -21,6 +21,7 @@
 #include <iostream>
 #include <map>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -456,10 +457,12 @@ std::uint64_t g_watch_hits = 0;
 // measured, a trap on a chained function reports nothing at all with chaining
 // on and reports every call with it off.
 std::vector<std::uint32_t> g_traps;
-std::uint64_t g_trap_hits = 0;
-// A function called every frame would bury the log, so each address reports a
-// bounded number of times.
-constexpr std::uint64_t kTrapReportLimit = 24u;
+// Reporting the first N calls buries the interesting one: a pool allocator is
+// hammered during boot and the call that matters comes minutes later. So each
+// distinct first argument is reported once instead - that is the value being
+// hunted, and a hundred of them is still a readable log.
+std::set<std::pair<std::uint32_t, std::uint32_t>> g_trap_seen;
+constexpr std::size_t kTrapDistinctLimit = 100u;
 
 // Checks the watched words. This runs between dispatches rather than inside the
 // store path, so it names the unit that changed a value rather than the exact
@@ -640,10 +643,10 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch
         watchdog_needs_wall_clock_sampling(current_watchdog_settings())) {
         check_progress(rt, dispatch_thread_uid);
     }
-    if (!g_traps.empty() && g_trap_hits < kTrapReportLimit) {
+    if (!g_traps.empty() && g_trap_seen.size() < kTrapDistinctLimit) {
         for (const std::uint32_t trap : g_traps) {
             if (trap != dispatch_pc) continue;
-            ++g_trap_hits;
+            if (!g_trap_seen.insert({dispatch_pc, ctx.gpr[4]}).second) break;
             runtime_log_line("trap " + psprecomp::hex32(dispatch_pc) + " a0=" +
                              psprecomp::hex32(ctx.gpr[4]) + " a1=" + psprecomp::hex32(ctx.gpr[5]) +
                              " a2=" + psprecomp::hex32(ctx.gpr[6]) + " a3=" +
@@ -1381,6 +1384,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
     g_vblanks = 0;
     g_sub_interrupts.clear();
     g_alarms.clear();
+    g_trap_seen.clear();
     g_vblank_next_us = kVblankPeriodUs;
     g_vblank_pending = false;
     g_vblank_in_flight = false;
