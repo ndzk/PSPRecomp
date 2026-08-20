@@ -93,6 +93,15 @@ Run it:
 out\defjam\bin\Release\DefJamNative.exe
 ```
 
+**Build Release for anything that draws.** The rasteriser is where the time
+goes, and an unoptimised build pays for it about a hundred times over: reaching
+19 seconds of guest time took 18 minutes of wall clock at `-O0`, and the same
+point takes about 15 seconds once optimised. A debug build is still the right
+tool for stepping through the HLE layer, but a run that has to reach a menu, a
+movie or a fight should be optimised or it will not get there. `PSPRECOMP_DEFJAM_NO_RASTER=1`
+skips drawing entirely, which is faster again when the question is how far the
+title gets rather than what it shows.
+
 or point it at an executable explicitly:
 
 ```
