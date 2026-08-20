@@ -2,6 +2,7 @@
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
+#include <exception>
 #include <array>
 #include <cstdlib>
 #include <cstring>
@@ -617,9 +618,18 @@ void Runtime::run(std::uint32_t entry, std::uint64_t max_dispatches) {
         };
         for (; dispatch < std::min(profile_dispatch_start, max_dispatches) && !stopped_; ++dispatch)
             execute_once();
-        for (; dispatch < profile_end && !stopped_; ++dispatch) {
-            ++dispatch_counts[cpu_.pc];
-            execute_once();
+        // A window that ends in a guest fault is the one worth reading, and the
+        // throw used to escape before anything was printed, so the counts died
+        // with it. Report what was sampled either way, then let the fault carry
+        // on to whoever handles it.
+        std::exception_ptr fault;
+        try {
+            for (; dispatch < profile_end && !stopped_; ++dispatch) {
+                ++dispatch_counts[cpu_.pc];
+                execute_once();
+            }
+        } catch (...) {
+            fault = std::current_exception();
         }
         std::vector<std::pair<std::uint32_t, std::uint64_t>> hot(dispatch_counts.begin(), dispatch_counts.end());
         std::sort(hot.begin(), hot.end(), [](const auto &left, const auto &right) {
@@ -636,6 +646,7 @@ void Runtime::run(std::uint32_t entry, std::uint64_t max_dispatches) {
                       << " count=" << hot[index].second
                       << " name=" << (profile_entry != nullptr ? profile_entry->name : "unknown") << "\n";
         }
+        if (fault) std::rethrow_exception(fault);
         if (!stopped_) stop("Dispatch profile window complete at " + hex32(cpu_.pc));
         return;
     }
