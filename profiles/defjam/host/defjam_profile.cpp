@@ -540,6 +540,10 @@ std::uint64_t g_watch_count_in_window = 0u;
 std::uint64_t g_watch_count_passes = 0u;
 std::uint64_t g_watch_count_min = 0u;
 std::uint64_t g_watch_count_max = 0u;
+// Attribution by return address, counted exactly. Sampled trap lines gave a
+// badly wrong picture of which caller dominated, so every call is tallied.
+std::map<std::uint32_t, std::uint64_t> g_watch_count_by_ra;
+std::map<std::uint32_t, std::uint64_t> g_watch_count_by_ra_in_window;
 std::uint64_t g_watch_hits = 0;
 
 // Addresses to report the argument registers at, from
@@ -812,7 +816,11 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
     (void)native_depth;
     if (g_watch_count_target != 0u && target_pc == g_watch_count_target) {
         ++g_watch_count_total;
-        if (g_watch_window_open) ++g_watch_count_in_window;
+        ++g_watch_count_by_ra[ctx.gpr[31]];
+        if (g_watch_window_open) {
+            ++g_watch_count_in_window;
+            ++g_watch_count_by_ra_in_window[ctx.gpr[31]];
+        }
     }
     if (g_watch_window_entry == 0u || target_pc != g_watch_window_entry) return;
     g_watch_window_open = true;
@@ -1566,7 +1574,7 @@ void install_dispatch_traps() {
 }
 
 std::string watch_window_report() {
-    if (g_watch_window_entry == 0u) return {};
+    if (g_watch_window_entry == 0u && g_watch_count_target == 0u) return {};
     std::string text = "  watch window " + psprecomp::hex32(g_watch_window_entry) +
                        " entered " + std::to_string(g_watch_window_entries) + " times\n";
     if (g_watch_count_target != 0u) {
@@ -1576,13 +1584,30 @@ std::string watch_window_report() {
                 std::to_string(g_watch_count_min) + " max " +
                 std::to_string(g_watch_count_max) + "\n";
     }
+    if (!g_watch_count_by_ra.empty()) {
+        std::vector<std::pair<std::uint32_t, std::uint64_t>> ranked(g_watch_count_by_ra.begin(),
+                                                                   g_watch_count_by_ra.end());
+        std::sort(ranked.begin(), ranked.end(),
+                  [](const auto &a, const auto &b) { return a.second > b.second; });
+        text += "    callers (" + std::to_string(ranked.size()) + " distinct):\n";
+        for (std::size_t i = 0; i < ranked.size() && i < 16u; ++i) {
+            const auto inside = g_watch_count_by_ra_in_window.find(ranked[i].first);
+            text += "      ra=" + psprecomp::hex32(ranked[i].first) + "  " +
+                    std::to_string(ranked[i].second) + "  (in window " +
+                    std::to_string(inside == g_watch_count_by_ra_in_window.end()
+                                       ? 0u
+                                       : inside->second) + ")\n";
+        }
+    }
     return text;
 }
 
 void install_memory_watch() {
     const char *text = std::getenv("PSPRECOMP_DEFJAM_WATCH");
     const char *window_only = std::getenv("PSPRECOMP_DEFJAM_WATCH_WINDOW");
-    if ((text == nullptr || text[0] == 0) && (window_only == nullptr || window_only[0] == 0)) {
+    const char *count_only = std::getenv("PSPRECOMP_DEFJAM_WATCH_COUNT");
+    if ((text == nullptr || text[0] == 0) && (window_only == nullptr || window_only[0] == 0) &&
+        (count_only == nullptr || count_only[0] == 0)) {
         return;
     }
 
@@ -1605,7 +1630,10 @@ void install_memory_watch() {
     if (const char *window = std::getenv("PSPRECOMP_DEFJAM_WATCH_WINDOW")) {
         g_watch_window_entry = static_cast<std::uint32_t>(std::strtoul(window, nullptr, 0));
     }
-    if (g_watches.empty() && g_watch_window_entry == 0u) return;
+    if (const char *counted = std::getenv("PSPRECOMP_DEFJAM_WATCH_COUNT")) {
+        g_watch_count_target = static_cast<std::uint32_t>(std::strtoul(counted, nullptr, 0));
+    }
+    if (g_watches.empty() && g_watch_window_entry == 0u && g_watch_count_target == 0u) return;
 
     std::string summary;
     for (const MemoryWatch &watch : g_watches) summary += " " + psprecomp::hex32(watch.address);
@@ -1614,12 +1642,10 @@ void install_memory_watch() {
     }
     runtime_log_line("watching" + summary);
     psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
-    if (const char *counted = std::getenv("PSPRECOMP_DEFJAM_WATCH_COUNT")) {
-        g_watch_count_target = static_cast<std::uint32_t>(std::strtoul(counted, nullptr, 0));
-        runtime_log_line("counting " + psprecomp::hex32(g_watch_count_target) +
-                         " inside the window");
+    if (g_watch_count_target != 0u) {
+        runtime_log_line("counting " + psprecomp::hex32(g_watch_count_target) + " by caller");
     }
-    if (g_watch_window_entry != 0u) {
+    if (g_watch_window_entry != 0u || g_watch_count_target != 0u) {
         psprecomp::set_runtime_pre_chained_call_hook(&pre_chained_call_hook);
         psprecomp::set_runtime_post_chained_call_hook(&post_chained_call_hook);
     }
