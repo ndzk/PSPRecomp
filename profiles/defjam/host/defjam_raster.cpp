@@ -785,25 +785,6 @@ std::uint32_t combine_texel(std::uint32_t texel, std::uint32_t vertex) {
         return text == nullptr || (text[0] != 0 && text[0] != 48);
     }();
     if (!enabled) return texel;
-    // A texture with no colour of its own is a mask, and the colour comes from
-    // the vertex.
-    //
-    // The fight's lamps are drawn with a 256x256 paletted texture whose every
-    // texel is black and whose shape lives entirely in the alpha - a soft round
-    // blob - sent with a vertex colour of 0x8060C0C0, a half-transparent teal.
-    // Multiplying the two gives black, and that black is the flat 80x104 patch
-    // in the frame where a lamp should be glowing.
-    //
-    // This was reasoned away once already, from twelve words of the palette,
-    // without looking at the picture they describe. Sending a teal colour to a
-    // draw whose texture is entirely black is only meaningful if the colour is
-    // the thing being drawn.
-    if (texture_is_colourless(current_texture_state().address)) {
-        const std::uint32_t texel_alpha = (texel >> 24u) & 0xFFu;
-        const std::uint32_t vertex_alpha = (vertex >> 24u) & 0xFFu;
-        const std::uint32_t alpha = (texel_alpha * vertex_alpha + 127u) / 255u;
-        return (alpha << 24u) | (vertex & 0x00FFFFFFu);
-    }
     if (ge_registers()[kTextureFunctionCandidate] == kTextureFunctionModulate) {
         return modulate(texel, vertex);
     }

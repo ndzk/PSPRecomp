@@ -5,7 +5,6 @@
 #include "psprecomp/common.hpp"
 
 #include <algorithm>
-#include <fstream>
 #include <iomanip>
 #include <cstring>
 #include <map>
@@ -347,11 +346,6 @@ std::string flat_texture_report() {
 std::set<std::uint32_t> g_colourless;
 std::mutex g_colourless_lock;
 
-bool texture_is_colourless(std::uint32_t address) {
-    std::lock_guard<std::mutex> guard(g_colourless_lock);
-    return g_colourless.count(address) != 0u;
-}
-
 void remember_colourless(std::uint32_t address) {
     std::lock_guard<std::mutex> guard(g_colourless_lock);
     g_colourless.insert(address);
@@ -410,54 +404,6 @@ void note_colourless_texture(psprecomp::Runtime &runtime, const TextureState &st
         bytes += " " + psprecomp::hex32(word);
     }
     runtime_log_line(bytes);
-
-    // The texture itself, written out so it can be looked at.
-    //
-    // Reasoning from twelve palette words said "black with alpha, therefore an
-    // alpha mask, therefore the hardware would draw it black too". That
-    // reasoning has to be checked against the picture, because the same bytes
-    // are also what a texture that was never filled in looks like, and the
-    // frames show a flat 80x104 patch of luminance 6 where the arena's
-    // background belongs.
-    const std::string path = "texture_" + psprecomp::hex32(state.address) + ".bmp";
-    std::ofstream file(path, std::ios::binary);
-    if (!file) return;
-    const std::uint32_t image_bytes = state.width * state.height * 4u;
-    const auto put16 = [&file](std::uint16_t v) {
-        const std::uint8_t b[2] = {static_cast<std::uint8_t>(v), static_cast<std::uint8_t>(v >> 8u)};
-        file.write(reinterpret_cast<const char *>(b), 2);
-    };
-    const auto put32 = [&file](std::uint32_t v) {
-        const std::uint8_t b[4] = {static_cast<std::uint8_t>(v), static_cast<std::uint8_t>(v >> 8u),
-                                   static_cast<std::uint8_t>(v >> 16u),
-                                   static_cast<std::uint8_t>(v >> 24u)};
-        file.write(reinterpret_cast<const char *>(b), 4);
-    };
-    file.write("BM", 2);
-    put32(54u + image_bytes);
-    put32(0u);
-    put32(54u);
-    put32(40u);
-    put32(state.width);
-    put32(state.height);
-    put16(1u);
-    put16(32u);
-    put32(0u);
-    put32(image_bytes);
-    put32(2835u);
-    put32(2835u);
-    put32(0u);
-    put32(0u);
-    for (std::uint32_t y = 0; y < state.height; ++y) {
-        const std::uint32_t row = state.height - 1u - y;
-        for (std::uint32_t x = 0; x < state.width; ++x) {
-            const std::uint32_t texel = out[static_cast<std::size_t>(row) * state.width + x];
-            // Alpha shown as grey, so a shape stored only in alpha is visible.
-            const auto alpha = static_cast<std::uint8_t>((texel >> 24u) & 0xFFu);
-            const std::uint8_t pixel[4] = {alpha, alpha, alpha, 0xFFu};
-            file.write(reinterpret_cast<const char *>(pixel), 4);
-        }
-    }
 }
 
 // The texture function and mode registers, split by whether the texture being

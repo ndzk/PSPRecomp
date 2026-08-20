@@ -111,11 +111,6 @@ void texture_reset();
 
 // Records the texture registers in force for one draw, against whether the
 // texture it samples carries any colour of its own.
-// Whether a texture carries no colour of its own - every texel black, the shape
-// living only in the alpha. Such a texture is a mask, not a picture, and the
-// colour it is drawn in has to come from the vertex.
-[[nodiscard]] bool texture_is_colourless(std::uint32_t address);
-
 void note_texture_function_use(std::uint32_t address, std::uint32_t function, std::uint32_t mode);
 [[nodiscard]] std::string texture_function_split_report();
 
