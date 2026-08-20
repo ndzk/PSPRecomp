@@ -544,6 +544,18 @@ std::uint64_t g_watch_count_max = 0u;
 // badly wrong picture of which caller dominated, so every call is tallied.
 std::map<std::uint32_t, std::uint64_t> g_watch_count_by_ra;
 std::map<std::uint32_t, std::uint64_t> g_watch_count_by_ra_in_window;
+// Where does the pointer the allocator returned actually end up? The guest
+// stores it one instruction after the call returns, so the pair (slot, value)
+// is recorded on return and checked on the next call, once the store has run.
+std::uint32_t g_slot_filter_ra = 0u;
+std::uint32_t g_prev_slot = 0u;
+std::uint32_t g_prev_value = 0u;
+std::uint64_t g_slot_checked = 0u;
+std::uint64_t g_slot_kept = 0u;
+std::uint64_t g_slot_lost = 0u;
+std::uint64_t g_reach_samples = 0u;
+std::uint64_t g_reach_in_tree = 0u;
+std::uint64_t g_reach_detached = 0u;
 std::uint64_t g_watch_hits = 0;
 
 // Addresses to report the argument registers at, from
@@ -600,7 +612,8 @@ std::vector<TrapShow> g_trap_shows;
 // store path, so it names the unit that changed a value rather than the exact
 // instruction; with PSPRECOMP_NO_CHAIN=1 that is enough to point at a function,
 // and it costs nothing when no watch is set.
-void check_watches(Runtime &rt, std::uint32_t dispatch_pc, std::int32_t thread_uid) {
+void check_watches(Runtime &rt, const AllegrexContext &ctx, std::uint32_t dispatch_pc,
+                   std::int32_t thread_uid) {
     // Reporting is suppressed outside the window, but the values are still
     // tracked: a watch that stopped looking would report the first change after
     // the window opens as though the window had caused it.
@@ -615,7 +628,15 @@ void check_watches(Runtime &rt, std::uint32_t dispatch_pc, std::int32_t thread_u
             runtime_log_line("watch " + psprecomp::hex32(watch.address) + " " +
                              psprecomp::hex32(watch.value) + " -> " + psprecomp::hex32(now) +
                              " by thread " + std::to_string(thread_uid) + " at " +
-                             psprecomp::hex32(dispatch_pc));
+                             psprecomp::hex32(dispatch_pc) +
+                             // A copy loop keeps its destination and source in
+                             // argument registers, so these name where the
+                             // bytes came from -- the question a value alone
+                             // cannot answer.
+                             " a0=" + psprecomp::hex32(ctx.gpr[4]) +
+                             " a1=" + psprecomp::hex32(ctx.gpr[5]) +
+                             " a2=" + psprecomp::hex32(ctx.gpr[6]) +
+                             " ra=" + psprecomp::hex32(ctx.gpr[31]));
         }
         watch.value = now;
         watch.primed = true;
@@ -797,6 +818,64 @@ void post_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t tar
     (void)rt;
     (void)ctx;
     (void)native_depth;
+    if (g_slot_filter_ra != 0u && g_watch_count_target != 0u &&
+        target_pc == g_watch_count_target) {
+        if (g_prev_slot != 0u) {
+            const std::uint32_t at = g_prev_slot + 28u;
+            if (rt.memory().contains(at, 4u)) {
+                ++g_slot_checked;
+                const std::uint32_t actual = rt.memory().load32(at);
+                if (actual == g_prev_value) {
+                    ++g_slot_kept;
+                } else {
+                    ++g_slot_lost;
+                    if (g_slot_lost <= 8u) {
+                        runtime_log_line("slot " + psprecomp::hex32(at) + " expected " +
+                                         psprecomp::hex32(g_prev_value) + " holds " +
+                                         psprecomp::hex32(actual));
+                    }
+                }
+            }
+            g_prev_slot = 0u;
+        }
+        if (ctx.gpr[31] == g_slot_filter_ra) {
+            g_prev_slot = ctx.gpr[20];
+            g_prev_value = ctx.gpr[2];
+            // Every store lands in its slot, so if the tree still ends up small
+            // the parent being written to must not be in the tree. Walk from the
+            // live root and ask exactly that, on a sample of insertions.
+            if ((g_watch_count_total % 4000u) == 0u && g_reach_samples < 24u) {
+                ++g_reach_samples;
+                const std::uint32_t context = ctx.gpr[18];
+                std::uint32_t root = 0u;
+                if (rt.memory().contains(context + 16384u, 4u)) {
+                    root = rt.memory().load32(context + 16384u);
+                }
+                bool found = false;
+                std::uint64_t seen = 0u;
+                std::vector<std::pair<std::uint32_t, std::uint32_t>> stack;
+                if (root != 0u) stack.push_back({root, 8u});
+                while (!stack.empty() && seen < 200000u) {
+                    const auto [node, left] = stack.back();
+                    stack.pop_back();
+                    ++seen;
+                    if (node == ctx.gpr[20]) found = true;
+                    if (left == 0u) continue;
+                    for (std::uint32_t i = 0; i < 16u; ++i) {
+                        const std::uint32_t at = node + 28u + i * 4u;
+                        if (!rt.memory().contains(at, 4u)) continue;
+                        const std::uint32_t child = rt.memory().load32(at);
+                        if (child != 0u) stack.push_back({child, left - 1u});
+                    }
+                }
+                if (found) ++g_reach_in_tree; else ++g_reach_detached;
+                runtime_log_line("insert #" + std::to_string(g_watch_count_total) + " root " +
+                                 psprecomp::hex32(root) + " nodes " + std::to_string(seen) +
+                                 " parent " + psprecomp::hex32(ctx.gpr[20]) +
+                                 (found ? " IN TREE" : " DETACHED"));
+            }
+        }
+    }
     if (g_watch_window_entry == 0u || target_pc != g_watch_window_entry) return;
     g_watch_window_open = false;
     ++g_watch_count_passes;
@@ -841,6 +920,32 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
         std::string table = " [a0+16384]=?";
         if (rt.memory().contains(ctx.gpr[4] + 16384u, 4u)) {
             table = " [a0+16384]=" + psprecomp::hex32(rt.memory().load32(ctx.gpr[4] + 16384u));
+        }
+        // How many distinct colours does the source hold? A quantiser needs one
+        // tree path per distinct colour, so this number decides whether the
+        // pool can hold the result. Counted in place: nothing is copied out.
+        if (std::getenv("PSPRECOMP_DEFJAM_COLOURS") != nullptr &&
+            rt.memory().contains(ctx.gpr[5] + 24u, 4u)) {
+            const std::uint32_t rows = rt.memory().load32(ctx.gpr[5] + 8u);
+            const std::uint32_t stride = rt.memory().load32(ctx.gpr[5] + 16u);
+            const std::uint32_t pixels = rt.memory().load32(ctx.gpr[5] + 20u);
+            std::set<std::uint32_t> distinct;
+            std::uint64_t counted = 0u;
+            for (std::uint32_t y = 0; y < rows && counted < 300000u; ++y) {
+                for (std::uint32_t x = 0; x + 4u <= stride && counted < 300000u; x += 4u) {
+                    const std::uint32_t at = pixels + y * stride + x;
+                    if (!rt.memory().contains(at, 4u)) continue;
+                    distinct.insert(rt.memory().load32(at));
+                    ++counted;
+                }
+            }
+            table += " pixels=" + std::to_string(counted) +
+                     " distinct=" + std::to_string(distinct.size());
+            table += " first=";
+            for (std::uint32_t k = 0; k < 6u; ++k) {
+                if (!rt.memory().contains(pixels + k * 4u, 4u)) break;
+                table += " " + psprecomp::hex32(rt.memory().load32(pixels + k * 4u));
+            }
         }
         // a1 is read field by field at the entry, so print the fields it reads
         // and, when one of them is a pointer, the first words behind it.
@@ -988,7 +1093,7 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch
                              " ra=" + psprecomp::hex32(ctx.gpr[31]));
         }
     }
-    if (!g_watches.empty()) check_watches(rt, dispatch_pc, dispatch_thread_uid);
+    if (!g_watches.empty()) check_watches(rt, ctx, dispatch_pc, dispatch_thread_uid);
     if (g_trace.empty()) return;
     if (g_trace_thread >= 0 && dispatch_thread_uid != g_trace_thread) return;
     g_trace[g_trace_head] = DispatchTraceEntry{dispatch_pc, dispatch_thread_uid, g_virtual_time_us};
@@ -1613,6 +1718,15 @@ std::string watch_window_report() {
                 std::to_string(g_watch_count_min) + " max " +
                 std::to_string(g_watch_count_max) + "\n";
     }
+    if (g_reach_samples != 0u) {
+        text += "    parents sampled " + std::to_string(g_reach_samples) + ", in tree " +
+                std::to_string(g_reach_in_tree) + ", detached " +
+                std::to_string(g_reach_detached) + "\n";
+    }
+    if (g_slot_checked != 0u) {
+        text += "    stores checked " + std::to_string(g_slot_checked) + ", kept " +
+                std::to_string(g_slot_kept) + ", lost " + std::to_string(g_slot_lost) + "\n";
+    }
     if (!g_watch_count_by_ra.empty()) {
         std::vector<std::pair<std::uint32_t, std::uint64_t>> ranked(g_watch_count_by_ra.begin(),
                                                                    g_watch_count_by_ra.end());
@@ -1673,6 +1787,11 @@ void install_memory_watch() {
     psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
     if (g_watch_count_target != 0u) {
         runtime_log_line("counting " + psprecomp::hex32(g_watch_count_target) + " by caller");
+    }
+    if (const char *ra = std::getenv("PSPRECOMP_DEFJAM_WATCH_RA")) {
+        g_slot_filter_ra = static_cast<std::uint32_t>(std::strtoul(ra, nullptr, 0));
+        runtime_log_line("checking where returns to " + psprecomp::hex32(g_slot_filter_ra) +
+                         " store their pointer");
     }
     if (g_watch_window_entry != 0u || g_watch_count_target != 0u) {
         psprecomp::set_runtime_pre_chained_call_hook(&pre_chained_call_hook);
