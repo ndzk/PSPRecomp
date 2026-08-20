@@ -800,6 +800,19 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
         if (rt.memory().contains(ctx.gpr[4] + 16384u, 4u)) {
             table = " [a0+16384]=" + psprecomp::hex32(rt.memory().load32(ctx.gpr[4] + 16384u));
         }
+        // a1 is read field by field at the entry, so print the fields it reads
+        // and, when one of them is a pointer, the first words behind it.
+        for (const std::uint32_t field : {8u, 12u, 16u, 20u, 24u}) {
+            if (!rt.memory().contains(ctx.gpr[5] + field, 4u)) continue;
+            const std::uint32_t value = rt.memory().load32(ctx.gpr[5] + field);
+            table += " [a1+" + std::to_string(field) + "]=" + psprecomp::hex32(value);
+            if (field == 24u && rt.memory().contains(value, 16u)) {
+                table += " ->";
+                for (std::uint32_t k = 0; k < 4u; ++k) {
+                    table += " " + psprecomp::hex32(rt.memory().load32(value + k * 4u));
+                }
+            }
+        }
         runtime_log_line("chained entry #" + std::to_string(g_watch_window_entries) +
                          " a0=" + psprecomp::hex32(ctx.gpr[4]) +
                          " sp=" + psprecomp::hex32(ctx.gpr[29]) +
