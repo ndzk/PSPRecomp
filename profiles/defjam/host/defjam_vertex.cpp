@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstring>
 #include <map>
+#include <set>
 #include <sstream>
 
 namespace defjam {
@@ -670,6 +671,141 @@ void draw_clipped_triangle(Runtime &runtime, const ClipVertex &a, const ClipVert
             min_y >= static_cast<float>(target.height)) {
             ++g_stats.offscreen;
         }
+    // Primitives that span the screen and end on a straight horizontal edge.
+    //
+    // A fight shows a hard horizontal boundary running the full width of the
+    // frame, with everything above it darkened; it cuts through the fighters'
+    // bodies, so it is an overlay rather than scenery. That boundary is the edge
+    // of a quad, and this finds the quad by its geometry instead of by what its
+    // pixels come out as - which matters because it runs in the shared vertex
+    // stage and so works on the graphics backend, not only on the reference.
+    //
+    // PSPRECOMP_DEFJAM_EDGE=<row> names the screen row to look for.
+    {
+        static const float wanted = [] {
+            const char *text = std::getenv("PSPRECOMP_DEFJAM_EDGE");
+            return text == nullptr ? -1.0f : static_cast<float>(std::atof(text));
+        }();
+        if (wanted >= 0.0f) {
+            static int described = 0;
+            // On screen, and covering most of its width. The first pass asked
+            // only for width and filled up with wall panels sitting entirely to
+            // the left of the frame, which cannot draw the boundary that is
+            // visible in it.
+            const bool onscreen = max_x > 0.0f && min_x < 480.0f && max_y > 0.0f && min_y < 272.0f;
+            const float visible = std::min(max_x, 480.0f) - std::max(min_x, 0.0f);
+            const bool wide = onscreen && visible >= 380.0f;
+            // Every screen-spanning overlay, not only ones ending exactly where
+            // a row was guessed. The row came from measuring a scaled window
+            // screenshot, so it is good to a few pixels at best, and a two-pixel
+            // window around a guess is how the last seven measurements missed.
+            const bool edge = wanted == 0.0f || std::fabs(max_y - wanted) <= 10.0f ||
+                              std::fabs(min_y - wanted) <= 10.0f;
+            // One line per distinct overlay, not the first sixty seen.
+            //
+            // A plain cap fills during boot and never reaches the screen being
+            // investigated - that has now cost three sessions. Keying on what
+            // the overlay is instead means the handful drawn while starting up
+            // take a handful of slots and leave the rest free for whatever a
+            // fight draws, whenever the fight happens.
+            static std::set<std::uint64_t> kinds;
+            const std::uint64_t kind = (static_cast<std::uint64_t>(texture.address) << 32u) ^
+                                       (static_cast<std::uint64_t>(screen[0].color) << 4u) ^
+                                       static_cast<std::uint64_t>(texture.enabled ? 1u : 0u);
+            // The blended screen-spanning overlay, dumped where it is found.
+            //
+            // Naming its texture by address does not survive a restart: the
+            // title loads it wherever there is room, so an address read out of
+            // one run's log is a different texture, or nothing, in the next.
+            // Recognising it by what it is - blended, on screen, spanning the
+            // frame, among four hundred unblended scenery panels - does.
+            // Skipping the near-plane blended overlays, on request.
+            //
+            // One of these draws the dark band across a fight. Every reading of
+            // the data so far says the title asks for it: the depth is 65535,
+            // which with this game's negative depth scale is the near plane, and
+            // the texture is a structure fading into a dark gradient. Three
+            // times today a conclusion of "this is a fault" turned into "the
+            // title asks for this", so rather than a fourth guess at the alpha
+            // formula, here is the frame with the thing left out. If it looks
+            // right without it, the draw is wrong; if it looks emptier, the draw
+            // belongs and only its strength is in question.
+            static const bool skip_overlays = [] {
+                const char *text = std::getenv("PSPRECOMP_DEFJAM_NO_OVERLAY");
+                return text != nullptr && text[0] != 0 && text[0] != 48;
+            }();
+            if (skip_overlays && wide && texture.enabled &&
+                (ge_registers()[0x1Du] & 1u) != 0u && screen[0].z >= 65000.0f) {
+                ++g_stats.transformed;
+                return;
+            }
+            if (wide && texture.enabled && (ge_registers()[0x1Du] & 1u) != 0u) {
+                // Every distinct one, not the first. The first blended overlay
+                // in a run is a wall on the boot screen, and a single-shot dump
+                // never gets past it to the one a fight draws.
+                static std::set<std::uint32_t> dumped_textures;
+                if (dumped_textures.size() < 24u &&
+                    dumped_textures.count(texture.address) == 0u) {
+                    std::vector<std::uint32_t> texels;
+                    std::string error;
+                    if (decode_texture(runtime, texture, texels, error) && !texels.empty()) {
+                        dumped_textures.insert(texture.address);
+                        dump_overlay_texture(texture, texels);
+                        // The texture coordinates this overlay actually samples.
+                        //
+                        // Its alpha is a smooth vertical gradient and the screen
+                        // shows a hard horizontal edge. A gradient stretched over
+                        // 182 rows cannot produce a hard line, so the sampled
+                        // range must be missing the transition and sitting inside
+                        // one flat side of it. These are the numbers that say so.
+                        std::string uv = "  overlay uv:";
+                        for (std::size_t i = 0; i < produced; ++i) {
+                            uv += " (" + std::to_string(screen[i].u) + "," +
+                                  std::to_string(screen[i].v) + ")";
+                        }
+                        uv += "  through " + std::to_string(format.through ? 1 : 0) +
+                              "  texture " + std::to_string(texture.width) + "x" +
+                              std::to_string(texture.height) + " stride " +
+                              std::to_string(texture.stride);
+                        runtime_log_line(uv);
+                        // Depth, which this scan has never printed for these
+                        // draws.
+                        //
+                        // The coordinates turned out to cover the whole texture,
+                        // so nothing is collapsing the gradient: the hard line on
+                        // screen is the quad's own top edge, where the texture is
+                        // opaque. A quad that should be hidden behind the arena
+                        // and is not would look exactly like that - a band across
+                        // the frame cutting through the fighters.
+                        const std::array<std::uint32_t, 256> &depth_regs = ge_registers();
+                        runtime_log_line(
+                            "  overlay depth: test " + std::to_string(depth_regs[0x23u]) +
+                            "  func " + std::to_string(depth_regs[0xDEu]) + "  write-disable " +
+                            std::to_string(depth_regs[0xE7u]) + "  z " +
+                            std::to_string(screen[0].z) + ".." + std::to_string(screen[2].z));
+                        runtime_log_line("overlay texture dumped: " +
+                                         psprecomp::hex32(texture.address) + " " +
+                                         std::to_string(texture.width) + "x" +
+                                         std::to_string(texture.height));
+                    }
+                }
+            }
+            if (wide && edge && described < 400 && kinds.insert(kind).second) {
+                ++described;
+                const std::array<std::uint32_t, 256> &regs = ge_registers();
+                runtime_log_line(
+                    "edge primitive x " + std::to_string(min_x) + ".." + std::to_string(max_x) +
+                    "  y " + std::to_string(min_y) + ".." + std::to_string(max_y) + "  colour " +
+                    psprecomp::hex32(screen[0].color) + "  textured " +
+                    std::to_string(texture.enabled ? 1 : 0) + "  texture " +
+                    psprecomp::hex32(texture.address) + " " + std::to_string(texture.width) + "x" +
+                    std::to_string(texture.height) + " format " +
+                    std::to_string(static_cast<int>(texture.format)) + "  0x1d " +
+                    std::to_string(regs[0x1Du]) + "  0xc6 " + std::to_string(regs[0xC6u]) +
+                    "  0xc4 " + std::to_string(regs[0xC4u]));
+            }
+        }
+    }
     }
 
     // The clipped polygon is convex, so a fan from its first corner covers it.

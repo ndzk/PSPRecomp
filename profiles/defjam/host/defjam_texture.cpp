@@ -4,6 +4,7 @@
 #include "defjam_profile.hpp"
 #include "psprecomp/common.hpp"
 
+#include <fstream>
 #include <algorithm>
 #include <iomanip>
 #include <cstring>
@@ -155,6 +156,9 @@ void unswizzle(const std::uint8_t *source, std::size_t source_size, std::uint32_
 
 void note_flat_texture(const TextureState &state, const std::vector<std::uint32_t> &out,
                        const std::vector<std::uint8_t> &linear);
+void dump_named_texture(const TextureState &state, const std::vector<std::uint32_t> &out);
+void write_texture_pair(const TextureState &state, const std::vector<std::uint32_t> &out,
+                        const char *stem);
 void note_colourless_texture(psprecomp::Runtime &runtime, const TextureState &state,
                              const std::vector<std::uint32_t> &out);
 void remember_colourless(std::uint32_t address);
@@ -266,6 +270,7 @@ bool decode_texture(psprecomp::Runtime &runtime, const TextureState &state,
             out[static_cast<std::size_t>(y) * state.width + x] = texel;
         }
     }
+    dump_named_texture(state, out);
     note_flat_texture(state, out, linear);
     note_colourless_texture(runtime, state, out);
     return true;
@@ -349,6 +354,80 @@ std::mutex g_colourless_lock;
 void remember_colourless(std::uint32_t address) {
     std::lock_guard<std::mutex> guard(g_colourless_lock);
     g_colourless.insert(address);
+}
+
+// Writes one named texture out, colour and alpha side by side.
+//
+// PSPRECOMP_DEFJAM_DUMP_TEXTURE=<address> picks it. A fight draws exactly one
+// blended, screen-spanning overlay - 256x128, paletted, white vertex colour,
+// covering x 31..446 and y 78..260 - among four hundred otherwise unblended
+// scenery panels, and that rectangle is what shows on screen. What it should
+// look like is a question about the picture in it, so here is the picture.
+void dump_named_texture(const TextureState &state, const std::vector<std::uint32_t> &out) {
+    static const std::uint32_t wanted = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_DUMP_TEXTURE");
+        return text == nullptr ? 0u : static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
+    }();
+    if (wanted == 0u || state.address != wanted || out.empty()) return;
+    static bool done = false;
+    if (done) return;
+    done = true;
+    write_texture_pair(state, out, "named");
+}
+
+void write_texture_pair(const TextureState &state, const std::vector<std::uint32_t> &out,
+                        const char *stem) {
+    for (int pass = 0; pass < 2; ++pass) {
+        const std::string path = std::string(stem) + "_" + psprecomp::hex32(state.address) +
+                                 (pass == 0 ? "_colour.bmp" : "_alpha.bmp");
+        std::ofstream file(path, std::ios::binary);
+        if (!file) continue;
+        const std::uint32_t bytes = state.width * state.height * 4u;
+        const auto put16 = [&file](std::uint16_t v) {
+            const std::uint8_t b[2] = {static_cast<std::uint8_t>(v),
+                                       static_cast<std::uint8_t>(v >> 8u)};
+            file.write(reinterpret_cast<const char *>(b), 2);
+        };
+        const auto put32 = [&file](std::uint32_t v) {
+            const std::uint8_t b[4] = {
+                static_cast<std::uint8_t>(v), static_cast<std::uint8_t>(v >> 8u),
+                static_cast<std::uint8_t>(v >> 16u), static_cast<std::uint8_t>(v >> 24u)};
+            file.write(reinterpret_cast<const char *>(b), 4);
+        };
+        file.write("BM", 2);
+        put32(54u + bytes);
+        put32(0u);
+        put32(54u);
+        put32(40u);
+        put32(state.width);
+        put32(state.height);
+        put16(1u);
+        put16(32u);
+        put32(0u);
+        put32(bytes);
+        put32(2835u);
+        put32(2835u);
+        put32(0u);
+        put32(0u);
+        for (std::uint32_t y = 0; y < state.height; ++y) {
+            const std::uint32_t row = state.height - 1u - y;
+            for (std::uint32_t x = 0; x < state.width; ++x) {
+                const std::uint32_t texel = out[static_cast<std::size_t>(row) * state.width + x];
+                std::uint8_t pixel[4];
+                if (pass == 0) {
+                    pixel[0] = static_cast<std::uint8_t>((texel >> 16u) & 0xFFu);
+                    pixel[1] = static_cast<std::uint8_t>((texel >> 8u) & 0xFFu);
+                    pixel[2] = static_cast<std::uint8_t>(texel & 0xFFu);
+                } else {
+                    const auto a = static_cast<std::uint8_t>((texel >> 24u) & 0xFFu);
+                    pixel[0] = pixel[1] = pixel[2] = a;
+                }
+                pixel[3] = 0xFFu;
+                file.write(reinterpret_cast<const char *>(pixel), 4);
+            }
+        }
+    }
+    runtime_log_line("named texture written: " + psprecomp::hex32(state.address));
 }
 
 // Textures whose every texel is black, whatever their alpha does.
@@ -447,6 +526,15 @@ std::string texture_function_split_report() {
     dump("0xC4", g_function_colourless, g_function_ordinary);
     dump("0xC2", g_mode_colourless, g_mode_ordinary);
     return out.str();
+}
+
+void dump_overlay_texture(const TextureState &state, const std::vector<std::uint32_t> &out) {
+    write_texture_pair(state, out, "overlay");
+}
+
+std::string overlay_dump_note(const TextureState &state) {
+    return "overlay " + psprecomp::hex32(state.address) + " " + std::to_string(state.width) + "x" +
+           std::to_string(state.height);
 }
 
 void texture_reset() {

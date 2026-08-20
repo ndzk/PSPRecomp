@@ -115,6 +115,9 @@ void note_texture_function_use(std::uint32_t address, std::uint32_t function, st
 [[nodiscard]] std::string texture_function_split_report();
 
 // Called by the display-list interpreter for each PRIM.
+// Writes a texture's colour and alpha out as two images, for looking at.
+void dump_overlay_texture(const TextureState &state, const std::vector<std::uint32_t> &out);
+
 void note_texture_draw(psprecomp::Runtime &runtime);
 
 } // namespace defjam
