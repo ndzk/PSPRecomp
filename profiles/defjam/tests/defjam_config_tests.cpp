@@ -2369,8 +2369,8 @@ void test_skinning() {
     // Two bones: one shifts by 100 along x, the other by 40 along y.
     const float bone0[12] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 0, 0};
     const float bone1[12] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 40, 0};
-    upload(0x38u, 0x39u, 0u, bone0, 12u);
-    upload(0x38u, 0x39u, 12u, bone1, 12u);
+    upload(0x2Au, 0x2Bu, 0u, bone0, 12u);
+    upload(0x2Au, 0x2Bu, 12u, bone1, 12u);
 
     // Identity view and projection, so clip space is view space with w of one.
     const float identity4x3[12] = {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
