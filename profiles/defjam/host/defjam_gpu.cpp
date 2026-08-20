@@ -941,7 +941,14 @@ bool gpu_draw(psprecomp::Runtime &runtime, std::uint32_t primitive,
     constexpr std::uint8_t kTextureFunction = 0xC4u;
     constexpr std::uint32_t kModulate = 2u;
     key.blend = clearing ? BlendMode::Write : BlendMode::SourceOver;
-    key.modulate = textured && registers[kTextureFunction] == kModulate;
+    // The same switch the reference honours.
+    //
+    // PSPRECOMP_DEFJAM_MODULATE was only ever read in the software path, so a
+    // run with the graphics backend on kept modulating whatever the switch
+    // said, and a test of "is modulation what blacks the arena walls out" came
+    // back negative while never having turned it off at all.
+    key.modulate = textured && texture_modulation_enabled() &&
+                   registers[kTextureFunction] == kModulate;
     key.depth_test = !clearing && (registers[0x23u] & 1u) != 0u;
     key.depth_write = (registers[0xE7u] & 1u) == 0u;
     key.compare = static_cast<std::uint8_t>(registers[0xDEu] & 7u);

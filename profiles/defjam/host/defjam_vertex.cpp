@@ -734,6 +734,29 @@ void draw_clipped_triangle(Runtime &runtime, const ClipVertex &a, const ClipVert
                 const char *text = std::getenv("PSPRECOMP_DEFJAM_NO_OVERLAY");
                 return text != nullptr && text[0] != 0 && text[0] != 48;
             }();
+            // Wide unblended panels too, not only the blended overlays.
+            //
+            // These are the arena's walls: 399 of the 400 screen-spanning
+            // primitives in a fight, drawn with a vertex colour of 0xFF070C0A -
+            // near black - and they come out black with modulation on and black
+            // with it off. If the colour cannot be what darkens them, the
+            // texture can, and that is a question about a picture.
+            if (wide && texture.enabled && (ge_registers()[0x1Du] & 1u) == 0u) {
+                static std::set<std::uint32_t> walls;
+                if (walls.size() < 8u && walls.count(texture.address) == 0u) {
+                    std::vector<std::uint32_t> texels;
+                    std::string error;
+                    if (decode_texture(runtime, texture, texels, error) && !texels.empty()) {
+                        walls.insert(texture.address);
+                        dump_overlay_texture(texture, texels);
+                        runtime_log_line("wall texture dumped: " +
+                                         psprecomp::hex32(texture.address) + " " +
+                                         std::to_string(texture.width) + "x" +
+                                         std::to_string(texture.height) + "  vertex colour " +
+                                         psprecomp::hex32(screen[0].color));
+                    }
+                }
+            }
             if (skip_overlays && wide && texture.enabled &&
                 (ge_registers()[0x1Du] & 1u) != 0u && screen[0].z >= 65000.0f) {
                 ++g_stats.transformed;

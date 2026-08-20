@@ -91,6 +91,9 @@ void raster_configure_side_split();
 // Reports pixels that asked for a texture the decoder could not produce.
 // Whether textures are sampled by blending four neighbouring texels rather
 // than taking the nearest one.
+// Whether texels are multiplied by the vertex colour, in both backends.
+[[nodiscard]] bool texture_modulation_enabled();
+
 [[nodiscard]] bool texture_filter_linear();
 
 [[nodiscard]] std::string missing_texture_report();

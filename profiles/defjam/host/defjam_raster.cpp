@@ -769,22 +769,26 @@ std::uint32_t modulate(std::uint32_t texel, std::uint32_t vertex) {
 }
 
 std::uint32_t combine_texel(std::uint32_t texel, std::uint32_t vertex) {
-    // Switched on. It was held back once because it moved a verified frame by 6%
-    // and fixed nothing visible, but the case it was waiting for has arrived:
-    // the menu that motivated it was black for an unrelated reason - a blend
-    // mode this rasteriser did not have - and now that the blend is right, the
-    // vertex colour is the remaining thing being discarded. 65,165 draws set
-    // this register, and 82% of the ones asking for 2 carry a colour that was
-    // going nowhere.
+    // Off, and turning it on was a mistake worth recording.
+    //
+    // The reading behind it was that 0xC4 holding 2 means "multiply the texel by
+    // the vertex colour". It came from correlating that register against "is the
+    // vertex colour white", and that test cannot tell the two readings apart:
+    // where the colour is white, multiplying by it and ignoring it produce the
+    // same pixel. It was then checked only on menus, which are drawn white.
+    //
+    // A fight is not. The arena's walls carry vertex colours like 0xFF0C1311 -
+    // (17,19,12) - against textures whose mean brightness is 107 to 173, so
+    // multiplying turned every wall black and left the fighters standing in a
+    // void. Measured on one frame: the flat dark region above the crowd went
+    // from 205 blocks at luminance 16 to 12 blocks at luminance 28 with this
+    // off. Every draw where multiplying would be visible wants it off, and every
+    // draw that asks for it sends white, where it makes no difference.
     // PSPRECOMP_DEFJAM_MODULATE=0 turns this off, because it is a suspect: the
     // main menu asks for modulation and renders its wall and seven of its eight
     // tiles into exactly nothing, and multiplying a texel by a black vertex
     // colour would do precisely that.
-    static const bool enabled = [] {
-        const char *text = std::getenv("PSPRECOMP_DEFJAM_MODULATE");
-        return text == nullptr || (text[0] != 0 && text[0] != 48);
-    }();
-    if (!enabled) return texel;
+    if (!texture_modulation_enabled()) return texel;
     if (ge_registers()[kTextureFunctionCandidate] == kTextureFunctionModulate) {
         return modulate(texel, vertex);
     }
@@ -1359,6 +1363,19 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
 //
 // PSPRECOMP_DEFJAM_FILTER=0 restores nearest sampling, which is what the
 // byte-exact comparisons against the GPU backend were made under.
+// Whether a texel is multiplied by the vertex colour when the texture function
+// register asks for it.
+//
+// PSPRECOMP_DEFJAM_MODULATE=0 turns it off in both backends. It used to be read
+// only here, which made every comparison run with the card drawing meaningless.
+bool texture_modulation_enabled() {
+    static const bool enabled = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_MODULATE");
+        return text != nullptr && text[0] != 0 && text[0] != 48;
+    }();
+    return enabled;
+}
+
 bool texture_filter_linear() {
     static const bool linear = [] {
         const char *text = std::getenv("PSPRECOMP_DEFJAM_FILTER");
