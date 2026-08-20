@@ -126,6 +126,40 @@ void convert_row(const std::uint8_t *source, std::byte *destination, std::uint32
     }
 }
 
+#ifdef __APPLE__
+
+// The same arrangement as the Windows mapping below, key for key: the face
+// buttons sit as a diamond on the keyboard the way they do on the console, so
+// the two platforms cannot drift into different controls.
+std::uint32_t buttons_from_keys() {
+    std::uint32_t mask = 0u;
+    const auto down = [](MacKey key) { return mac_key_down(key); };
+    if (down(MacKey::Up)) mask |= kUp;
+    if (down(MacKey::Down)) mask |= kDown;
+    if (down(MacKey::Left)) mask |= kLeft;
+    if (down(MacKey::Right)) mask |= kRight;
+    if (down(MacKey::I)) mask |= kTriangle;
+    if (down(MacKey::L)) mask |= kCircle;
+    if (down(MacKey::K)) mask |= kCross;
+    if (down(MacKey::J)) mask |= kSquare;
+    if (down(MacKey::Q)) mask |= kLTrigger;
+    if (down(MacKey::E)) mask |= kRTrigger;
+    if (down(MacKey::Return)) mask |= kStart;
+    if (down(MacKey::Back)) mask |= kSelect;
+    return mask;
+}
+
+void analog_from_keys(std::uint8_t &x, std::uint8_t &y) {
+    x = 128u;
+    y = 128u;
+    if (mac_key_down(MacKey::A)) x = 0u;
+    if (mac_key_down(MacKey::D)) x = 255u;
+    if (mac_key_down(MacKey::W)) y = 0u;
+    if (mac_key_down(MacKey::S)) y = 255u;
+}
+
+#endif   // __APPLE__
+
 #ifdef _WIN32
 
 constexpr wchar_t kClassName[] = L"PSPRecompDefJamWindow";
@@ -467,6 +501,15 @@ void window_pump() {
 #ifdef __APPLE__
     if (!window_enabled() || !mac_window_open()) return;
     mac_pump_events();
+
+    // The pump is this platform's UI thread, so it publishes the pad the same
+    // way the Windows one does.
+    g_state.buttons.store(buttons_from_keys(), std::memory_order_relaxed);
+    std::uint8_t analog_x = 128u;
+    std::uint8_t analog_y = 128u;
+    analog_from_keys(analog_x, analog_y);
+    g_state.analog_x.store(analog_x, std::memory_order_relaxed);
+    g_state.analog_y.store(analog_y, std::memory_order_relaxed);
 
     std::vector<std::byte> frame;
     std::uint32_t width = 0u;

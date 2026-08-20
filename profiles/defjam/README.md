@@ -106,8 +106,11 @@ window. Windows keeps its UI thread and is untouched. Without the variable both
 stay headless exactly as before, so the scripted measurement runs behave
 identically either way.
 
-macOS shows the picture; keyboard input is not wired there yet, so drive it with
-`PSPRECOMP_DEFJAM_INPUT`, which is the better tool for repeatable runs anyway.
+The keyboard is the same on both: arrows for the pad, `I` `L` `K` `J` as the
+face-button diamond, `Q` and `E` for the triggers, Return for Start, Backspace
+for Select, `WASD` for the analog stick, Escape to close. Keys are read only
+while the window is in front, and are ORed onto `PSPRECOMP_DEFJAM_INPUT`, so a
+scripted run behaves identically whether or not somebody is holding a key.
 
 **Build Release for anything that draws.** The rasteriser is where the time
 goes, and an unoptimised build pays for it about a hundred times over: reaching

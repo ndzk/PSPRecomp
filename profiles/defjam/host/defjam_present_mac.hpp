@@ -27,6 +27,21 @@ bool mac_present_rgba(std::span<const std::byte> rgba, std::uint32_t width,
 
 void mac_set_title(const std::string &text) noexcept;
 
+// The keys the window watches. Naming them rather than passing native codes
+// keeps the mapping from key to pad button in one place, beside the Windows
+// one, so the two platforms cannot drift into different controls.
+enum class MacKey : std::uint8_t {
+    Up, Down, Left, Right, Return, Back,
+    A, D, E, I, J, K, L, Q, S, W,
+    Count
+};
+
+[[nodiscard]] bool mac_key_down(MacKey key) noexcept;
+
+// False while another application is in front, so a run does not read the keys
+// somebody is typing somewhere else.
+[[nodiscard]] bool mac_window_focused() noexcept;
+
 [[nodiscard]] bool mac_close_requested() noexcept;
 [[nodiscard]] bool mac_window_open() noexcept;
 void mac_close_window() noexcept;
