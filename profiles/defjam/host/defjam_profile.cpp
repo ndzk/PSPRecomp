@@ -784,7 +784,16 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
     g_watch_window_open = true;
     g_watch_window_return = ctx.gpr[31];
     ++g_watch_window_entries;
-    if (g_watch_window_entries <= 24u || (g_watch_window_entries % 5000u) == 0u) {
+    // The outermost level carries the whole key; deeper levels have already
+    // shifted it right. Log those separately so the key can be read in full.
+    static std::uint64_t top_level_logged = 0u;
+    bool top_level = false;
+    if (ctx.gpr[7] == 8u && top_level_logged < 250u) {
+        ++top_level_logged;
+        top_level = true;
+    }
+    if (top_level || g_watch_window_entries <= 40u ||
+        (g_watch_window_entries % 2000u) == 0u) {
         // a0 measures as sp+0x20, so the 16 KiB block at [a0+16384] is stack,
         // not heap: print the word the routine treats as its table pointer.
         std::string table = " [a0+16384]=?";
@@ -796,7 +805,11 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
                          " sp=" + psprecomp::hex32(ctx.gpr[29]) +
                          " ra=" + psprecomp::hex32(ctx.gpr[31]) + table +
                          " a1=" + psprecomp::hex32(ctx.gpr[5]) +
-                         " a2=" + psprecomp::hex32(ctx.gpr[6]));
+                         " a2=" + psprecomp::hex32(ctx.gpr[6]) +
+                         " a3=" + psprecomp::hex32(ctx.gpr[7]) +
+                         " s1=" + psprecomp::hex32(ctx.gpr[17]) +
+                         " s2=" + psprecomp::hex32(ctx.gpr[18]) +
+                         " s4=" + psprecomp::hex32(ctx.gpr[20]));
     }
 }
 
