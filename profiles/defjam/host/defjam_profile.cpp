@@ -855,6 +855,35 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
                 }
             }
         }
+        // Walk the structure at [a0+16384] the way the guest's own recursive
+        // walk does -- 16 child pointers at +28, one level per depth step --
+        // and count the nodes. The guest frees far fewer blocks than it
+        // allocates, and only an independent count can say whether the nodes
+        // are missing from the tree or the walk is failing to reach them.
+        if (const char *walk = std::getenv("PSPRECOMP_DEFJAM_WALK")) {
+            const std::uint32_t depth = static_cast<std::uint32_t>(std::strtoul(walk, nullptr, 0));
+            std::uint64_t nodes = 0u;
+            std::uint64_t deepest = 0u;
+            std::vector<std::pair<std::uint32_t, std::uint32_t>> stack;
+            if (rt.memory().contains(ctx.gpr[4] + 16384u, 4u)) {
+                const std::uint32_t root = rt.memory().load32(ctx.gpr[4] + 16384u);
+                if (root != 0u) stack.push_back({root, depth});
+            }
+            while (!stack.empty() && nodes < 400000u) {
+                const auto [node, left] = stack.back();
+                stack.pop_back();
+                ++nodes;
+                if (depth - left > deepest) deepest = depth - left;
+                if (left == 0u) continue;
+                for (std::uint32_t i = 0; i < 16u; ++i) {
+                    const std::uint32_t slot = node + 28u + i * 4u;
+                    if (!rt.memory().contains(slot, 4u)) continue;
+                    const std::uint32_t child = rt.memory().load32(slot);
+                    if (child != 0u) stack.push_back({child, left - 1u});
+                }
+            }
+            table += " walked=" + std::to_string(nodes) + " deepest=" + std::to_string(deepest);
+        }
         runtime_log_line("chained entry #" + std::to_string(g_watch_window_entries) +
                          " a0=" + psprecomp::hex32(ctx.gpr[4]) +
                          " sp=" + psprecomp::hex32(ctx.gpr[29]) +
