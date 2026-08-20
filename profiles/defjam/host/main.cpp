@@ -366,6 +366,37 @@ int main(int argc, char **argv) {
                   << "  audio buffers:      " << stats.audio_buffers << ", "
                   << stats.audio_samples << " samples\n"
                   << "  guest time:         " << stats.virtual_time_us << " us\n";
+        // Guest words named on the command line, read at the end of the run.
+        //
+        // PSPRECOMP_DEFJAM_DUMP_WORDS=0x08ADA27C,0x08ADA27C+280 prints them.
+        // A fault report gives registers; this gives the memory those registers
+        // were derived from, which is what identifies an indirect call target
+        // after the call has already returned the wrong thing.
+        if (const char *words = std::getenv("PSPRECOMP_DEFJAM_DUMP_WORDS")) {
+            std::cout << "  guest words:\n";
+            std::string list(words);
+            std::size_t cursor = 0u;
+            while (cursor < list.size()) {
+                const std::size_t comma = list.find(',', cursor);
+                const std::string item =
+                    list.substr(cursor, comma == std::string::npos ? std::string::npos
+                                                                  : comma - cursor);
+                const auto address = static_cast<std::uint32_t>(std::strtoul(item.c_str(), nullptr, 0));
+                std::cout << "    " << psprecomp::hex32(address) << " -> ";
+                if (runtime.memory().contains(address, 4u)) {
+                    const std::uint32_t value = runtime.memory().load32(address);
+                    std::cout << psprecomp::hex32(value);
+                    if (runtime.memory().contains(value + 280u, 4u)) {
+                        std::cout << "   [+280] " << psprecomp::hex32(runtime.memory().load32(value + 280u));
+                    }
+                } else {
+                    std::cout << "outside guest memory";
+                }
+                std::cout << "\n";
+                if (comma == std::string::npos) break;
+                cursor = comma + 1u;
+            }
+        }
         std::cout << defjam::ge_report();
         std::cout << defjam::vertex_report();
         std::cout << defjam::depth_spread_report();
