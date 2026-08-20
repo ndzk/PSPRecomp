@@ -373,6 +373,7 @@ int main(int argc, char **argv) {
                   << " reads, " << io.device_bytes_read << " bytes\n"
                   << "  umd ioctls:         " << io.umd_ioctls << ", " << io.lbn_opens
                   << " raw-sector opens\n"
+                  << "  medium queries:     " << io.medium_queries << "\n"
                   << "  open handles:       " << io.open_handles << "\n";
         if (!defjam::last_failed_open().empty())
             std::cout << "  last failed open:   " << defjam::last_failed_open() << "\n";

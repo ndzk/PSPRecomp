@@ -32,6 +32,10 @@ struct IoStats {
     std::uint64_t device_reads{};
     std::uint64_t device_bytes_read{};
     std::uint64_t umd_ioctls{};      // disc-structure queries answered
+    // The title asks whether a memory stick is there once a frame, forever,
+    // and does not change what it does with the answer. Counted rather than
+    // logged: at one line per frame it buried everything else in the log.
+    std::uint64_t medium_queries{};
     std::uint64_t lbn_opens{};       // opens addressed by raw disc sector
     std::uint32_t open_handles{};
 };

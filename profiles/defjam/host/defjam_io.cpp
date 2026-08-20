@@ -102,6 +102,12 @@ constexpr std::uint32_t kVolumeDescriptorSector = 16u;
 
 // UMD ioctl commands this profile answers. Both read disc structure rather
 // than file contents, so both are served from the UMD image.
+// "Is a medium present?" on the memory stick. Not in pspsdk's headers, so the
+// contract was read out of the title's own code instead: after the call it
+// tests v0 for a negative error, then loads the four-byte output and compares
+// it with 1. All eleven sceIoDevctl sites in the corpus issue this one command.
+constexpr std::uint32_t kDevctlMediumPresent = 0x02425823u;
+
 constexpr std::uint32_t kIoctlGetVolumeDescriptor = 0x01020001u;
 constexpr std::uint32_t kIoctlGetPathTable = 0x01020002u;
 
@@ -870,11 +876,30 @@ void install_io_hle(Runtime &runtime, const std::string &game_root) {
     });
 
     runtime.register_hle("IoFileMgrForUser", 0x54F5FB11u, [](Runtime &rt, AllegrexContext &ctx) {
-        // Only the UMD/memory-stick queries a title issues during boot are
-        // meaningful here; anything else is reported unsupported rather than
-        // answered with a plausible lie.
+        // sceIoDevctl(device, cmd, indata, inlen, outdata, outlen). Arguments
+        // five and six arrive in $t0 and $t1, as everywhere else in this title.
         const std::string device = read_path(rt, ctx.gpr[4]);
-        runtime_log_line("sceIoDevctl device=" + device + " cmd=" + psprecomp::hex32(ctx.gpr[5]));
+        const std::uint32_t command = ctx.gpr[5];
+        const std::uint32_t outdata = ctx.gpr[8];
+        const std::uint32_t outlen = ctx.gpr[9];
+
+        // Answering this one matters: refused, the title asks again every
+        // frame and never stops. It has somewhere to save - the profile keeps
+        // a savedata directory - so reporting a medium is the truthful answer
+        // rather than a convenient one.
+        const bool memory_stick = device.rfind("fatms", 0u) == 0u || device.rfind("ms", 0u) == 0u;
+        if (command == kDevctlMediumPresent && memory_stick && outlen >= 4u &&
+            rt.memory().contains(outdata, 4u)) {
+            rt.memory().store32(outdata, 1u);
+            ++g_stats.medium_queries;
+            set_return(ctx, 0u);
+            return;
+        }
+
+        // Anything else is reported unsupported rather than answered with a
+        // plausible lie.
+        runtime_log_line("sceIoDevctl device=" + device + " cmd=" + psprecomp::hex32(command) +
+                         " unsupported");
         set_return(ctx, static_cast<std::uint32_t>(-1));
     });
     runtime.register_hle("IoFileMgrForUser", 0xE95A012Bu, [](Runtime &rt, AllegrexContext &ctx) {
