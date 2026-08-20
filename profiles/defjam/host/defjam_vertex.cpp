@@ -863,10 +863,11 @@ void note_draw(Runtime &runtime, std::uint32_t primitive, std::uint32_t vtype,
         for (const Vertex &vertex : vertices) extent.add(vertex.x, vertex.y, vertex.z);
         return;
     }
-    if (true)
-        (void)rasterise(runtime, primitive, vertices, format, current_texture_state(), true);
+    (void)rasterise(runtime, primitive, vertices, format, current_texture_state(), true);
 
-    VertexStats::Extent &extent = format.through ? g_stats.screen : g_stats.model;
+    // Everything that reaches here is a through-mode draw: the transformed
+    // path returned above.
+    VertexStats::Extent &extent = g_stats.screen;
     for (const Vertex &vertex : vertices) extent.add(vertex.x, vertex.y, vertex.z);
 }
 
