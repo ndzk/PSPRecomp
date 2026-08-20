@@ -549,9 +549,15 @@ void service_guest_deadlines(Runtime &rt) {
         // real speed with 188 of them on disk - the instrumentation, not the
         // title, was what made a fight take forever to load.
         if (frame_scan_enabled()) {
-            dump_named_buffer(rt, 0x04000000u, stem + "_A.bmp", error);
-            dump_named_buffer(rt, 0x04090000u, stem + "_B.bmp", error);
-            dump_host_surface(stem + "_host.bmp", error);
+            // A scan dump that fails quietly is the worst case for the thing it
+            // exists to serve: the file the investigation is about is missing,
+            // and nothing says why.
+            const auto scan_dump = [&error](bool written, const std::string &what) {
+                if (!written) runtime_log_line("scan frame not written: " + what + ": " + error);
+            };
+            scan_dump(dump_named_buffer(rt, 0x04000000u, stem + "_A.bmp", error), stem + "_A.bmp");
+            scan_dump(dump_named_buffer(rt, 0x04090000u, stem + "_B.bmp", error), stem + "_B.bmp");
+            scan_dump(dump_host_surface(stem + "_host.bmp", error), stem + "_host.bmp");
         }
         const std::string path = stem + ".bmp";
         if (dump_display(rt, path, error)) {
