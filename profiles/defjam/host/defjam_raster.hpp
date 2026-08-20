@@ -92,6 +92,12 @@ void raster_configure_side_split();
 // Whether textures are sampled by blending four neighbouring texels rather
 // than taking the nearest one.
 // Whether texels are multiplied by the vertex colour, in both backends.
+// Fog, shared with the graphics backend so both paths compute it the same way.
+// fog_factor returns 1 when the pixel is untouched and 0 when it is entirely the
+// fog colour; fog_colour_or_none returns 0xFFFFFFFF when fog is not in force.
+[[nodiscard]] float fog_factor(float inv_w);
+[[nodiscard]] std::uint32_t fog_colour_or_none();
+
 [[nodiscard]] bool texture_modulation_enabled();
 
 [[nodiscard]] bool texture_filter_linear();

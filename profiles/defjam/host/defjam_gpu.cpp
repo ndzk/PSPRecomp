@@ -57,17 +57,19 @@ using Microsoft::WRL::ComPtr;
 // cube and, for a textured draw, the sample.
 constexpr char kShaderSource[] = R"(
 cbuffer Frame : register(b0) { float2 target_size; uint textured; uint modulate;
-                               float2 texture_size; uint filtered; uint spare; };
+                               float2 texture_size; uint filtered; uint fog_colour; };
 
 struct VSIn {
     float3 position : POSITION;
     float4 color : COLOR;
     float2 uv : TEXCOORD0;
+    float fog : TEXCOORD1;
 };
 struct VSOut {
     float4 position : SV_Position;
     float4 color : COLOR;
     float2 uv : TEXCOORD0;
+    float fog : TEXCOORD1;
 };
 
 VSOut vs_main(VSIn input) {
@@ -86,6 +88,10 @@ VSOut vs_main(VSIn input) {
                              saturate(input.position.z / 65535.0f), 1.0f);
     output.color = input.color;
     output.uv = input.uv;
+    // The fog factor is computed per vertex on the CPU, the way the hardware
+    // does it, and interpolated from here. 1 means untouched, 0 means the fog
+    // colour entirely.
+    output.fog = input.fog;
     return output;
 }
 
@@ -128,6 +134,12 @@ float4 ps_main(VSOut input) : SV_Target {
     // dimming overlay drawn at alpha 0x73, exactly as it did on the CPU path.
     if (modulate != 0u) texel *= input.color;
     else texel.a *= input.color.a;
+    if (fog_colour != 0xFFFFFFFFu) {
+        const float3 target = float3(float((fog_colour >> 16u) & 0xFFu),
+                                     float((fog_colour >> 8u) & 0xFFu),
+                                     float(fog_colour & 0xFFu)) / 255.0f;
+        texel.rgb = lerp(target, texel.rgb, saturate(input.fog));
+    }
     return texel;
 }
 )";
@@ -136,6 +148,10 @@ struct GpuVertex {
     float x, y, z;
     std::uint32_t color;   // as the guest holds it: bytes run R, G, B, A
     float u, v;
+    // 1 leaves the pixel alone, 0 replaces it with the fog colour. Computed on
+    // this side because the hardware computes fog per vertex, and because the
+    // reference rasteriser already has the distance to do it with.
+    float fog;
 };
 
 // What a primitive needs the pipeline to be. Small on purpose: two states that
@@ -278,6 +294,7 @@ ID3D12PipelineState *pipeline_for(const PipelineKey &key) {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
         {"COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
         {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+        {"TEXCOORD", 1, DXGI_FORMAT_R32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
     };
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC desc{};
@@ -389,6 +406,10 @@ void flush_batch() {
         g_gpu.list->SetGraphicsRoot32BitConstants(0, 2, size, 4);
         const std::uint32_t filtered = texture_filter_linear() ? 1u : 0u;
         g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &filtered, 6);
+        // 0xFFFFFFFF means "no fog", which is not a colour the guest can ask
+        // for: its fog colour register holds 24 bits.
+        const std::uint32_t fog = fog_colour_or_none();
+        g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &fog, 7);
         if (g_gpu.batch_key.textured) {
             D3D12_GPU_DESCRIPTOR_HANDLE srv = g_gpu.srv_heap->GetGPUDescriptorHandleForHeapStart();
             srv.ptr += static_cast<UINT64>(g_gpu.batch_texture_slot) * g_gpu.srv_size;
@@ -591,7 +612,7 @@ bool ensure_texture(psprecomp::Runtime &runtime, const TextureState &texture,
 void append(const Vertex &vertex, float u, float v, std::uint32_t color, float depth) {
     if (g_gpu.vertex_count >= kMaxVertices) return;
     g_gpu.vertices[g_gpu.vertex_count++] =
-        GpuVertex{vertex.x, vertex.y, depth, color, u, v};
+        GpuVertex{vertex.x, vertex.y, depth, color, u, v, fog_factor(vertex.inv_w)};
     ++g_gpu.stats.vertices_submitted;
 }
 

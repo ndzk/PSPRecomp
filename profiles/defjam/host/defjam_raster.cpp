@@ -1433,6 +1433,19 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
 //
 // PSPRECOMP_DEFJAM_MODULATE=0 turns it off in both backends. It used to be read
 // only here, which made every comparison run with the card drawing meaningless.
+float fog_factor(float inv_w) {
+    if (!fog_active() || !(inv_w > 0.0f)) return 1.0f;
+    float factor = (register_float(kCmdFogEnd) - 1.0f / inv_w) * register_float(kCmdFogScale);
+    if (!(factor > 0.0f)) factor = 0.0f;
+    if (factor > 1.0f) factor = 1.0f;
+    return factor;
+}
+
+std::uint32_t fog_colour_or_none() {
+    if (!fog_active()) return 0xFFFFFFFFu;
+    return ge_registers()[kCmdFogColour] & 0x00FFFFFFu;
+}
+
 bool texture_modulation_enabled() {
     static const bool enabled = [] {
         const char *text = std::getenv("PSPRECOMP_DEFJAM_MODULATE");
