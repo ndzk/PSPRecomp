@@ -74,6 +74,15 @@ constexpr int kExitGuestStopped = 5;
 // from a repeat with more logging turned on - reaching these points takes
 // playing the game.
 std::string explain_stop_address(psprecomp::Runtime &runtime, const std::string &reason) {
+    // Only for a stop that is about where execution landed. A run that reaches
+    // its dispatch budget, or the end of a profile window, stops wherever it
+    // happened to be - in the middle of a routine, where "not a prologue" is
+    // the expected answer and reads as a fault that is not one. It would also
+    // keep 64KB of memory answering a question nobody asked.
+    if (reason.find("No recompiled function registered") == std::string::npos &&
+        reason.find("returned without changing PC") == std::string::npos) {
+        return {};
+    }
     const std::size_t at = reason.find("0x");
     if (at == std::string::npos) return {};
     const std::uint32_t address =
