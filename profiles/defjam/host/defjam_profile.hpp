@@ -115,6 +115,13 @@ struct WatchdogSettings {
                                                std::uint64_t next_frame_dump_us);
 
 void install_memory_watch();
+
+// Reports the argument registers each time one of the named guest addresses is
+// dispatched. PSPRECOMP_DEFJAM_TRAP=0xADDR[,0xADDR...]
+//
+// Pair it with PSPRECOMP_NO_CHAIN=1 unless the target is known to be reached by
+// an ordinary dispatch: a chained call never reaches the hook.
+void install_dispatch_traps();
 void dump_dispatch_trace(std::size_t limit = 64u);
 [[nodiscard]] bool dispatch_trace_enabled();
 

@@ -445,6 +445,22 @@ struct MemoryWatch {
 std::vector<MemoryWatch> g_watches;
 std::uint64_t g_watch_hits = 0;
 
+// Addresses to report the argument registers at, from
+// PSPRECOMP_DEFJAM_TRAP. A memory watch answers "what changed"; this answers
+// "what was it called with", which is the question when the interesting value
+// is a pointer the guest passes rather than one it stores.
+//
+// This runs off the dispatch hook, and a chained call is not a dispatch, so a
+// function the corpus reaches through invoke_chained_call or
+// invoke_chained_direct is invisible here. **Set PSPRECOMP_NO_CHAIN=1 with it**:
+// measured, a trap on a chained function reports nothing at all with chaining
+// on and reports every call with it off.
+std::vector<std::uint32_t> g_traps;
+std::uint64_t g_trap_hits = 0;
+// A function called every frame would bury the log, so each address reports a
+// bounded number of times.
+constexpr std::uint64_t kTrapReportLimit = 24u;
+
 // Checks the watched words. This runs between dispatches rather than inside the
 // store path, so it names the unit that changed a value rather than the exact
 // instruction; with PSPRECOMP_NO_CHAIN=1 that is enough to point at a function,
@@ -612,7 +628,7 @@ void check_progress(Runtime &rt, std::int32_t dispatch_thread_uid) {
     rt.stop(headline);
 }
 
-void pre_dispatch_hook(Runtime &rt, AllegrexContext &, std::uint32_t dispatch_pc,
+void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch_pc,
                        std::int32_t dispatch_thread_uid) {
     // Reading a clock on every dispatch would cost more than the thing it is
     // watching for, so this samples.
@@ -623,6 +639,18 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &, std::uint32_t dispatch_pc
     if ((++g_hook_dispatches & 0xFFFFFu) == 0u &&
         watchdog_needs_wall_clock_sampling(current_watchdog_settings())) {
         check_progress(rt, dispatch_thread_uid);
+    }
+    if (!g_traps.empty() && g_trap_hits < kTrapReportLimit) {
+        for (const std::uint32_t trap : g_traps) {
+            if (trap != dispatch_pc) continue;
+            ++g_trap_hits;
+            runtime_log_line("trap " + psprecomp::hex32(dispatch_pc) + " a0=" +
+                             psprecomp::hex32(ctx.gpr[4]) + " a1=" + psprecomp::hex32(ctx.gpr[5]) +
+                             " a2=" + psprecomp::hex32(ctx.gpr[6]) + " a3=" +
+                             psprecomp::hex32(ctx.gpr[7]) + " ra=" + psprecomp::hex32(ctx.gpr[31]) +
+                             " thread " + std::to_string(dispatch_thread_uid));
+            break;
+        }
     }
     if (!g_watches.empty()) check_watches(rt, dispatch_pc, dispatch_thread_uid);
     if (g_trace.empty()) return;
@@ -1168,6 +1196,31 @@ HeadlessStats headless_stats() {
 }
 
 bool dispatch_trace_enabled() { return !g_trace.empty(); }
+
+// A comma-separated list of guest addresses to report the arguments at.
+void install_dispatch_traps() {
+    const char *text = std::getenv("PSPRECOMP_DEFJAM_TRAP");
+    if (text == nullptr || text[0] == 0) return;
+    const std::string list(text);
+    std::size_t cursor = 0u;
+    while (cursor <= list.size()) {
+        const std::size_t comma = list.find(',', cursor);
+        const std::string item =
+            list.substr(cursor, comma == std::string::npos ? std::string::npos : comma - cursor);
+        if (!item.empty()) {
+            const auto address = static_cast<std::uint32_t>(std::strtoul(item.c_str(), nullptr, 0));
+            if (address != 0u) g_traps.push_back(address);
+        }
+        if (comma == std::string::npos) break;
+        cursor = comma + 1u;
+    }
+    if (g_traps.empty()) return;
+
+    std::string summary;
+    for (const std::uint32_t trap : g_traps) summary += " " + psprecomp::hex32(trap);
+    runtime_log_line("trapping" + summary);
+    psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
+}
 
 void install_memory_watch() {
     const char *text = std::getenv("PSPRECOMP_DEFJAM_WATCH");

@@ -298,6 +298,7 @@ int main(int argc, char **argv) {
         defjam::raster_configure_side_split();
         defjam::install_progress_watchdog();
         defjam::install_memory_watch();
+        defjam::install_dispatch_traps();
         defjam::install_dispatch_trace();
 
         // $gp is genuinely zero for this module: it was built without
