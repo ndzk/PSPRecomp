@@ -527,6 +527,10 @@ std::uint32_t g_watch_window_entry = 0u;
 std::uint32_t g_watch_window_return = 0u;
 bool g_watch_window_open = false;
 std::uint64_t g_watch_window_entries = 0u;
+// Watches are sampled at dispatch boundaries only. Inside a chained region the
+// dispatcher may never run, so "no writes seen" has to be told apart from "the
+// watch was never sampled" -- otherwise a void measurement reads as a finding.
+std::uint64_t g_watch_window_samples = 0u;
 std::uint64_t g_watch_hits = 0;
 
 // Addresses to report the argument registers at, from
@@ -588,6 +592,7 @@ void check_watches(Runtime &rt, std::uint32_t dispatch_pc, std::int32_t thread_u
     // tracked: a watch that stopped looking would report the first change after
     // the window opens as though the window had caused it.
     const bool report = g_watch_window_entry == 0u || g_watch_window_open;
+    if (g_watch_window_open) ++g_watch_window_samples;
     for (MemoryWatch &watch : g_watches) {
         if (!rt.memory().contains(watch.address, 4u)) continue;
         const std::uint32_t now = rt.memory().load32(watch.address);
@@ -868,6 +873,12 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch
             ++g_watch_window_entries;
         } else if (g_watch_window_open && dispatch_pc == g_watch_window_return) {
             g_watch_window_open = false;
+            if (g_watch_window_entries <= 24u) {
+                runtime_log_line("window #" + std::to_string(g_watch_window_entries) +
+                                 " closed after " + std::to_string(g_watch_window_samples) +
+                                 " sampled dispatches");
+            }
+            g_watch_window_samples = 0u;
         }
         // How often the window opens, and where its buffer sits, are both
         // measurements. A trap on this address counted nine calls while a
