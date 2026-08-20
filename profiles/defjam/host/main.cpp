@@ -397,6 +397,51 @@ int main(int argc, char **argv) {
                 cursor = comma + 1u;
             }
         }
+        // Occupancy of the title's own pool allocator, walked out of guest
+        // memory.
+        //
+        // PSPRECOMP_DEFJAM_POOL=0x08D56CC0 names the pool object. Its layout
+        // comes from reading the allocator at 0x089D13D8: block size at +0, the
+        // bitmap length in bytes at +8, and a circular chunk list at +16 whose
+        // sentinel is that address itself, each chunk carrying its next pointer
+        // at +0 and its bitmap from +8.
+        //
+        // Counting calls to the allocator and to what looked like its free did
+        // not settle whether the pool leaks - the pair could not be confirmed,
+        // and the ratio it produced would have exhausted the pool in seconds
+        // rather than the five minutes the title survives. Occupancy is the
+        // thing itself rather than a proxy for it.
+        if (const char *pool_text = std::getenv("PSPRECOMP_DEFJAM_POOL")) {
+            const auto pool = static_cast<std::uint32_t>(std::strtoul(pool_text, nullptr, 0));
+            if (runtime.memory().contains(pool, 32u)) {
+                const std::uint32_t block_size = runtime.memory().load32(pool);
+                const std::uint32_t bitmap_bytes = runtime.memory().load32(pool + 8u);
+                const std::uint32_t sentinel = pool + 16u;
+                std::uint32_t chunk = runtime.memory().load32(sentinel);
+                std::uint32_t chunks = 0u;
+                std::uint64_t set_bits = 0u;
+                std::uint64_t total_bits = 0u;
+                while (chunk != sentinel && chunk != 0u && chunks < 4096u &&
+                       runtime.memory().contains(chunk, 8u + bitmap_bytes)) {
+                    ++chunks;
+                    for (std::uint32_t i = 0; i < bitmap_bytes; ++i) {
+                        const std::uint32_t byte = runtime.memory().load8(chunk + 8u + i);
+                        for (std::uint32_t bit = 0; bit < 8u; ++bit) {
+                            if ((byte & (1u << bit)) != 0u) ++set_bits;
+                            ++total_bits;
+                        }
+                    }
+                    chunk = runtime.memory().load32(chunk);
+                }
+                std::cout << "  pool " << psprecomp::hex32(pool) << ": " << chunks
+                          << " chunks, block " << block_size << " bytes, " << set_bits << " of "
+                          << total_bits << " blocks taken";
+                if (total_bits != 0u) {
+                    std::cout << " (" << (100u * set_bits / total_bits) << "% full)";
+                }
+                std::cout << "\n";
+            }
+        }
         std::cout << defjam::ge_report();
         std::cout << defjam::vertex_report();
         std::cout << defjam::depth_spread_report();
