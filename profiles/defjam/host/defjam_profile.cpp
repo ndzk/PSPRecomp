@@ -1531,6 +1531,12 @@ void install_dispatch_traps() {
     psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
 }
 
+std::string watch_window_report() {
+    if (g_watch_window_entry == 0u) return {};
+    return "  watch window " + psprecomp::hex32(g_watch_window_entry) + " entered " +
+           std::to_string(g_watch_window_entries) + " times\n";
+}
+
 void install_memory_watch() {
     const char *text = std::getenv("PSPRECOMP_DEFJAM_WATCH");
     const char *window_only = std::getenv("PSPRECOMP_DEFJAM_WATCH_WINDOW");

@@ -465,6 +465,7 @@ int main(int argc, char **argv) {
         std::cout << defjam::command_value_report();
         std::cout << defjam::window_report();
         std::cout << defjam::bank_report();
+        std::cout << defjam::watch_window_report();
         if (const std::string dump = defjam::frame_dump_path(); !dump.empty()) {
             std::string dump_error;
             if (defjam::dump_display(runtime, dump, dump_error)) {

@@ -64,6 +64,11 @@ void report_headless_stats();
 // as a set of waits, not as a set of program counters.
 [[nodiscard]] std::string thread_report();
 
+// How often PSPRECOMP_DEFJAM_WATCH_WINDOW's function was entered. Sampled log
+// lines only show every Nth entry, and a count is the whole point when the
+// question is whether something runs at all.
+[[nodiscard]] std::string watch_window_report();
+
 // Records the last N outer-dispatch guest PCs in a ring buffer so a fault can
 // be read as a control-flow trail instead of inferred from a register snapshot.
 //
