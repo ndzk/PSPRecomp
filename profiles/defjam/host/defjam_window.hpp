@@ -49,6 +49,11 @@ void window_present(const psprecomp::GuestMemory &memory, std::uint32_t address,
 // asking first is worth more than making the copy faster.
 [[nodiscard]] bool window_frame_pending();
 
+// Drives the window from the thread that owns it. On macOS that is the main
+// thread, which also has to present, so this must be called regularly while the
+// guest runs on a worker. A no-op everywhere else, where a UI thread does it.
+void window_pump();
+
 [[nodiscard]] std::uint32_t window_buttons();
 
 // Analog stick, 128/128 at rest.

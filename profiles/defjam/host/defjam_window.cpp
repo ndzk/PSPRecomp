@@ -1,6 +1,9 @@
 #include "defjam_window.hpp"
 
 #include "defjam_present_dx12.hpp"
+#ifdef __APPLE__
+#include "defjam_present_mac.hpp"
+#endif
 
 #include <algorithm>
 #include <atomic>
@@ -357,7 +360,7 @@ void ui_thread(std::uint32_t width, std::uint32_t height) {
 }   // namespace
 
 bool window_enabled() {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
     static const bool enabled = environment_flag("PSPRECOMP_DEFJAM_WINDOW");
     return enabled;
 #else
@@ -366,6 +369,21 @@ bool window_enabled() {
 }
 
 void window_start() {
+#ifdef __APPLE__
+    if (!window_enabled() || mac_window_open()) return;
+    const std::uint32_t scale = std::clamp(environment_number("PSPRECOMP_DEFJAM_WINDOW_SCALE", 2u), 1u, 8u);
+    std::string error;
+    // AppKit owns the main thread, so there is no UI thread to start here: the
+    // window is opened on the caller's thread and pumped by window_pump() from
+    // the same one. main() runs the guest on a worker instead.
+    if (!mac_open_window(480u * scale, 272u * scale, error)) {
+        std::lock_guard<std::mutex> guard(g_state.text_lock);
+        g_state.fallback_reason = error;
+        return;
+    }
+    g_state.running.store(true, std::memory_order_release);
+    return;
+#endif
 #ifdef _WIN32
     if (!window_enabled() || g_state.thread.joinable()) return;
     const std::uint32_t scale = std::clamp(environment_number("PSPRECOMP_DEFJAM_WINDOW_SCALE", 2u), 1u, 8u);
@@ -439,11 +457,45 @@ void window_analog(std::uint8_t &x, std::uint8_t &y) {
 
 bool window_close_requested() {
     if (!window_enabled()) return false;
+#ifdef __APPLE__
+    if (mac_close_requested()) return true;
+#endif
     return g_state.close_requested.load(std::memory_order_relaxed);
+}
+
+void window_pump() {
+#ifdef __APPLE__
+    if (!window_enabled() || !mac_window_open()) return;
+    mac_pump_events();
+
+    std::vector<std::byte> frame;
+    std::uint32_t width = 0u;
+    std::uint32_t height = 0u;
+    {
+        std::lock_guard<std::mutex> guard(g_state.frame_lock);
+        if (!g_state.frame_pending) return;
+        frame = std::move(g_state.frame);
+        width = g_state.frame_width;
+        height = g_state.frame_height;
+        g_state.frame_pending = false;
+    }
+    if (mac_present_rgba(frame, width, height)) {
+        g_state.presented.fetch_add(1u, std::memory_order_relaxed);
+    }
+#endif
 }
 
 void window_wait_for_close() {
     if (!window_enabled()) return;
+#ifdef __APPLE__
+    // The picture stays up after the run ends, so the last frame can be looked
+    // at rather than vanishing with the process.
+    while (mac_window_open() && !mac_close_requested()) {
+        window_pump();
+        std::this_thread::sleep_for(std::chrono::milliseconds(16));
+    }
+    return;
+#endif
     while (g_state.running.load(std::memory_order_acquire) &&
            !g_state.close_requested.load(std::memory_order_relaxed)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
@@ -451,6 +503,11 @@ void window_wait_for_close() {
 }
 
 void window_shutdown() {
+#ifdef __APPLE__
+    g_state.running.store(false, std::memory_order_release);
+    mac_close_window();
+    return;
+#endif
     if (!g_state.thread.joinable()) return;
     g_state.close_requested.store(true, std::memory_order_relaxed);
     g_state.thread.join();
@@ -474,6 +531,12 @@ std::string window_report() {
     std::ostringstream out;
     out << "  window:             " << status.frames_presented << " frames presented, "
         << status.frames_dropped << " replaced before they were shown\n";
+#ifdef __APPLE__
+    out << "  presentation:       Core Animation\n";
+    if (!status.fallback_reason.empty())
+        out << "  window not opened:  " << status.fallback_reason << "\n";
+    return out.str();
+#endif
     if (status.direct3d) {
         out << "  presentation:       Direct3D 12 on " << status.adapter << "\n";
     } else {

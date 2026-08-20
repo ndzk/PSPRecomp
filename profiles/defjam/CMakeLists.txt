@@ -34,6 +34,14 @@ set(DEFJAM_HOST_SOURCES
     host/defjam_window.cpp
 )
 
+# The macOS half of the window. Objective-C++ because AppKit is the only way to
+# put a window on screen there, and it ships with the system, so this costs no
+# dependency.
+if(APPLE)
+    enable_language(OBJCXX)
+    list(APPEND DEFJAM_HOST_SOURCES host/defjam_present_mac.mm)
+endif()
+
 # A generated unit is one enormous function. Letting MSVC inline into it is
 # what drove the optimizer past convergence on the reference profile, so the
 # corpus defaults to no inline expansion while host code keeps /Ob3.
@@ -151,6 +159,11 @@ function(defjam_target_common target)
         # profile stays headless without PSPRECOMP_DEFJAM_WINDOW, so these are
         # linked but not touched unless the window is asked for.
         target_link_libraries(${target} PRIVATE d3d12 dxgi d3dcompiler dxguid)
+    endif()
+    if(APPLE)
+        # Same bargain on macOS: linked, but nothing is created without
+        # PSPRECOMP_DEFJAM_WINDOW.
+        target_link_libraries(${target} PRIVATE "-framework Cocoa" "-framework QuartzCore")
     endif()
     defjam_link_decoder(${target})
     # Lets the tests and the development launch path find the in-tree manifest

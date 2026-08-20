@@ -93,6 +93,22 @@ Run it:
 out\defjam\bin\Release\DefJamNative.exe
 ```
 
+**A window, on Windows and on macOS.** `PSPRECOMP_DEFJAM_WINDOW=1` opens one;
+`PSPRECOMP_DEFJAM_WINDOW_SCALE` picks the integer scale, 2 by default, so
+960x544. Windows presents over Direct3D 12 with a GDI fallback; macOS presents
+over Core Animation through AppKit, which ships with the system and costs no
+dependency.
+
+The two differ in one way worth knowing. AppKit owns the main thread - a window
+created or pumped anywhere else is unsupported and deadlocks - so on macOS the
+roles are reversed: the guest runs on a worker and the main thread pumps the
+window. Windows keeps its UI thread and is untouched. Without the variable both
+stay headless exactly as before, so the scripted measurement runs behave
+identically either way.
+
+macOS shows the picture; keyboard input is not wired there yet, so drive it with
+`PSPRECOMP_DEFJAM_INPUT`, which is the better tool for repeatable runs anyway.
+
 **Build Release for anything that draws.** The rasteriser is where the time
 goes, and an unoptimised build pays for it about a hundred times over: reaching
 19 seconds of guest time took 18 minutes of wall clock at `-O0`, and the same

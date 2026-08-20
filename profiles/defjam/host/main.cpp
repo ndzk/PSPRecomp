@@ -17,6 +17,8 @@
 #include "psprecomp/runtime.hpp"
 #include "psprecomp/sha256.hpp"
 
+#include <atomic>
+#include <thread>
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
@@ -319,6 +321,30 @@ int main(int argc, char **argv) {
         // A guest fault throws out of run(). The call history is the most
         // useful thing to have at that moment, so report it either way.
         std::string guest_fault;
+#ifdef __APPLE__
+        if (defjam::window_enabled()) {
+            // AppKit owns the main thread, so on macOS the roles are the other
+            // way round from Windows: the guest goes to a worker and this
+            // thread stays here pumping the window. Without a window nothing
+            // moves, so the headless path below is left exactly as it was.
+            std::atomic<bool> finished{false};
+            std::thread guest([&] {
+                try {
+                    runtime.run(elf.runtime_entry(manifest.game.load_base), max_dispatches);
+                } catch (const std::exception &fault) {
+                    guest_fault = fault.what();
+                }
+                finished.store(true, std::memory_order_release);
+            });
+            while (!finished.load(std::memory_order_acquire)) {
+                defjam::window_pump();
+                if (defjam::window_close_requested()) runtime.stop("the window was closed");
+                std::this_thread::sleep_for(std::chrono::milliseconds(4));
+            }
+            guest.join();
+            defjam::window_pump();
+        } else
+#endif
         try {
             runtime.run(elf.runtime_entry(manifest.game.load_base), max_dispatches);
         } catch (const std::exception &fault) {
