@@ -89,6 +89,10 @@ void raster_configure_side_split();
 [[nodiscard]] std::string half_census_report();
 
 // Reports pixels that asked for a texture the decoder could not produce.
+// Whether textures are sampled by blending four neighbouring texels rather
+// than taking the nearest one.
+[[nodiscard]] bool texture_filter_linear();
+
 [[nodiscard]] std::string missing_texture_report();
 
 [[nodiscard]] std::string blend_state_report();

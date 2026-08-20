@@ -1,5 +1,7 @@
 #include "defjam_gpu.hpp"
 
+#include "defjam_raster.hpp"
+
 #include "defjam_ge.hpp"
 #include "defjam_profile.hpp"
 #include "psprecomp/common.hpp"
@@ -55,7 +57,7 @@ using Microsoft::WRL::ComPtr;
 // cube and, for a textured draw, the sample.
 constexpr char kShaderSource[] = R"(
 cbuffer Frame : register(b0) { float2 target_size; uint textured; uint modulate;
-                               float2 texture_size; };
+                               float2 texture_size; uint filtered; uint spare; };
 
 struct VSIn {
     float3 position : POSITION;
@@ -89,6 +91,7 @@ VSOut vs_main(VSIn input) {
 
 Texture2D source : register(t0);
 SamplerState point_sampler : register(s0);
+SamplerState linear_sampler : register(s1);
 
 float4 ps_main(VSOut input) : SV_Target {
     if (textured == 0u) return input.color;
@@ -107,8 +110,16 @@ float4 ps_main(VSOut input) : SV_Target {
     // Truncate toward zero, then bring a negative back into range, which is
     // what the reference does. The doubled modulo keeps it branchless and
     // avoids select(), which needs a shader model this does not compile as.
-    int2 index = ((int2(input.uv) % size) + size) % size;
-    float4 texel = source.Load(int3(index, 0));
+    float4 texel;
+    if (filtered != 0u) {
+        // Bilinear, in normalised coordinates, matching the reference's move to
+        // filtered sampling. The exact-texel path below stays for comparisons
+        // made under nearest sampling.
+        texel = source.Sample(linear_sampler, input.uv / texture_size);
+    } else {
+        int2 index = ((int2(input.uv) % size) + size) % size;
+        texel = source.Load(int3(index, 0));
+    }
     // Same rule the software rasteriser applies: the texture function register
     // decides whether the vertex colour tints the texel or is thrown away.
     // Same rule the reference applies: modulate multiplies every channel, and
@@ -376,6 +387,8 @@ void flush_batch() {
         const float size[2] = {static_cast<float>(g_gpu.batch_texture_width),
                                static_cast<float>(g_gpu.batch_texture_height)};
         g_gpu.list->SetGraphicsRoot32BitConstants(0, 2, size, 4);
+        const std::uint32_t filtered = texture_filter_linear() ? 1u : 0u;
+        g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &filtered, 6);
         if (g_gpu.batch_key.textured) {
             D3D12_GPU_DESCRIPTOR_HANDLE srv = g_gpu.srv_heap->GetGPUDescriptorHandleForHeapStart();
             srv.ptr += static_cast<UINT64>(g_gpu.batch_texture_slot) * g_gpu.srv_size;
@@ -712,27 +725,31 @@ bool gpu_initialize(std::string &error) {
     range.NumDescriptors = 1;
     D3D12_ROOT_PARAMETER parameters[2]{};
     parameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-    parameters[0].Constants.Num32BitValues = 6;
+    parameters[0].Constants.Num32BitValues = 8;
     parameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     parameters[1].DescriptorTable.NumDescriptorRanges = 1;
     parameters[1].DescriptorTable.pDescriptorRanges = &range;
     parameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-    // Point sampling, because the software rasteriser samples one texel and the
-    // two are meant to be comparable.
-    D3D12_STATIC_SAMPLER_DESC sampler{};
-    sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-    sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    // Two samplers: one that takes a single texel and one that blends four, so
+    // this backend can follow the reference into filtered sampling and still be
+    // put back into exact-texel mode for a comparison.
+    D3D12_STATIC_SAMPLER_DESC samplers[2]{};
+    samplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+    samplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    samplers[1] = samplers[0];
+    samplers[1].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    samplers[1].ShaderRegister = 1;
 
     D3D12_ROOT_SIGNATURE_DESC signature_desc{};
     signature_desc.NumParameters = 2;
     signature_desc.pParameters = parameters;
-    signature_desc.NumStaticSamplers = 1;
-    signature_desc.pStaticSamplers = &sampler;
+    signature_desc.NumStaticSamplers = 2;
+    signature_desc.pStaticSamplers = samplers;
     signature_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> signature_error;

@@ -1018,15 +1018,49 @@ std::uint32_t sample(const std::vector<std::uint32_t> &texels, const TextureStat
         u *= static_cast<float>(texture.width);
         v *= static_cast<float>(texture.height);
     }
-    auto wrap = [](float value, std::uint32_t size) {
-        auto index = static_cast<std::int64_t>(value);
+    auto wrap = [](std::int64_t index, std::uint32_t size) {
         index %= static_cast<std::int64_t>(size);
         if (index < 0) index += size;
         return static_cast<std::uint32_t>(index);
     };
-    const std::uint32_t x = wrap(u, texture.width);
-    const std::uint32_t y = wrap(v, texture.height);
-    return texels[static_cast<std::size_t>(y) * texture.width + x];
+    const auto fetch = [&](std::int64_t tx, std::int64_t ty) {
+        return texels[static_cast<std::size_t>(wrap(ty, texture.height)) * texture.width +
+                      wrap(tx, texture.width)];
+    };
+    if (!defjam::texture_filter_linear()) {
+        return fetch(static_cast<std::int64_t>(u), static_cast<std::int64_t>(v));
+    }
+    // Bilinear, sampled about the texel centre.
+    //
+    // The title asks for this: register 0xC1 holds 0x000100, two byte fields
+    // holding 0 and 1, which is the shape of a minification and magnification
+    // filter pair, and this profile sampled the nearest texel for both. Every
+    // textured pixel in the game came out harder-edged than the hardware would
+    // draw it, uniformly, which is the kind of difference that reads as "looks
+    // wrong somehow" rather than as a visible fault.
+    const float fx = u - 0.5f;
+    const float fy = v - 0.5f;
+    const auto x0 = static_cast<std::int64_t>(std::floor(fx));
+    const auto y0 = static_cast<std::int64_t>(std::floor(fy));
+    const float ax = fx - static_cast<float>(x0);
+    const float ay = fy - static_cast<float>(y0);
+    const std::uint32_t c00 = fetch(x0, y0);
+    const std::uint32_t c10 = fetch(x0 + 1, y0);
+    const std::uint32_t c01 = fetch(x0, y0 + 1);
+    const std::uint32_t c11 = fetch(x0 + 1, y0 + 1);
+    std::uint32_t out = 0u;
+    for (std::uint32_t shift = 0u; shift < 32u; shift += 8u) {
+        const auto channel = [shift](std::uint32_t texel) {
+            return static_cast<float>((texel >> shift) & 0xFFu);
+        };
+        const float top = channel(c00) + (channel(c10) - channel(c00)) * ax;
+        const float bottom = channel(c01) + (channel(c11) - channel(c01)) * ax;
+        float value = top + (bottom - top) * ay;
+        if (value < 0.0f) value = 0.0f;
+        if (value > 255.0f) value = 255.0f;
+        out |= static_cast<std::uint32_t>(value + 0.5f) << shift;
+    }
+    return out;
 }
 
 
@@ -1315,6 +1349,24 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
 }
 
 } // namespace
+
+// Whether to blend the four neighbouring texels rather than take the nearest.
+//
+// The title asks for it: register 0xC1 holds 0x000100, two byte fields holding
+// 0 and 1, which is the shape of a minification and magnification filter pair.
+// This rasteriser took the nearest texel for both, so every textured pixel in
+// the game came out harder-edged than the hardware draws it.
+//
+// PSPRECOMP_DEFJAM_FILTER=0 restores nearest sampling, which is what the
+// byte-exact comparisons against the GPU backend were made under.
+bool texture_filter_linear() {
+    static const bool linear = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_FILTER");
+        return text == nullptr || (text[0] != 0 && text[0] != 48);
+    }();
+    return linear;
+}
+
 
 void flush_surface(psprecomp::Runtime &runtime) {
     // With the card drawing, the frame lives in its render target and comes
