@@ -531,6 +531,15 @@ std::uint64_t g_watch_window_entries = 0u;
 // dispatcher may never run, so "no writes seen" has to be told apart from "the
 // watch was never sampled" -- otherwise a void measurement reads as a finding.
 std::uint64_t g_watch_window_samples = 0u;
+// A second address, counted only while the window is open. This answers "how
+// many times does B run during one run of A", which a plain total cannot:
+// the totals of two functions say nothing about how their calls nest.
+std::uint32_t g_watch_count_target = 0u;
+std::uint64_t g_watch_count_total = 0u;
+std::uint64_t g_watch_count_in_window = 0u;
+std::uint64_t g_watch_count_passes = 0u;
+std::uint64_t g_watch_count_min = 0u;
+std::uint64_t g_watch_count_max = 0u;
 std::uint64_t g_watch_hits = 0;
 
 // Addresses to report the argument registers at, from
@@ -777,9 +786,34 @@ void check_progress(Runtime &rt, std::int32_t dispatch_thread_uid) {
 // dispatch_pc cannot see a function that is only ever entered by chaining --
 // measured: zero opens for a function whose own crash dump proves it ran.
 // This hook fires on the chained entry itself.
+// A chained call returns here, which bounds the window exactly. Closing it on a
+// dispatched return address cannot: a chained callee may never dispatch at all.
+void post_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t target_pc,
+                            std::uint32_t native_depth) {
+    (void)rt;
+    (void)ctx;
+    (void)native_depth;
+    if (g_watch_window_entry == 0u || target_pc != g_watch_window_entry) return;
+    g_watch_window_open = false;
+    ++g_watch_count_passes;
+    if (g_watch_count_passes == 1u || g_watch_count_in_window < g_watch_count_min) {
+        g_watch_count_min = g_watch_count_in_window;
+    }
+    if (g_watch_count_in_window > g_watch_count_max) g_watch_count_max = g_watch_count_in_window;
+    if (g_watch_count_passes <= 20u) {
+        runtime_log_line("pass #" + std::to_string(g_watch_count_passes) + " counted " +
+                         std::to_string(g_watch_count_in_window));
+    }
+    g_watch_count_in_window = 0u;
+}
+
 void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t target_pc,
                            std::uint32_t native_depth) {
     (void)native_depth;
+    if (g_watch_count_target != 0u && target_pc == g_watch_count_target) {
+        ++g_watch_count_total;
+        if (g_watch_window_open) ++g_watch_count_in_window;
+    }
     if (g_watch_window_entry == 0u || target_pc != g_watch_window_entry) return;
     g_watch_window_open = true;
     g_watch_window_return = ctx.gpr[31];
@@ -1533,8 +1567,16 @@ void install_dispatch_traps() {
 
 std::string watch_window_report() {
     if (g_watch_window_entry == 0u) return {};
-    return "  watch window " + psprecomp::hex32(g_watch_window_entry) + " entered " +
-           std::to_string(g_watch_window_entries) + " times\n";
+    std::string text = "  watch window " + psprecomp::hex32(g_watch_window_entry) +
+                       " entered " + std::to_string(g_watch_window_entries) + " times\n";
+    if (g_watch_count_target != 0u) {
+        text += "    " + psprecomp::hex32(g_watch_count_target) + ": " +
+                std::to_string(g_watch_count_total) + " total, " +
+                std::to_string(g_watch_count_passes) + " passes, per pass min " +
+                std::to_string(g_watch_count_min) + " max " +
+                std::to_string(g_watch_count_max) + "\n";
+    }
+    return text;
 }
 
 void install_memory_watch() {
@@ -1572,8 +1614,14 @@ void install_memory_watch() {
     }
     runtime_log_line("watching" + summary);
     psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
+    if (const char *counted = std::getenv("PSPRECOMP_DEFJAM_WATCH_COUNT")) {
+        g_watch_count_target = static_cast<std::uint32_t>(std::strtoul(counted, nullptr, 0));
+        runtime_log_line("counting " + psprecomp::hex32(g_watch_count_target) +
+                         " inside the window");
+    }
     if (g_watch_window_entry != 0u) {
         psprecomp::set_runtime_pre_chained_call_hook(&pre_chained_call_hook);
+        psprecomp::set_runtime_post_chained_call_hook(&post_chained_call_hook);
     }
 }
 
