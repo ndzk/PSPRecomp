@@ -1465,6 +1465,69 @@ void test_atrac_surface() {
 
 // A savedata name comes out of guest memory and then becomes a path, so it
 // must not be able to name anything outside the savedata root.
+// The title loads and stores its profile through the WRITEDATA/READDATA modes,
+// not through plain save and load. Answering those with "no data" forever is
+// what keeps it on the first-run path, where it creates a user id every time.
+void test_savedata_write_and_read_round_trip() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "defjam_savedata_roundtrip";
+    std::error_code ec;
+    std::filesystem::remove_all(root, ec);
+    std::filesystem::create_directories(root / "savedata", ec);
+
+    psprecomp::Runtime runtime(32u * 1024u * 1024u);
+    defjam::install_utility_hle(runtime, (root / "savedata").string());
+
+    constexpr std::uint32_t kSavedataInitStart = 0x50C4CD57u;
+    constexpr std::uint32_t kResultOffset = 28u, kModeOffset = 48u, kGameNameOffset = 60u,
+                            kSaveNameOffset = 76u, kFileNameOffset = 100u,
+                            kDataBufOffset = 116u, kDataBufSizeOffset = 120u,
+                            kDataSizeOffset = 124u;
+    constexpr std::uint32_t kModeMakeData = 14u, kModeReadData = 16u, kModeWriteData = 18u;
+    constexpr std::uint32_t kPayloadBytes = 64u;
+
+    const std::uint32_t param = kIoScratch;
+    const std::uint32_t payload = kIoScratch + 0x400u;
+    const std::uint32_t readback = kIoScratch + 0x800u;
+
+    const auto call = [&](std::uint32_t mode, std::uint32_t buffer, std::uint32_t size) {
+        for (std::uint32_t i = 0; i < 256u; i += 4u) runtime.memory().store32(param + i, 0u);
+        runtime.memory().store32(param + kModeOffset, mode);
+        runtime.memory().store32(param + kDataBufOffset, buffer);
+        runtime.memory().store32(param + kDataBufSizeOffset, kPayloadBytes);
+        runtime.memory().store32(param + kDataSizeOffset, size);
+        write_guest_string(runtime, param + kGameNameOffset, "ULUS10100");
+        write_guest_string(runtime, param + kSaveNameOffset, "PROFILE");
+        write_guest_string(runtime, param + kFileNameOffset, "DJSSCR.BIN");
+        psprecomp::AllegrexContext ctx{};
+        ctx.set_gpr(4, param);
+        call_hle(runtime, "sceUtility", kSavedataInitStart, ctx);
+        return runtime.memory().load32(param + kResultOffset);
+    };
+
+    // Nothing saved yet: the read has to report no data rather than succeeding
+    // with a buffer it never filled.
+    require(call(kModeReadData, readback, 0u) != 0u,
+            "reading a save that does not exist reported success");
+
+    for (std::uint32_t i = 0; i < kPayloadBytes; ++i)
+        runtime.memory().store8(payload + i, static_cast<std::uint8_t>(0xA0u + (i & 0x0Fu)));
+
+    require(call(kModeMakeData, payload, 0u) == 0u, "creating the save directory failed");
+    require(call(kModeWriteData, payload, kPayloadBytes) == 0u, "writing the save failed");
+
+    for (std::uint32_t i = 0; i < kPayloadBytes; ++i) runtime.memory().store8(readback + i, 0u);
+    require(call(kModeReadData, readback, 0u) == 0u, "reading the save back failed");
+
+    for (std::uint32_t i = 0; i < kPayloadBytes; ++i) {
+        require(runtime.memory().load8(readback + i) ==
+                    static_cast<std::uint8_t>(0xA0u + (i & 0x0Fu)),
+                "the bytes read back are not the bytes written");
+    }
+
+    std::filesystem::remove_all(root, ec);
+}
+
 void test_savedata_names_stay_put() {
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "defjam_savedata_test";
@@ -2525,6 +2588,7 @@ int main() {
         test_a_terminated_waiter_does_not_eat_the_count();
         test_at3_container();
         test_atrac_surface();
+        test_savedata_write_and_read_round_trip();
         test_savedata_names_stay_put();
         test_mpeg_surface();
         test_dmac_checks_before_staging();

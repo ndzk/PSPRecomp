@@ -55,8 +55,12 @@ constexpr std::uint32_t kModeLoad = 2u;
 constexpr std::uint32_t kModeSave = 3u;
 // Reading one named file out of a save. Values taken from pspsdk's
 // psputility_savedata.h, not from memory.
+constexpr std::uint32_t kModeMakeDataSecure = 13u;
+constexpr std::uint32_t kModeMakeData = 14u;
 constexpr std::uint32_t kModeReadDataSecure = 15u;
 constexpr std::uint32_t kModeReadData = 16u;
+constexpr std::uint32_t kModeWriteDataSecure = 17u;
+constexpr std::uint32_t kModeWriteData = 18u;
 
 // Result codes. Only the last is confirmed: pspsdk defines
 // PSP_SYSTEMPARAM_RETVAL_FAIL in psputility_sysparam.h, and searching that SDK
@@ -230,30 +234,40 @@ void install_utility_hle(Runtime &runtime, const std::string &savedata_root) {
         case kModeSave:
             perform_save(rt, param, directory, file_name);
             break;
-        case kModeReadDataSecure:
-        case kModeReadData: {
-            // These read one named file out of a save through a parameter
-            // block of their own: the name and destination sit in the fileData
-            // fields rather than the ones plain load uses.
-            //
-            // Only the "there is nothing to read" answer is given here, and
-            // while no save exists that is the whole of it - it lets the title
-            // start as a new player rather than stopping the run. A save that
-            // does exist still stops: filling the wrong buffer would be worse
-            // than saying the layout is not pinned down.
+        case kModeMakeDataSecure:
+        case kModeMakeData: {
+            // Create the save's directory and say it worked. Nothing is written
+            // yet; the title follows this with a write mode.
             std::error_code ec;
-            if (!std::filesystem::exists(directory, ec)) {
-                ++g_stats.loads_with_no_data;
-                runtime_log_line("savedata read mode " + std::to_string(mode) + ": no save at " +
-                                 directory.string());
-                set_result(rt, param, kErrorLoadNoData);
+            std::filesystem::create_directories(directory, ec);
+            if (ec) {
+                runtime_log_line("savedata make: could not create " + directory.string());
+                set_result(rt, param, kErrorSaveAccess);
                 break;
             }
-            rt.stop("sceUtilitySavedata mode " + std::to_string(mode) +
-                    " found a save to read but the secure file layout is not pinned down (game=" +
-                    game_name + ", save=" + save_name + ")");
-            return;
+            runtime_log_line("savedata make mode " + std::to_string(mode) + ": " +
+                             directory.string());
+            set_result(rt, param, 0u);
+            break;
         }
+
+        case kModeWriteDataSecure:
+        case kModeWriteData:
+            // The same fields plain save uses. That they are the right ones for
+            // these modes is not assumed: mode 15 reported this title's file
+            // name and buffer size correctly through them, which it could not
+            // have done if the block were laid out differently.
+            perform_save(rt, param, directory, file_name);
+            break;
+
+        case kModeReadDataSecure:
+        case kModeReadData:
+            // Reads through the same fields, for the same reason. A save that
+            // is not there answers "no data" from inside perform_load, which is
+            // what lets a first run start as a new player.
+            perform_load(rt, param, directory, file_name);
+            break;
+
         default:
             // Modes beyond plain load and save need the list, size and secure
             // file semantics pinned down first. Refused rather than answered
