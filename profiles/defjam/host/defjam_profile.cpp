@@ -511,6 +511,22 @@ struct MemoryWatch {
     bool primed{};
 };
 std::vector<MemoryWatch> g_watches;
+
+// A watch that only reports while one function is on the stack.
+//
+// PSPRECOMP_DEFJAM_WATCH_WINDOW=<entry> opens the window when that address is
+// dispatched and closes it when the return address captured at entry is reached.
+//
+// A plain watch answers "what wrote this word", which is the wrong answer when
+// the word lives on a stack: the address is reused by every frame that happens
+// to sit at that depth, and a watch on one such word reported 67,869 writes from
+// a dozen unrelated functions. What was being asked was narrower - what writes it
+// while a particular routine is running - and the traffic from everything else
+// buried it.
+std::uint32_t g_watch_window_entry = 0u;
+std::uint32_t g_watch_window_return = 0u;
+bool g_watch_window_open = false;
+std::uint64_t g_watch_window_entries = 0u;
 std::uint64_t g_watch_hits = 0;
 
 // Addresses to report the argument registers at, from
@@ -568,11 +584,15 @@ std::vector<TrapShow> g_trap_shows;
 // instruction; with PSPRECOMP_NO_CHAIN=1 that is enough to point at a function,
 // and it costs nothing when no watch is set.
 void check_watches(Runtime &rt, std::uint32_t dispatch_pc, std::int32_t thread_uid) {
+    // Reporting is suppressed outside the window, but the values are still
+    // tracked: a watch that stopped looking would report the first change after
+    // the window opens as though the window had caused it.
+    const bool report = g_watch_window_entry == 0u || g_watch_window_open;
     for (MemoryWatch &watch : g_watches) {
         if (!rt.memory().contains(watch.address, 4u)) continue;
         const std::uint32_t now = rt.memory().load32(watch.address);
         if (watch.primed && now == watch.value) continue;
-        if (watch.primed) {
+        if (watch.primed && report) {
             ++g_watch_hits;
             runtime_log_line("watch " + psprecomp::hex32(watch.address) + " " +
                              psprecomp::hex32(watch.value) + " -> " + psprecomp::hex32(now) +
@@ -812,6 +832,15 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch
                                  return shown;
                              }());
             break;
+        }
+    }
+    if (g_watch_window_entry != 0u) {
+        if (dispatch_pc == g_watch_window_entry) {
+            g_watch_window_open = true;
+            g_watch_window_return = ctx.gpr[31];
+            ++g_watch_window_entries;
+        } else if (g_watch_window_open && dispatch_pc == g_watch_window_return) {
+            g_watch_window_open = false;
         }
     }
     if (!g_watches.empty()) check_watches(rt, dispatch_pc, dispatch_thread_uid);
@@ -1450,6 +1479,10 @@ void install_memory_watch() {
 
     std::string summary;
     for (const MemoryWatch &watch : g_watches) summary += " " + psprecomp::hex32(watch.address);
+    if (const char *window = std::getenv("PSPRECOMP_DEFJAM_WATCH_WINDOW")) {
+        g_watch_window_entry = static_cast<std::uint32_t>(std::strtoul(window, nullptr, 0));
+        summary += " (only while " + psprecomp::hex32(g_watch_window_entry) + " is running)";
+    }
     runtime_log_line("watching" + summary);
     psprecomp::set_runtime_pre_dispatch_hook(&pre_dispatch_hook);
 }
