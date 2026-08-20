@@ -630,6 +630,8 @@ std::string read_covering(std::uint32_t address) {
 IoStats io_stats() {
     IoStats stats = g_stats;
     stats.open_handles = static_cast<std::uint32_t>(g_files.size() + g_dirs.size());
+    stats.disc_unreadable = g_disc.unreadable_files();
+    stats.disc_short_reads = g_disc.short_reads();
     return stats;
 }
 

@@ -36,6 +36,12 @@ struct IoStats {
     // and does not change what it does with the answer. Counted rather than
     // logged: at one line per frame it buried everything else in the log.
     std::uint64_t medium_queries{};
+    // Sectors the disc layer could not serve faithfully: a staged file that
+    // would not open, or one that returned fewer bytes than asked for. Both
+    // hand the guest zeroes it cannot tell from data, so they are surfaced
+    // rather than left to a getter nobody calls.
+    std::uint64_t disc_unreadable{};
+    std::uint64_t disc_short_reads{};
     std::uint64_t lbn_opens{};       // opens addressed by raw disc sector
     std::uint32_t open_handles{};
 };

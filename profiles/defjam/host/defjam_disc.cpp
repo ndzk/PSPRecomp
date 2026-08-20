@@ -162,6 +162,11 @@ std::uint32_t SyntheticDisc::read(std::uint32_t sector, std::uint32_t count,
             if (input.is_open()) {
                 input.seekg(static_cast<std::streamoff>(offset));
                 input.read(reinterpret_cast<char *>(target), want);
+                // A read that comes up short leaves the rest of the sector
+                // holding whatever was there, and the guest cannot tell that
+                // from data. Counted for the same reason the unreadable case
+                // is: silence here looks exactly like a file full of zeroes.
+                if (input.gcount() != want) ++short_reads_;
             } else {
                 // The sector still reads as zeroes, which is indistinguishable
                 // from a file that is genuinely zeroed. Counted so a staged
@@ -178,6 +183,7 @@ std::uint32_t SyntheticDisc::read(std::uint32_t sector, std::uint32_t count,
 bool SyntheticDisc::build(const std::filesystem::path &root, std::string &error) {
     ready_ = false;
     unreadable_files_ = 0u;
+    short_reads_ = 0u;
     structure_.clear();
     files_.clear();
     total_sectors_ = 0u;

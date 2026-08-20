@@ -1971,6 +1971,30 @@ void test_synthetic_disc() {
             "a file spanning sectors did not read back intact");
     require(big[5000] == 0u, "the tail of the last sector was not zero padded");
 
+    // Every read so far was faithful, so nothing may be reported as damaged.
+    // The counters are only worth anything if they stay quiet when the tree is
+    // whole, so that is pinned down before they are provoked.
+    require(disc.unreadable_files() == 0u, "an intact tree reported an unreadable file");
+    require(disc.short_reads() == 0u, "an intact tree reported a short read");
+
+    // A staged tree can lose or shrink a file after it has been laid out, and
+    // the guest cannot tell the zeroes that follow from data. Both kinds of
+    // damage are provoked here, because a counter that never fires is the same
+    // as no counter at all.
+    {
+        std::ofstream truncate(root / "PSP_GAME" / "USRDIR" / "big.dat",
+                               std::ios::binary | std::ios::trunc);
+        truncate << "short";
+    }
+    require(disc.read(big_sector, 3u, big.data()) == 3u * 2048u,
+            "reading a shrunk file did not still fill the sectors");
+    require(disc.short_reads() == 1u, "a file that shrank behind the disc was not noticed");
+
+    std::filesystem::remove(root / "UMD_DATA.BIN", ec);
+    require(disc.read(found_sector, 1u, big.data()) == 2048u,
+            "reading a lost file did not still fill the sector");
+    require(disc.unreadable_files() == 1u, "a file that vanished behind the disc was not noticed");
+
     std::filesystem::remove_all(root, ec);
 }
 

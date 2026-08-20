@@ -402,6 +402,9 @@ int main(int argc, char **argv) {
                   << " raw-sector opens\n"
                   << "  medium queries:     " << io.medium_queries << "\n"
                   << "  open handles:       " << io.open_handles << "\n";
+        if (io.disc_unreadable != 0u || io.disc_short_reads != 0u)
+            std::cout << "  DISC SERVED ZEROES:  " << io.disc_unreadable
+                      << " unreadable, " << io.disc_short_reads << " short reads\n";
         if (!defjam::last_failed_open().empty())
             std::cout << "  last failed open:   " << defjam::last_failed_open() << "\n";
         const defjam::UtilityStats utility = defjam::utility_stats();

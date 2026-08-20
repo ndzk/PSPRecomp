@@ -37,6 +37,8 @@ public:
     // genuinely zeroed, so a non-zero count here is the only sign that the
     // staged tree lost something after it was laid out.
     [[nodiscard]] std::uint32_t unreadable_files() const { return unreadable_files_; }
+    // Sectors served from a file that gave back fewer bytes than asked for.
+    [[nodiscard]] std::uint32_t short_reads() const { return short_reads_; }
 
     // Reads whole sectors. Returns how many bytes were produced, which is short
     // of the request past the end of the disc. Sectors that belong to no file
@@ -54,6 +56,7 @@ private:
     bool ready_{};
     // read() is const, so this is the one thing it may still record.
     mutable std::uint32_t unreadable_files_{};
+    mutable std::uint32_t short_reads_{};
     std::uint32_t total_sectors_{};
     std::uint32_t file_count_{};
     std::uint32_t directory_count_{};
