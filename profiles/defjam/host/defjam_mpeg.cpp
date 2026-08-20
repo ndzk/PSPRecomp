@@ -575,6 +575,23 @@ void ProgramStreamDemuxer::append(const std::uint8_t *data, std::size_t size) {
 void ProgramStreamDemuxer::flush() {
     emit_video();
     emit_audio();
+    // Whatever is left in the parse buffer is dropped, because no more data is
+    // coming to complete it.
+    //
+    // The parser stops at a PES packet whose declared length runs past what has
+    // arrived, and waits for the rest; at the end of a stream the rest never
+    // arrives, so that tail would sit here forever. Flush means no more data is
+    // coming, so a fragment that needs more data is not pending, it is over.
+    //
+    // This was written to explain a story scene that never advances, on the
+    // theory that the tail kept sceMpegRingbufferAvailableSize from ever
+    // reporting the ring empty - the title calls that query 38,628 times in a
+    // stalled run. It fixed nothing: the count came back at 38,628 exactly,
+    // because the buffer was already empty and the query is just a poll, two
+    // per frame. The scene is blocked on something else. Kept because clearing
+    // a fragment nothing can complete is right on its own terms, not because it
+    // cured anything.
+    pending_.clear();
 }
 
 std::uint64_t ProgramStreamDemuxer::undemuxed_bytes() const {
