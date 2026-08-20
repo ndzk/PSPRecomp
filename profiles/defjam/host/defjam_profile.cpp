@@ -62,7 +62,74 @@ struct PartitionTable {
     std::uint32_t next_address{};
     std::int32_t next_uid{0x100};
     std::map<std::int32_t, PartitionBlock> blocks;
+    // Ranges handed back by sceKernelFreePartitionMemory, address to size,
+    // kept coalesced so neighbouring frees become one usable hole again.
+    //
+    // Without this the arena was a bump pointer that only ever moved forward:
+    // freeing dropped the handle and kept the bytes.
+    //
+    // This did not fix the crash it was written for. A run makes exactly one
+    // partition allocation - UserSbrk, 20,840,448 bytes at boot - and the title
+    // suballocates everything else inside that block with a pool allocator of
+    // its own, so reclaiming partition memory reclaims almost nothing. The
+    // story-mode crash is that pool returning null for 197,137 bytes, and it
+    // still does. Kept because an allocator that never reclaims is wrong on its
+    // own terms and would bite a title that allocates partitions repeatedly.
+    std::map<std::uint32_t, std::uint32_t> free_ranges;
 };
+
+// Carves `size` bytes at `alignment` out of a freed range, if one fits.
+// Returns 0 when none does, leaving the caller to extend the arena instead.
+std::uint32_t take_free_range(PartitionTable &table, std::uint32_t size,
+                              std::uint32_t alignment) {
+    for (auto it = table.free_ranges.begin(); it != table.free_ranges.end(); ++it) {
+        const std::uint32_t start = it->first;
+        const std::uint32_t length = it->second;
+        const std::uint32_t aligned = (start + alignment - 1u) & ~(alignment - 1u);
+        if (aligned < start) continue;                       // the round-up wrapped
+        const std::uint64_t needed = static_cast<std::uint64_t>(aligned - start) + size;
+        if (needed > length) continue;
+        const std::uint32_t head = aligned - start;
+        const std::uint32_t tail = static_cast<std::uint32_t>(length - needed);
+        table.free_ranges.erase(it);
+        if (head != 0u) table.free_ranges.emplace(start, head);
+        if (tail != 0u) table.free_ranges.emplace(aligned + size, tail);
+        return aligned;
+    }
+    return 0u;
+}
+
+// Puts a range back, merging it with whatever it now touches.
+void give_free_range(PartitionTable &table, std::uint32_t address, std::uint32_t size) {
+    if (size == 0u) return;
+    // Growing down into the arena's high-water mark is better than holding a
+    // hole at the end: it makes the space available to any size, not just one
+    // that fits the hole.
+    if (address + size == table.next_address) {
+        table.next_address = address;
+        auto previous = table.free_ranges.lower_bound(address);
+        while (previous != table.free_ranges.begin()) {
+            --previous;
+            if (previous->first + previous->second != table.next_address) break;
+            table.next_address = previous->first;
+            previous = table.free_ranges.erase(previous);
+        }
+        return;
+    }
+    auto next = table.free_ranges.lower_bound(address);
+    if (next != table.free_ranges.end() && address + size == next->first) {
+        size += next->second;
+        next = table.free_ranges.erase(next);
+    }
+    if (next != table.free_ranges.begin()) {
+        auto previous = std::prev(next);
+        if (previous->first + previous->second == address) {
+            previous->second += size;
+            return;
+        }
+    }
+    table.free_ranges.emplace(address, size);
+}
 
 // ---------------------------------------------------------------------------
 // Threads
@@ -1592,10 +1659,17 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         // up wraps, which then makes address + size wrap back under the stack
         // top and pass a check it should fail.
         const std::uint64_t aligned_size = (static_cast<std::uint64_t>(size) + 0xFFull) & ~0xFFull;
-        const std::uint32_t address =
-            (g_partitions.next_address + alignment - 1u) & ~(alignment - 1u);
+        // A freed range first, the untouched arena only when none fits.
+        const auto wanted = static_cast<std::uint32_t>(aligned_size);
+        std::uint32_t address = aligned_size == 0u ? 0u
+                                                   : take_free_range(g_partitions, wanted, alignment);
+        const bool reused = address != 0u;
+        if (!reused) {
+            address = (g_partitions.next_address + alignment - 1u) & ~(alignment - 1u);
+        }
         if (aligned_size == 0u ||
-            static_cast<std::uint64_t>(address) + aligned_size > g_threads.next_stack_top) {
+            (!reused &&
+             static_cast<std::uint64_t>(address) + aligned_size > g_threads.next_stack_top)) {
             runtime_log_line("AllocPartitionMemory FAILED name=" + name +
                              " size=" + std::to_string(size) + " free=" +
                              std::to_string(g_threads.next_stack_top - g_partitions.next_address));
@@ -1603,7 +1677,7 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
             return;
         }
         const auto block_size = static_cast<std::uint32_t>(aligned_size);
-        g_partitions.next_address = address + block_size;
+        if (!reused) g_partitions.next_address = address + block_size;
         rt.memory().zero(address, block_size);
         const std::int32_t uid = g_partitions.next_uid++;
         g_partitions.blocks.emplace(uid, PartitionBlock{name, address, block_size});
@@ -1620,8 +1694,12 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         set_return(ctx, it == g_partitions.blocks.end() ? 0u : it->second.address);
     });
     runtime.register_hle("SysMemUserForUser", 0xB6D61D02u, [](Runtime &, AllegrexContext &ctx) {
-        // Memory is never reclaimed; only the handle is dropped.
-        g_partitions.blocks.erase(static_cast<std::int32_t>(ctx.gpr[4]));
+        const auto uid = static_cast<std::int32_t>(ctx.gpr[4]);
+        const auto it = g_partitions.blocks.find(uid);
+        if (it != g_partitions.blocks.end()) {
+            give_free_range(g_partitions, it->second.address, it->second.size);
+            g_partitions.blocks.erase(it);
+        }
         set_success(ctx);
     });
     runtime.register_hle("SysMemUserForUser", 0x13A5ABEFu, [](Runtime &rt, AllegrexContext &ctx) {
