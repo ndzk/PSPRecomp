@@ -535,6 +535,8 @@ constexpr std::size_t kTrapDistinctLimit = 100u;
 // which is the wrong question when the call that matters is late and carries a
 // value that was already seen during boot.
 std::uint64_t g_trap_after_us = 0u;
+// Registers printed beside every trap line, from PSPRECOMP_DEFJAM_TRAP_REGS.
+std::vector<std::uint32_t> g_trap_regs;
 // PSPRECOMP_DEFJAM_TRAP_SHOW names a guest word to print beside every trap
 // line. A trap says what a call was given; this says what the state was when it
 // was given, and the two have to come from the same instant to mean anything.
@@ -768,6 +770,24 @@ void pre_dispatch_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t dispatch
                              " a2=" + psprecomp::hex32(ctx.gpr[6]) + " a3=" +
                              psprecomp::hex32(ctx.gpr[7]) + " ra=" + psprecomp::hex32(ctx.gpr[31]) +
                              " thread " + std::to_string(dispatch_thread_uid) +
+                             [&] {
+                                 // The registers themselves, not memory read
+                                 // through them.
+                                 //
+                                 // PSPRECOMP_DEFJAM_TRAP_REGS=18,20 names them.
+                                 // A trap shows the arguments a call was given,
+                                 // and TRAP_SHOW dereferences a register, but
+                                 // the question here was which object a caller
+                                 // is holding - and that lives in a callee-saved
+                                 // register the argument list does not carry.
+                                 std::string shown;
+                                 for (const std::uint32_t index : g_trap_regs) {
+                                     if (index >= 32u) continue;
+                                     shown += " r" + std::to_string(index) + "=" +
+                                              psprecomp::hex32(ctx.gpr[index]);
+                                 }
+                                 return shown;
+                             }() +
                              [&] {
                                  std::string shown;
                                  for (const TrapShow &show : g_trap_shows) {
@@ -1343,6 +1363,20 @@ bool dispatch_trace_enabled() { return !g_trace.empty(); }
 void install_dispatch_traps() {
     const char *text = std::getenv("PSPRECOMP_DEFJAM_TRAP");
     if (text == nullptr || text[0] == 0) return;
+    if (const char *regs = std::getenv("PSPRECOMP_DEFJAM_TRAP_REGS")) {
+        const std::string list(regs);
+        std::size_t cursor = 0u;
+        while (cursor <= list.size()) {
+            const std::size_t comma = list.find(',', cursor);
+            const std::string item =
+                list.substr(cursor, comma == std::string::npos ? std::string::npos : comma - cursor);
+            if (!item.empty()) {
+                g_trap_regs.push_back(static_cast<std::uint32_t>(std::strtoul(item.c_str(), nullptr, 0)));
+            }
+            if (comma == std::string::npos) break;
+            cursor = comma + 1u;
+        }
+    }
     if (const char *after = std::getenv("PSPRECOMP_DEFJAM_TRAP_AFTER_US"))
         g_trap_after_us = std::strtoull(after, nullptr, 0);
     if (const char *show = std::getenv("PSPRECOMP_DEFJAM_TRAP_SHOW")) {
