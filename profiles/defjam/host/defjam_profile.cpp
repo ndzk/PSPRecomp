@@ -2080,21 +2080,30 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         // press meant to be seen going down and coming back up does not, which
         // is what an on-screen keyboard needs to register a key at all.
         const std::uint64_t sampled_at = g_virtual_time_us + wait;
-        std::uint32_t scripted = 0u;
-        for (const auto &entry : timeline) {
-            if (sampled_at < entry.first) break;
-            scripted = entry.second;
-        }
-        constexpr std::uint64_t kPulseHalfUs = 250000u;
-        const bool pulse_down = (sampled_at / kPulseHalfUs) % 2u == 1u;
         // A real key press is ORed onto the scripted masks rather than
         // replacing them, so the measurement runs this profile was built with
         // keep behaving identically with a window open.
         std::uint8_t analog_x = 128u;
         std::uint8_t analog_y = 128u;
         window_analog(analog_x, analog_y);
-        const std::uint32_t buttons =
-            held | scripted | (pulse_down ? pulsed : 0u) | window_buttons();
+        const std::uint32_t live = held | window_buttons();
+
+        // What was held at a given moment, so a sample can be reconstructed for
+        // a cycle that has already passed. Filling those with the state as it
+        // is now erases any press that began and ended between two reads: the
+        // history then shows the button never moved.
+        // timeline and pulsed have static storage, so they need no capture.
+        const auto mask_at = [live](std::uint64_t when) {
+            std::uint32_t scripted = 0u;
+            for (const auto &entry : timeline) {
+                if (when < entry.first) break;
+                scripted = entry.second;
+            }
+            constexpr std::uint64_t kPulseHalfUs = 250000u;
+            const bool pulse_down = (when / kPulseHalfUs) % 2u == 1u;
+            return live | scripted | (pulse_down ? pulsed : 0u);
+        };
+        const std::uint32_t buttons = mask_at(sampled_at);
         if (reader != nullptr) {
             reader->ctrl_sampled = true;
             reader->last_ctrl_cycle = already_read ? cycle + 1u : cycle;
@@ -2124,7 +2133,8 @@ void install_profile(Runtime &runtime, std::uint32_t user_arena_start) {
         // filled with the state that held through them rather than collapsing.
         for (std::uint64_t c = history_cycle + 1u; c <= sample_cycle && c <= history_cycle + 64u; ++c) {
             history_head = (history_head + 1u) % history.size();
-            history[history_head] = {static_cast<std::uint32_t>(c * kSamplePeriodUs), buttons};
+            const std::uint64_t at = c * kSamplePeriodUs;
+            history[history_head] = {static_cast<std::uint32_t>(at), mask_at(at)};
         }
         if (sample_cycle > history_cycle) history_cycle = sample_cycle;
         history[history_head] = {sample_time, buttons};
