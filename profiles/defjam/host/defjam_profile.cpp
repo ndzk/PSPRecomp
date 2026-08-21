@@ -951,7 +951,12 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
         if (end != nullptr && *end == ',') cap = std::strtoull(end + 1, nullptr, 0);
         return std::array<std::uint64_t, 3>{from, to, cap};
     }();
-    if (trace[1] != 0u && g_virtual_time_us >= trace[0] && g_virtual_time_us <= trace[1]) {
+    // When a window is configured, the trace follows it: a time slice catches
+    // every subsystem that happens to run in the same microsecond, which is how
+    // a copy belonging to something else got read as part of this one.
+    const bool in_scope = g_watch_window_entry == 0u || g_watch_window_open;
+    if (in_scope && trace[1] != 0u && g_virtual_time_us >= trace[0] &&
+        g_virtual_time_us <= trace[1]) {
         static std::uint64_t written = 0u;
         if (written < trace[2]) {
             ++written;
@@ -1093,9 +1098,17 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
                 table += " " + psprecomp::hex32(rt.memory().load32(pixels + k * 4u));
             }
         }
+        // The first argument's fields matter too when the watched function takes
+        // a destination there: a zero pixel pointer makes the fill return at
+        // once, which is invisible in totals and obvious here.
+        for (const std::uint32_t field : {4u, 8u, 16u, 20u}) {
+            if (!rt.memory().contains(ctx.gpr[4] + field, 4u)) continue;
+            table += " [a0+" + std::to_string(field) + "]=" +
+                     psprecomp::hex32(rt.memory().load32(ctx.gpr[4] + field));
+        }
         // a1 is read field by field at the entry, so print the fields it reads
         // and, when one of them is a pointer, the first words behind it.
-        for (const std::uint32_t field : {4u, 8u, 12u, 16u, 20u, 24u}) {
+        for (const std::uint32_t field : {4u, 8u, 12u, 16u, 20u, 24u, 32u}) {
             if (!rt.memory().contains(ctx.gpr[5] + field, 4u)) continue;
             const std::uint32_t value = rt.memory().load32(ctx.gpr[5] + field);
             table += " [a1+" + std::to_string(field) + "]=" + psprecomp::hex32(value);
