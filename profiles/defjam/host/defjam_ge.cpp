@@ -252,6 +252,28 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
                                 std::to_string(total / samples);
                     }
                 }
+                // The row-difference measure said "not an image" while a watch
+                // on the same address showed alpha-0xFF pixels, so decide it
+                // the way that has held up elsewhere: real artwork keeps alpha
+                // in one or two values, noise spreads it over all 256.
+                std::set<std::uint32_t> alphas;
+                std::uint32_t opaque = 0u;
+                std::uint32_t looked = 0u;
+                for (std::uint32_t k = 0; k < 4096u; ++k) {
+                    const std::uint32_t at = source + k * 4u;
+                    if (!runtime.memory().contains(at, 4u)) break;
+                    const std::uint32_t alpha = (runtime.memory().load32(at) >> 24u) & 0xFFu;
+                    alphas.insert(alpha);
+                    if (alpha == 0xFFu) ++opaque;
+                    ++looked;
+                }
+                line += "  source=" + psprecomp::hex32(source) + " alphas=" +
+                        std::to_string(alphas.size()) + " opaque=" + std::to_string(opaque) + "/" +
+                        std::to_string(looked);
+                for (std::uint32_t k = 0; k < 4u; ++k) {
+                    if (!runtime.memory().contains(source + k * 4u, 4u)) break;
+                    line += " " + psprecomp::hex32(runtime.memory().load32(source + k * 4u));
+                }
                 runtime_log_line(line);
             }
         }
