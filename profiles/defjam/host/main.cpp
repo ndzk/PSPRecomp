@@ -372,6 +372,31 @@ int main(int argc, char **argv) {
         // A fault report gives registers; this gives the memory those registers
         // were derived from, which is what identifies an indirect call target
         // after the call has already returned the wrong thing.
+        // Following a pointer chain, because the interesting fields sit two
+        // hops behind a global and a single word tells nothing on its own.
+        if (const char *chain = std::getenv("PSPRECOMP_DEFJAM_DUMP_CHAIN")) {
+            auto at = static_cast<std::uint32_t>(std::strtoul(chain, nullptr, 0));
+            std::cout << "  guest chain:\n";
+            for (int hop = 0; hop < 3; ++hop) {
+                if (!runtime.memory().contains(at, 4u)) {
+                    std::cout << "    " << psprecomp::hex32(at) << " is outside guest memory\n";
+                    break;
+                }
+                const std::uint32_t value = runtime.memory().load32(at);
+                std::cout << "    [" << psprecomp::hex32(at) << "] = " << psprecomp::hex32(value)
+                          << "\n";
+                if (value == 0u) break;
+                if (hop == 1) {
+                    for (std::uint32_t field = 0; field <= 28u; field += 4u) {
+                        if (!runtime.memory().contains(value + field, 4u)) continue;
+                        std::cout << "      +" << field << " = "
+                                  << psprecomp::hex32(runtime.memory().load32(value + field))
+                                  << "\n";
+                    }
+                }
+                at = value;
+            }
+        }
         if (const char *words = std::getenv("PSPRECOMP_DEFJAM_DUMP_WORDS")) {
             std::cout << "  guest words:\n";
             std::string list(words);
