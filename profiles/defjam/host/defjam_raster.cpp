@@ -779,6 +779,21 @@ std::uint32_t modulate(std::uint32_t texel, std::uint32_t vertex) {
            mix(texel & 0xFFu, vertex & 0xFFu);
 }
 
+// The alpha test, exactly as this title configures it and no further. 0xDB is
+// rewritten per draw: 0 (no test), 0xFF0006 (alpha > 0) or 0xFF0107
+// (alpha >= 1) - for eight-bit alpha the two non-zero forms are the same test,
+// discard the fully transparent texel. Unblended cutout textures (fences,
+// crowd cards) otherwise paint their holes as opaque colour.
+bool alpha_test_discards(std::uint32_t color) {
+    const std::uint32_t config = ge_registers()[0xDBu];
+    if (config == 0u) return false;
+    const std::uint32_t function = config & 7u;
+    if (function != 6u && function != 7u) return false;   // only the measured forms
+    const std::uint32_t reference = (config >> 8u) & 0xFFu;
+    const std::uint32_t alpha = (color >> 24u) & 0xFFu;
+    return function == 6u ? alpha <= reference : alpha < reference;
+}
+
 std::uint32_t combine_texel(std::uint32_t texel, std::uint32_t vertex) {
     // Off, and turning it on was a mistake worth recording.
     //
@@ -1249,6 +1264,7 @@ void draw_sprite(const Vertex &first, const Vertex &second, const std::vector<st
                     sample(texels, texture, first.u + t * (second.u - first.u),
                            first.v + s * (second.v - first.v), uv_in_texels),
                     second.color);
+                if (alpha_test_discards(color)) continue;
             }
             put_pixel(x, y, color, second.z);
         }
@@ -1349,6 +1365,7 @@ void draw_triangle(const Vertex &a, const Vertex &b, const Vertex &c,
                     sample(texels, texture, a.u * pa + b.u * pb + c.u * pc,
                            a.v * pa + b.v * pb + c.v * pc, uv_in_texels),
                     vertex);
+                if (alpha_test_discards(color)) continue;
             }
             // Depth stays linear in screen space: that is what a depth buffer
             // stores, and it is already the divided value.

@@ -1941,20 +1941,39 @@ std::string watch_window_report() {
 }
 
 void install_memory_watch() {
+#if defined(PSPRECOMP_AOT_PRODUCTION_FASTPATHS)
+    // Every chained-call hook and per-PC counter compiles out under this flag,
+    // so each instrument below would run and report zero. Three separate zeros
+    // were mistaken for findings this project's lifetime; a fourth will not be.
+    if (std::getenv("PSPRECOMP_DEFJAM_WATCH") != nullptr ||
+        std::getenv("PSPRECOMP_DEFJAM_WATCH_WINDOW") != nullptr ||
+        std::getenv("PSPRECOMP_DEFJAM_WATCH_COUNT") != nullptr ||
+        std::getenv("PSPRECOMP_DEFJAM_LIVE_ALLOC") != nullptr ||
+        std::getenv("PSPRECOMP_DEFJAM_CALL_LOG") != nullptr) {
+        std::cerr << "psprecomp: measurement switches are set but this build defines "
+                     "PSPRECOMP_AOT_PRODUCTION_FASTPATHS, which compiles the hooks out; "
+                     "every count below would read zero. Rebuild without the flag.
+";
+    }
+#endif
     const char *text = std::getenv("PSPRECOMP_DEFJAM_WATCH");
     const char *window_only = std::getenv("PSPRECOMP_DEFJAM_WATCH_WINDOW");
-    const char *count_only = std::getenv("PSPRECOMP_DEFJAM_WATCH_COUNT");
-    // Every switch this function honours has to be named here, or setting only
-    // the newest one leaves without installing anything and reports a zero that
-    // looks like a measurement.
-    const char *live_alloc = std::getenv("PSPRECOMP_DEFJAM_LIVE_ALLOC");
-    const char *live_free = std::getenv("PSPRECOMP_DEFJAM_LIVE_FREE");
-    const char *call_log = std::getenv("PSPRECOMP_DEFJAM_CALL_LOG");
-    const auto unset = [](const char *value) { return value == nullptr || value[0] == 0; };
-    if (unset(text) && unset(window_only) && unset(count_only) && unset(live_alloc) &&
-        unset(live_free) && unset(call_log)) {
-        return;
+    // One list, not scattered gates: three times this session a new switch was
+    // added below but not here, the installer returned early, and the missing
+    // instrumentation read as a zero measurement. Any new switch goes in this
+    // array and nowhere else.
+    static constexpr const char *kSwitches[] = {
+        "PSPRECOMP_DEFJAM_WATCH",      "PSPRECOMP_DEFJAM_WATCH_WINDOW",
+        "PSPRECOMP_DEFJAM_WATCH_COUNT", "PSPRECOMP_DEFJAM_WATCH_RA",
+        "PSPRECOMP_DEFJAM_LIVE_ALLOC",  "PSPRECOMP_DEFJAM_LIVE_FREE",
+        "PSPRECOMP_DEFJAM_CALL_LOG",
+    };
+    bool any_switch = false;
+    for (const char *name : kSwitches) {
+        const char *value = std::getenv(name);
+        if (value != nullptr && value[0] != 0) any_switch = true;
     }
+    if (!any_switch) return;
 
     // A comma-separated list of guest addresses, each watched as a 32-bit word.
     const std::string list(text != nullptr ? text : "");

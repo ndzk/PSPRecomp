@@ -57,7 +57,7 @@ using Microsoft::WRL::ComPtr;
 // cube and, for a textured draw, the sample.
 constexpr char kShaderSource[] = R"(
 cbuffer Frame : register(b0) { float2 target_size; uint textured; uint modulate;
-                               float2 texture_size; uint filtered; uint spare; };
+                               float2 texture_size; uint filtered; uint alphatest; };
 
 struct VSIn {
     float3 position : POSITION;
@@ -128,6 +128,10 @@ float4 ps_main(VSOut input) : SV_Target {
     // dimming overlay drawn at alpha 0x73, exactly as it did on the CPU path.
     if (modulate != 0u) texel *= input.color;
     else texel.a *= input.color.a;
+    // The alpha test, in the only forms this title uses: discard the fully
+    // transparent fragment. Without it an unblended cutout texture paints its
+    // holes as opaque colour.
+    if (alphatest != 0u && texel.a <= 0.001f) discard;
     return texel;
 }
 )";
@@ -156,15 +160,16 @@ enum class BlendMode : std::uint8_t {
 struct PipelineKey {
     bool textured{};
     bool modulate{};
+    bool alpha_test{};
     BlendMode blend{BlendMode::Write};
     bool depth_test{};
     bool depth_write{};
     std::uint8_t compare{};
 
     [[nodiscard]] bool operator<(const PipelineKey &other) const {
-        return std::tie(textured, modulate, blend, depth_test, depth_write, compare) <
-               std::tie(other.textured, other.modulate, other.blend, other.depth_test,
-                        other.depth_write, other.compare);
+        return std::tie(textured, modulate, alpha_test, blend, depth_test, depth_write, compare) <
+               std::tie(other.textured, other.modulate, other.alpha_test, other.blend,
+                        other.depth_test, other.depth_write, other.compare);
     }
 };
 
@@ -384,6 +389,8 @@ void flush_batch() {
         g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &textured, 2);
         const std::uint32_t modulate = g_gpu.batch_key.modulate ? 1u : 0u;
         g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &modulate, 3);
+        const std::uint32_t alphatest = g_gpu.batch_key.alpha_test ? 1u : 0u;
+        g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &alphatest, 7);
         const float size[2] = {static_cast<float>(g_gpu.batch_texture_width),
                                static_cast<float>(g_gpu.batch_texture_height)};
         g_gpu.list->SetGraphicsRoot32BitConstants(0, 2, size, 4);
@@ -957,6 +964,14 @@ bool gpu_draw(psprecomp::Runtime &runtime, std::uint32_t primitive,
                             : (textured && texture_modulation_enabled() &&
                                (registers[kTextureFunction] == 0u ||
                                 registers[kTextureFunction] == kModulate));
+    // 0xDB carries the whole per-draw alpha-test state in this title: the
+    // enable bits at 0x21/0x22 are written twice in an entire fight and left
+    // set, while 0xDB alternates 0 / 0xFF0006 / 0xFF0107 per draw. Only the
+    // two measured functions arm the test.
+    {
+        const std::uint32_t at = registers[0xDBu];
+        key.alpha_test = !clearing && at != 0u && ((at & 7u) == 6u || (at & 7u) == 7u);
+    }
     key.depth_test = !clearing && (registers[0x23u] & 1u) != 0u;
     key.depth_write = (registers[0xE7u] & 1u) == 0u;
     key.compare = static_cast<std::uint8_t>(registers[0xDEu] & 7u);
