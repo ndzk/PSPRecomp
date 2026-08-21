@@ -1,4 +1,5 @@
 #include "defjam_ge.hpp"
+#include "defjam_gpu.hpp"
 
 #include "defjam_profile.hpp"
 #include "defjam_raster.hpp"
@@ -304,6 +305,13 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
                 // still hold texture-setup values latched long before, and
                 // reading them named a RAM address that was never the source.
                 // Dumping the list words settled it - the source is VRAM.
+                // The transfer reads guest VRAM, and with the card drawing,
+                // guest VRAM only holds the frame after a window present has
+                // resolved it. Headless GPU runs measured the consequence
+                // directly: the venue photo readback copied solid black
+                // (65 536 pixels, one colour). Resolving here makes the source
+                // current in every mode, window or not.
+                gpu_resolve(runtime);
                 const std::uint32_t src =
                     ((g_registers[0xB3u] & 0x000F0000u) << 8u) | (g_registers[0xB2u] & 0x00FFFFF0u);
                 const std::uint32_t dst =
