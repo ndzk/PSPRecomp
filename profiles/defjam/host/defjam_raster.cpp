@@ -47,6 +47,11 @@ RenderTarget g_surface_target;
 // The depth buffer is 16 bits per pixel.
 std::vector<std::uint16_t> g_depth;
 
+// Every distinct render target the game binds. A texture buffer that keeps
+// filling with non-image bytes may simply be a target we render into, and the
+// only way to tell is to see whether its address is ever bound as one.
+std::map<std::uint32_t, std::uint64_t> g_bound_targets;
+
 // Makes the host copy match the target, growing it if the target changed.
 void bind_surface(psprecomp::Runtime &runtime, const RenderTarget &target) {
     if (g_surface_target.address == target.address && g_surface_target.stride == target.stride &&
@@ -1416,6 +1421,11 @@ RenderTarget current_render_target() {
     target.stride = width_register & 0x0000FFFFu;
     target.width = std::min(kDisplayWidth, target.stride);
     target.height = kDisplayHeight;
+    // Recorded here rather than at bind time: this is decoded from the GE
+    // registers, so it sees the same targets whichever backend draws them.
+    // bind_surface only runs on the reference path and reported nothing at all
+    // when the hardware backend was in use.
+    ++g_bound_targets[target.address];
     return target;
 }
 
@@ -1731,6 +1741,11 @@ std::string blend_report() {
 
 std::string raster_report() {
     std::ostringstream out;
+    out << "  render targets bound:";
+    for (const auto &entry : g_bound_targets) {
+        out << "  " << psprecomp::hex32(entry.first) << " x" << entry.second;
+    }
+    out << "\n";
     out << "  raster alpha:       " << g_stats.transparent_writes << " fully transparent, "
         << g_stats.coloured_writes << " with colour" << "\n";
     out << "  raster:             " << g_stats.primitives_drawn << " drawn, "

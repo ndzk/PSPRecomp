@@ -9,6 +9,22 @@
 #include <fstream>
 #include <vector>
 
+namespace {
+// Which subsystem writes a given guest address. A texture buffer that keeps
+// filling with non-image bytes is either written by the game or by one of our
+// own handlers, and this is how the second case is ruled in or out.
+void note_write_over(const char *who, std::uint32_t at, std::uint32_t length) {
+    static const std::uint32_t traced = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_WRITE_INTO");
+        return text == nullptr ? 0u : static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
+    }();
+    if (traced == 0u || traced < at || traced >= at + length) return;
+    defjam::runtime_log_line(std::string(who) + " writes over " + psprecomp::hex32(traced) + ": " +
+                     psprecomp::hex32(at) + " + " + std::to_string(length));
+}
+}  // namespace
+
+
 namespace defjam {
 namespace {
 
@@ -141,6 +157,7 @@ void perform_load(Runtime &rt, std::uint32_t param, const std::filesystem::path 
         set_result(rt, param, kErrorLoadNoData);
         return;
     }
+    note_write_over("utility", buffer, static_cast<std::uint32_t>(staging.size()));
     rt.memory().copy_in(buffer, std::span<const std::uint8_t>(staging.data(), staging.size()));
     rt.memory().store32(param + kSavedataDataSizeOffset, static_cast<std::uint32_t>(size));
     ++g_stats.saves_loaded;

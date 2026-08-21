@@ -10,6 +10,22 @@
 #include <span>
 #include <string>
 
+namespace {
+// Which subsystem writes a given guest address. A texture buffer that keeps
+// filling with non-image bytes is either written by the game or by one of our
+// own handlers, and this is how the second case is ruled in or out.
+void note_write_over(const char *who, std::uint32_t at, std::uint32_t length) {
+    static const std::uint32_t traced = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_WRITE_INTO");
+        return text == nullptr ? 0u : static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
+    }();
+    if (traced == 0u || traced < at || traced >= at + length) return;
+    defjam::runtime_log_line(std::string(who) + " writes over " + psprecomp::hex32(traced) + ": " +
+                     psprecomp::hex32(at) + " + " + std::to_string(length));
+}
+}  // namespace
+
+
 namespace defjam {
 namespace {
 
@@ -261,6 +277,7 @@ void install_atrac_hle(Runtime &runtime) {
 
         const auto bytes = static_cast<std::uint32_t>(pcm.size() * sizeof(std::int16_t));
         if (out_samples != 0u && rt.memory().contains(out_samples, bytes)) {
+            note_write_over("atrac", out_samples, 0u);
             rt.memory().copy_in(out_samples,
                                 std::span<const std::uint8_t>(
                                     reinterpret_cast<const std::uint8_t *>(pcm.data()), bytes));
