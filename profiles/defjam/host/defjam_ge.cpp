@@ -223,6 +223,35 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
                     if (g_registers[reg] == 0u) continue;
                     line += "  " + psprecomp::hex32(reg) + "=" + psprecomp::hex32(g_registers[reg]);
                 }
+                // The source stride cannot be read from one sample, but it can
+                // be measured: in a real image adjacent rows resemble each
+                // other, so the candidate stride that minimises the row-to-row
+                // difference is the one the data actually has.
+                const std::uint32_t source =
+                    ((g_registers[0xB1u] & 0x000F0000u) << 8u) | (g_registers[0xB0u] & 0x00FFFFFFu);
+                for (const std::uint32_t stride : {512u, 1024u, 2048u, 4096u}) {
+                    std::uint64_t total = 0u;
+                    std::uint64_t samples = 0u;
+                    for (std::uint32_t row = 0; row < 32u; ++row) {
+                        for (std::uint32_t x = 0; x < 256u; x += 4u) {
+                            const std::uint32_t a = source + row * stride + x;
+                            const std::uint32_t b = a + stride;
+                            if (!runtime.memory().contains(b, 4u)) continue;
+                            const std::uint32_t va = runtime.memory().load32(a);
+                            const std::uint32_t vb = runtime.memory().load32(b);
+                            for (std::uint32_t byte = 0; byte < 4u; ++byte) {
+                                const int da = static_cast<int>((va >> (byte * 8u)) & 0xFFu);
+                                const int db = static_cast<int>((vb >> (byte * 8u)) & 0xFFu);
+                                total += static_cast<std::uint64_t>(std::abs(da - db));
+                                ++samples;
+                            }
+                        }
+                    }
+                    if (samples != 0u) {
+                        line += "  stride" + std::to_string(stride) + "=" +
+                                std::to_string(total / samples);
+                    }
+                }
                 runtime_log_line(line);
             }
         }
