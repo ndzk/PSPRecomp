@@ -813,6 +813,18 @@ void install_io_hle(Runtime &runtime, const std::string &game_root) {
         }
         if (ctx.gpr[5] != 0u) {
             const auto entry = iso_lookup(path);
+            // The sector reported here is what the title turns into its
+            // "sce_lbn" read path, so a wrong one here becomes a read of the
+            // wrong part of the disc later, with no error anywhere in between.
+            if (std::getenv("PSPRECOMP_DEFJAM_LOG_STAT") != nullptr) {
+                std::error_code size_ec;
+                const auto bytes = is_dir ? 0u : std::filesystem::file_size(host_path, size_ec);
+                runtime_log_line("stat " + path + " -> sector " +
+                                 (entry ? psprecomp::hex32(entry->sector) : std::string("none")) +
+                                 " iso_size " +
+                                 (entry ? std::to_string(entry->size) : std::string("none")) +
+                                 " host_size " + std::to_string(bytes));
+            }
             write_stat(rt, ctx.gpr[5], host_path, is_dir, entry ? entry->sector : 0u);
         }
         set_return(ctx, 0u);
