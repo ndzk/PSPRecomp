@@ -914,6 +914,14 @@ void post_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t tar
     }
     if (g_watch_window_entry == 0u || target_pc != g_watch_window_entry) return;
     g_watch_window_open = false;
+    // Watches are only sampled at dispatch boundaries. When the window closes
+    // here, on the chained return, that count has to travel with it or a window
+    // that was never sampled reads exactly like one that saw no writes.
+    if (g_watch_window_entries <= 24u) {
+        runtime_log_line("window #" + std::to_string(g_watch_window_entries) + " closed after " +
+                         std::to_string(g_watch_window_samples) + " sampled dispatches");
+    }
+    g_watch_window_samples = 0u;
     ++g_watch_count_passes;
     if (g_watch_count_passes == 1u || g_watch_count_in_window < g_watch_count_min) {
         g_watch_count_min = g_watch_count_in_window;
@@ -951,6 +959,13 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
                              psprecomp::hex32(ctx.gpr[4]) + " a1=" + psprecomp::hex32(ctx.gpr[5]) +
                              " a2=" + psprecomp::hex32(ctx.gpr[6]));
         }
+    }
+    // Sampling only at dispatch boundaries cannot see inside a region that runs
+    // entirely on chained calls: measured, every window over the fill routine
+    // closed after zero samples. A chained call is the one boundary such a
+    // region does cross, so sample there too.
+    if (!g_watches.empty() && g_watch_window_open) {
+        check_watches(rt, ctx, target_pc, g_threads.current_uid);
     }
     if (g_live_free_pc != 0u && target_pc == g_live_free_pc) {
         ++g_live_frees;
@@ -1080,7 +1095,7 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
         }
         // a1 is read field by field at the entry, so print the fields it reads
         // and, when one of them is a pointer, the first words behind it.
-        for (const std::uint32_t field : {8u, 12u, 16u, 20u, 24u}) {
+        for (const std::uint32_t field : {4u, 8u, 12u, 16u, 20u, 24u}) {
             if (!rt.memory().contains(ctx.gpr[5] + field, 4u)) continue;
             const std::uint32_t value = rt.memory().load32(ctx.gpr[5] + field);
             table += " [a1+" + std::to_string(field) + "]=" + psprecomp::hex32(value);
