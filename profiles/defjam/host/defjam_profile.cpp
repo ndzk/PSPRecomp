@@ -955,7 +955,16 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
     // every subsystem that happens to run in the same microsecond, which is how
     // a copy belonging to something else got read as part of this one.
     const bool in_scope = g_watch_window_entry == 0u || g_watch_window_open;
-    if (in_scope && trace[1] != 0u && g_virtual_time_us >= trace[0] &&
+    // Over a long interval the trace is unreadable unless it is narrowed to the
+    // object in question, so an optional argument filter keeps only the calls
+    // that mention a given value.
+    static const std::uint32_t only = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_CALL_ARG");
+        return text == nullptr ? 0u : static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
+    }();
+    const bool mentions = only == 0u || ctx.gpr[4] == only || ctx.gpr[5] == only ||
+                          ctx.gpr[6] == only || ctx.gpr[7] == only;
+    if (in_scope && mentions && trace[1] != 0u && g_virtual_time_us >= trace[0] &&
         g_virtual_time_us <= trace[1]) {
         static std::uint64_t written = 0u;
         if (written < trace[2]) {

@@ -209,6 +209,24 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
         g_registers[command] = data;
         note_command(command, data);
 
+        // Command 0xEA is issued 96 times with a non-zero argument and has no
+        // handler here: it latches and nothing happens. Before giving it one,
+        // print the register file around it at each kick, so the operands are
+        // identified from what the title actually writes rather than assumed.
+        if (command == 0xEAu && data != 0u &&
+            std::getenv("PSPRECOMP_DEFJAM_KICK") != nullptr) {
+            static std::uint32_t kicks = 0u;
+            if (kicks < 8u) {
+                ++kicks;
+                std::string line = "kick " + std::to_string(kicks) + " arg=" + std::to_string(data);
+                for (std::uint32_t reg = 0xB0u; reg <= 0xEFu; ++reg) {
+                    if (g_registers[reg] == 0u) continue;
+                    line += "  " + psprecomp::hex32(reg) + "=" + psprecomp::hex32(g_registers[reg]);
+                }
+                runtime_log_line(line);
+            }
+        }
+
         switch (command) {
         case kCmdNop:
         case kCmdBase:
