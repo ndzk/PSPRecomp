@@ -929,6 +929,29 @@ void post_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t tar
 void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t target_pc,
                            std::uint32_t native_depth) {
     (void)native_depth;
+    // A bounded trace of what actually gets called, so two runs of the same
+    // step -- one that produces an image and one that does not -- can be
+    // compared directly instead of inferred from the values they leave behind.
+    static const std::array<std::uint64_t, 3> trace = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_CALL_LOG");
+        if (text == nullptr) return std::array<std::uint64_t, 3>{0u, 0u, 0u};
+        char *end = nullptr;
+        const std::uint64_t from = std::strtoull(text, &end, 0);
+        std::uint64_t to = from + 2000u;
+        std::uint64_t cap = 20000u;
+        if (end != nullptr && *end == ',') to = std::strtoull(end + 1, &end, 0);
+        if (end != nullptr && *end == ',') cap = std::strtoull(end + 1, nullptr, 0);
+        return std::array<std::uint64_t, 3>{from, to, cap};
+    }();
+    if (trace[1] != 0u && g_virtual_time_us >= trace[0] && g_virtual_time_us <= trace[1]) {
+        static std::uint64_t written = 0u;
+        if (written < trace[2]) {
+            ++written;
+            runtime_log_line("call " + psprecomp::hex32(target_pc) + " a0=" +
+                             psprecomp::hex32(ctx.gpr[4]) + " a1=" + psprecomp::hex32(ctx.gpr[5]) +
+                             " a2=" + psprecomp::hex32(ctx.gpr[6]));
+        }
+    }
     if (g_live_free_pc != 0u && target_pc == g_live_free_pc) {
         ++g_live_frees;
         // Argument registers are hot too, so they are only trustworthy on the
@@ -1887,9 +1910,10 @@ void install_memory_watch() {
     // looks like a measurement.
     const char *live_alloc = std::getenv("PSPRECOMP_DEFJAM_LIVE_ALLOC");
     const char *live_free = std::getenv("PSPRECOMP_DEFJAM_LIVE_FREE");
+    const char *call_log = std::getenv("PSPRECOMP_DEFJAM_CALL_LOG");
     const auto unset = [](const char *value) { return value == nullptr || value[0] == 0; };
     if (unset(text) && unset(window_only) && unset(count_only) && unset(live_alloc) &&
-        unset(live_free)) {
+        unset(live_free) && unset(call_log)) {
         return;
     }
 
@@ -1922,7 +1946,8 @@ void install_memory_watch() {
         g_live_free_pc = static_cast<std::uint32_t>(std::strtoul(pc, nullptr, 0));
     }
     if (g_watches.empty() && g_watch_window_entry == 0u && g_watch_count_target == 0u &&
-        g_live_alloc_pc == 0u && g_live_free_pc == 0u) {
+        g_live_alloc_pc == 0u && g_live_free_pc == 0u &&
+        std::getenv("PSPRECOMP_DEFJAM_CALL_LOG") == nullptr) {
         return;
     }
 
@@ -1941,8 +1966,8 @@ void install_memory_watch() {
         runtime_log_line("checking where returns to " + psprecomp::hex32(g_slot_filter_ra) +
                          " store their pointer");
     }
-    if (g_watch_window_entry != 0u || g_watch_count_target != 0u ||
-        g_live_alloc_pc != 0u || g_live_free_pc != 0u) {
+    if (g_watch_window_entry != 0u || g_watch_count_target != 0u || g_live_alloc_pc != 0u ||
+        g_live_free_pc != 0u || std::getenv("PSPRECOMP_DEFJAM_CALL_LOG") != nullptr) {
         psprecomp::set_runtime_pre_chained_call_hook(&pre_chained_call_hook);
         psprecomp::set_runtime_post_chained_call_hook(&post_chained_call_hook);
     }
