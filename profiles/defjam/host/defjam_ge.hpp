@@ -78,6 +78,8 @@ void note_draw_state();
 [[nodiscard]] std::string register_audit_report();
 
 [[nodiscard]] std::string ge_report();
+// Commands the profile has no opinion about, written with non-zero data.
+[[nodiscard]] std::string unknown_command_report();
 
 // The transform matrices, as the guest streamed them in.
 //

@@ -828,8 +828,38 @@ std::uint32_t combine_texel(std::uint32_t texel, std::uint32_t vertex) {
     // is still set when the interface is drawn, and skipping modulation there
     // turned the warning screen's text white again. Substituting the material
     // colour keeps the text modulated - the interface's material is white.
-    if (ge_registers()[kTextureFunctionCandidate] == kTextureFunctionModulate) {
+    // The unified function set. Measured cases pinned exactly as verified, the
+    // documented ones filled in for venues not yet seen:
+    //   0    modulate (verified: character shadows; this branch had been lost
+    //         from the reference path while the GPU path kept it - a backend
+    //         divergence the menu-frame parity contract could not see, because
+    //         menu vertex colours are white)
+    //   2    modulate (verified: the warning screen's black text)
+    //   0x20 the replace-keep-vertex-alpha fall-through below, exactly what the
+    //         goldens captured; its low bits read 0 but it must not modulate
+    //   1    decal      3 replace      4 add (clamped)
+    const std::uint32_t function = ge_registers()[kTextureFunctionCandidate];
+    if (function == 0u || function == kTextureFunctionModulate) {
         return modulate(texel, vertex);
+    }
+    if (function == 1u) {
+        const std::uint32_t ta = (texel >> 24u) & 0xFFu;
+        const auto mix = [&](std::uint32_t shift) {
+            const std::uint32_t t = (texel >> shift) & 0xFFu;
+            const std::uint32_t v = (vertex >> shift) & 0xFFu;
+            return (v * (255u - ta) + t * ta + 127u) / 255u;
+        };
+        return (vertex & 0xFF000000u) | (mix(16u) << 16u) | (mix(8u) << 8u) | mix(0u);
+    }
+    if (function == 3u) return texel;
+    if (function == 4u) {
+        const auto add = [&](std::uint32_t shift) {
+            const std::uint32_t sum = ((texel >> shift) & 0xFFu) + ((vertex >> shift) & 0xFFu);
+            return sum > 255u ? 255u : sum;
+        };
+        const std::uint32_t ta = (texel >> 24u) & 0xFFu;
+        const std::uint32_t va = (vertex >> 24u) & 0xFFu;
+        return (((ta * va + 127u) / 255u) << 24u) | (add(16u) << 16u) | (add(8u) << 8u) | add(0u);
     }
     // The other mode replaces the colour but keeps the vertex's alpha.
     //

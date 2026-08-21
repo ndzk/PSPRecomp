@@ -354,6 +354,30 @@ unsupported instruction, or a watchdog budget ran out.
   bone matrices per vertex on the CPU with no GPU path, which matters far more
   for a game rendering two to four skinned fighters than for an open world.
 
+## Verifying a change
+
+Three instruments, all in this directory, all built on the measured fact that the
+emulation is deterministic (two independent runs matched to the pixel at every
+checkpoint):
+
+```text
+python golden_run.py            scripted story run to guest 300 s; frame metrics
+                                every 30 s compared against golden_metrics.json
+python golden_run.py --long     the same through the post-fight movies to 1800 s
+python golden_run.py --capture  re-baseline after an INTENDED visual change;
+                                this is the human sign-off, never run it to
+                                silence a failure you have not understood
+python golden_run.py --parity   both backends over one schedule, pixel-exact;
+                                contract: every channel agrees within 2 steps
+```
+
+Frames are captures of the user's own game content: they live in a temporary
+directory and are deleted, and only the derived numbers are committed.
+
+The end-of-run report also prints every GE command the title wrote that this
+profile has no opinion about (`unknown_command_report`), so a new venue's
+surprises arrive as named report lines rather than visual mysteries.
+
 ## Layout
 
 ```text

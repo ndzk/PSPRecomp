@@ -27,13 +27,18 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 EXE = os.path.join(HERE, "..", "..", "out", "defjam", "bin", "Release", "DefJamNative.exe")
 GOLDEN = os.path.join(HERE, "golden_metrics.json")
+GOLDEN_LONG = os.path.join(HERE, "golden_metrics_long.json")
 STOP_US = 300_000_000
 FRAME_EVERY_US = 30_000_000
+# --long stretches the run through the post-fight movies and later venues the
+# soak reached; separate goldens, because the two runs are different journeys.
+LONG_STOP_US = 1_800_000_000
+LONG_FRAME_EVERY_US = 120_000_000
 TOLERANCE_BAND = 10
 TOLERANCE_MEAN = 6
 
 
-def input_schedule():
+def input_schedule(stop_us=None):
     parts = ["12000:0x4000,12300:0,16000:0x4000,16300:0,34000:0x4000,34300:0",
              "40000:0x4000,40300:0,72000:0x8,72300:0,78000:0x8,78300:0",
              "84000:0x4000,84300:0,90000:0x4000,90300:0,118000:0x4000,118300:0",
@@ -45,7 +50,8 @@ def input_schedule():
     for _ in range(2):
         parts.append(f"{t}:0x20,{t+50}:0"); t += 2_500
     parts.append(f"{t}:0x4000,{t+400}:0"); t += 14_000
-    while t < STOP_US // 1000:
+    limit = (stop_us or STOP_US) // 1000
+    while t < limit:
         parts.append(f"{t}:0x8,{t+400}:0"); t += 2_500
         parts.append(f"{t}:0x40,{t+50}:0"); t += 1_200
         parts.append(f"{t}:0x4000,{t+400}:0"); t += 2_500
@@ -86,21 +92,24 @@ def frame_metrics(path):
     return {"bands": bands, "mean": total // max(1, count), "colours": len(colours)}
 
 
-def run_and_measure():
+def run_and_measure(stop_us=STOP_US, frame_every_us=FRAME_EVERY_US):
+    if not os.path.exists(EXE):
+        print(f"FAIL: {EXE} does not exist - build the profile first")
+        sys.exit(2)
     workdir = tempfile.mkdtemp(prefix="defjam_golden_")
     env = dict(os.environ)
     env.update({
         "PSPRECOMP_DEFJAM_GPU": "1",
         "PSPRECOMP_DEFJAM_MODULATE": "1",
-        "PSPRECOMP_DEFJAM_INPUT": input_schedule(),
-        "PSPRECOMP_DEFJAM_STOP_AT_GUEST_US": str(STOP_US),
-        "PSPRECOMP_DEFJAM_FRAME_EVERY_US": str(FRAME_EVERY_US),
+        "PSPRECOMP_DEFJAM_INPUT": input_schedule(stop_us),
+        "PSPRECOMP_DEFJAM_STOP_AT_GUEST_US": str(stop_us),
+        "PSPRECOMP_DEFJAM_FRAME_EVERY_US": str(frame_every_us),
         "PSPRECOMP_DEFJAM_STALL_SECONDS": "900",
         "PSPRECOMP_MAX_DISPATCHES": "400000000000",
     })
-    print(f"running {os.path.basename(EXE)} to guest {STOP_US // 1_000_000}s ...", flush=True)
+    print(f"running {os.path.basename(EXE)} to guest {stop_us // 1_000_000}s ...", flush=True)
     result = subprocess.run([EXE], cwd=workdir, env=env,
-                            capture_output=True, text=True, timeout=3600)
+                            capture_output=True, text=True, timeout=7200)
     fault = [line for line in result.stdout.splitlines() if "Guest fault" in line]
     metrics = {}
     for name in sorted(os.listdir(workdir)):
@@ -184,7 +193,12 @@ def main():
     if "--parity" in sys.argv:
         return run_parity()
     capture = "--capture" in sys.argv
-    metrics, fault = run_and_measure()
+    if "--long" in sys.argv:
+        global GOLDEN, STOP_US, FRAME_EVERY_US
+        GOLDEN = GOLDEN_LONG
+        STOP_US = LONG_STOP_US
+        FRAME_EVERY_US = LONG_FRAME_EVERY_US
+    metrics, fault = run_and_measure(STOP_US, FRAME_EVERY_US)
     if fault:
         print("FAIL: the run faulted:")
         for line in fault:

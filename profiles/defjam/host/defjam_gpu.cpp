@@ -56,7 +56,7 @@ using Microsoft::WRL::ComPtr;
 // through the transform, so the only work left is the mapping onto the clip
 // cube and, for a textured draw, the sample.
 constexpr char kShaderSource[] = R"(
-cbuffer Frame : register(b0) { float2 target_size; uint textured; uint modulate;
+cbuffer Frame : register(b0) { float2 target_size; uint textured; uint texfunc;
                                float2 texture_size; uint filtered; uint alphatest; };
 
 struct VSIn {
@@ -126,8 +126,17 @@ float4 ps_main(VSOut input) : SV_Target {
     // the other mode replaces the colour but keeps the vertex's alpha. Dropping
     // that alpha here left the main menu's left half painted opaque black by a
     // dimming overlay drawn at alpha 0x73, exactly as it did on the CPU path.
-    if (modulate != 0u) texel *= input.color;
-    else texel.a *= input.color.a;
+    // The unified texture-function set; kinds mirror the reference path.
+    // 0 replace-keep-vertex-alpha, 1 modulate, 2 decal, 3 replace, 4 add.
+    if (texfunc == 1u) texel *= input.color;
+    else if (texfunc == 2u) {
+        texel.rgb = lerp(input.color.rgb, texel.rgb, texel.a);
+        texel.a = input.color.a;
+    } else if (texfunc == 3u) { /* texel stays as sampled */ }
+    else if (texfunc == 4u) {
+        texel.rgb = saturate(texel.rgb + input.color.rgb);
+        texel.a *= input.color.a;
+    } else texel.a *= input.color.a;
     // The alpha test, in the only forms this title uses: discard the fully
     // transparent fragment. Without it an unblended cutout texture paints its
     // holes as opaque colour.
@@ -159,7 +168,9 @@ enum class BlendMode : std::uint8_t {
 
 struct PipelineKey {
     bool textured{};
-    bool modulate{};
+    // 0 replace-keep-vertex-alpha, 1 modulate, 2 decal, 3 replace, 4 add;
+    // mirrors combine_texel's mapping including the 0x20 pin.
+    std::uint8_t texture_function{};
     bool alpha_test{};
     BlendMode blend{BlendMode::Write};
     bool depth_test{};
@@ -167,8 +178,9 @@ struct PipelineKey {
     std::uint8_t compare{};
 
     [[nodiscard]] bool operator<(const PipelineKey &other) const {
-        return std::tie(textured, modulate, alpha_test, blend, depth_test, depth_write, compare) <
-               std::tie(other.textured, other.modulate, other.alpha_test, other.blend,
+        return std::tie(textured, texture_function, alpha_test, blend, depth_test, depth_write,
+                        compare) <
+               std::tie(other.textured, other.texture_function, other.alpha_test, other.blend,
                         other.depth_test, other.depth_write, other.compare);
     }
 };
@@ -387,8 +399,8 @@ void flush_batch() {
         g_gpu.list->SetGraphicsRoot32BitConstants(0, 2, constants, 0);
         const std::uint32_t textured = g_gpu.batch_key.textured ? 1u : 0u;
         g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &textured, 2);
-        const std::uint32_t modulate = g_gpu.batch_key.modulate ? 1u : 0u;
-        g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &modulate, 3);
+        const std::uint32_t texfunc = g_gpu.batch_key.texture_function;
+        g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &texfunc, 3);
         const std::uint32_t alphatest = g_gpu.batch_key.alpha_test ? 1u : 0u;
         g_gpu.list->SetGraphicsRoot32BitConstants(0, 1, &alphatest, 7);
         const float size[2] = {static_cast<float>(g_gpu.batch_texture_width),
@@ -958,12 +970,20 @@ bool gpu_draw(psprecomp::Runtime &runtime, std::uint32_t primitive,
         const char *text = std::getenv("PSPRECOMP_DEFJAM_PAINT");
         return text != nullptr && text[0] != 0 && text[0] != 48;
     }();
-    // Function 0 modulates as well; see the reference path. White character
-    // shadows were function-0 draws shown unmodulated.
-    key.modulate = painting ? textured
-                            : (textured && texture_modulation_enabled() &&
-                               (registers[kTextureFunction] == 0u ||
-                                registers[kTextureFunction] == kModulate));
+    // The same pinned mapping as the reference path's combine_texel: raw
+    // values 0 and 2 modulate, 0x20 is the keep-vertex-alpha default, 1/3/4
+    // take their documented meanings, anything unknown falls to the default.
+    key.texture_function = 0u;
+    // Paint mode tints by multiplying regardless of the modulation switch, as
+    // it always has; everything else keeps the switch's authority.
+    if (painting && textured) key.texture_function = 1u;
+    else if (textured && texture_modulation_enabled()) {
+        const std::uint32_t raw = registers[kTextureFunction];
+        if (raw == 0u || raw == kModulate) key.texture_function = 1u;
+        else if (raw == 1u) key.texture_function = 2u;
+        else if (raw == 3u) key.texture_function = 3u;
+        else if (raw == 4u) key.texture_function = 4u;
+    }
     // 0xDB carries the whole per-draw alpha-test state in this title: the
     // enable bits at 0x21/0x22 are written twice in an entire fight and left
     // set, while 0xDB alternates 0 / 0xFF0006 / 0xFF0107 per draw. Only the

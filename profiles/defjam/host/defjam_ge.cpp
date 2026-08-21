@@ -599,6 +599,68 @@ std::string register_audit_report() {
     return out.str();
 }
 
+// Every GE command this profile has an opinion about, so the ones it does not
+// are a named list instead of a silence. Handled: consumed by rendering code.
+// Latched: stored and read as draw state. Everything else is Unknown, and any
+// Unknown command the title writes with a non-zero operand is reported at the
+// end of the run. Future venues then introduce themselves by name in a report
+// line rather than as a visual mystery.
+enum class CommandClass : std::uint8_t { Unknown, Handled, Latched };
+
+CommandClass command_class(std::uint8_t command) {
+    switch (command) {
+    // List flow and draws, handled in the loop below.
+    case 0x00: case 0x01: case 0x02: case 0x04: case 0x08: case 0x0A: case 0x0B:
+    case 0x0C: case 0x0E: case 0x0F: case 0x10: case 0x12: case 0x13: case 0x15:
+    case 0x16:
+    // Matrices and bones.
+    case 0x2A: case 0x2B: case 0x2C: case 0x2D: case 0x2E: case 0x2F:
+    case 0x30: case 0x31:
+    // Viewport, offset, scissor, target.
+    case 0x42: case 0x43: case 0x44: case 0x45: case 0x46: case 0x47:
+    case 0x4C: case 0x4D: case 0xD5: case 0x9C: case 0x9D:
+    // Texture state, function, palette, filter, blend, depth, clear.
+    case 0x1D: case 0x1E: case 0x21: case 0x22: case 0x23: case 0x53: case 0x54:
+    case 0x56: case 0x5D: case 0x63: case 0x64: case 0x65: case 0x9B:
+    case 0xA0: case 0xA8: case 0xB0: case 0xB1: case 0xB2: case 0xB3: case 0xB4:
+    case 0xB5: case 0xB8: case 0xC1: case 0xC2: case 0xC3: case 0xC4: case 0xC5:
+    case 0xC6: case 0xD3: case 0xDB: case 0xDE: case 0xE7: case 0xEA: case 0xEE:
+        return CommandClass::Handled;
+    // Written by this title, read by nothing here yet; kept as latched state.
+    case 0x17: case 0x18: case 0x19: case 0x1A: case 0x1B: case 0x1C: case 0x1F:
+    case 0x20: case 0x50: case 0x51: case 0x52: case 0x55: case 0x57: case 0x58:
+    case 0x5B: case 0x5C: case 0x5E: case 0x5F: case 0x60: case 0x61: case 0x62:
+    case 0x66: case 0x67: case 0x68: case 0x72: case 0x73: case 0x74: case 0x7B:
+    case 0x7E: case 0x80: case 0x8C: case 0x90: case 0x93: case 0xC7: case 0xC8:
+    case 0xC9: case 0xCF: case 0xD0: case 0xD2: case 0xD7: case 0xDC: case 0xDF:
+    case 0xE2: case 0xE3: case 0xE4: case 0xE5: case 0xEB: case 0xEC:
+        return CommandClass::Latched;
+    default:
+        return CommandClass::Unknown;
+    }
+}
+
+std::string unknown_command_report() {
+    std::ostringstream out;
+    bool any = false;
+    for (const auto &[command, count] : g_command_counts) {
+        if (command_class(command) != CommandClass::Unknown) continue;
+        const std::set<std::uint32_t> &values = g_command_values[command];
+        const bool interesting =
+            values.size() > 1u || (values.size() == 1u && *values.begin() != 0u);
+        if (!interesting) continue;
+        if (!any) {
+            out << "  GE commands this profile does not know, written with data:" << char(10);
+            any = true;
+        }
+        out << "    0x" << std::hex << static_cast<std::uint32_t>(command) << std::dec
+            << "  x" << count << ", values";
+        for (const std::uint32_t value : values) out << " " << value;
+        out << char(10);
+    }
+    return out.str();
+}
+
 std::string command_value_report() {
     std::ostringstream out;
     out << "  GE registers written, with the values used:\n";
