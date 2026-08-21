@@ -209,16 +209,26 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
         g_registers[command] = data;
         note_command(command, data);
 
-        // Command 0xEA is issued 96 times with a non-zero argument and has no
-        // handler here: it latches and nothing happens. Before giving it one,
-        // print the register file around it at each kick, so the operands are
-        // identified from what the title actually writes rather than assumed.
-        if (command == 0xEAu && data != 0u &&
-            std::getenv("PSPRECOMP_DEFJAM_KICK") != nullptr) {
+        // A block transfer. The operands were identified from what the title
+        // writes into the display list, not assumed; PSPRECOMP_DEFJAM_KICK
+        // prints the register file and the surrounding list words, which is how
+        // 0xB2/0xB3 were found to be the source after 0xB0/0xB1 had been read
+        // by mistake.
+        if (command == 0xEAu && data != 0u) {
             static std::uint32_t kicks = 0u;
-            if (kicks < 8u) {
+            if (std::getenv("PSPRECOMP_DEFJAM_KICK") != nullptr && kicks < 8u) {
                 ++kicks;
-                std::string line = "kick " + std::to_string(kicks) + " arg=" + std::to_string(data);
+                // The list address matters as much as the operands: the source
+                // pointer is a word somebody wrote into this list, and finding
+                // that writer needs the address it was written to.
+                std::string line = "kick " + std::to_string(kicks) + " arg=" + std::to_string(data) +
+                                   " list=" + psprecomp::hex32(pc - 4u);
+                for (std::uint32_t back = 10u; back >= 1u; --back) {
+                    const std::uint32_t at = pc - 4u - back * 4u;
+                    if (!runtime.memory().contains(at, 4u)) continue;
+                    line += "  " + psprecomp::hex32(at) + ":" +
+                            psprecomp::hex32(runtime.memory().load32(at));
+                }
                 for (std::uint32_t reg = 0xB0u; reg <= 0xEFu; ++reg) {
                     if (g_registers[reg] == 0u) continue;
                     line += "  " + psprecomp::hex32(reg) + "=" + psprecomp::hex32(g_registers[reg]);
@@ -277,22 +287,32 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
                 runtime_log_line(line);
             }
 
-            // Performing the transfer, behind a switch, is the only way to
-            // decide whether the source address is right: if the copy produces
-            // a sane image the missing handler was the whole fault, and if it
-            // stays noise the operands themselves are wrong. Operand layout is
-            // the one observed at the single kick this title issues; anything
-            // it cannot account for is reported rather than assumed away.
-            if (std::getenv("PSPRECOMP_DEFJAM_DO_TRANSFER") != nullptr) {
+            // The block transfer the title uses to read a rendered frame back out
+            // of VRAM. Leaving it unhandled left the destination holding whatever
+            // the allocator had last put there, which a colour quantiser
+            // downstream then read as 65 230 distinct colours and turned into a
+            // fatal allocation failure. Operands come from the display list:
+            // 0xB2/0xB3 source, 0xB4/0xB5 destination, 0xEE size, and the kick
+            // argument selects the texel width. PSPRECOMP_DEFJAM_NO_TRANSFER=1
+            // restores the old behaviour for an A/B.
+            static const bool skip = [] {
+                const char *text = std::getenv("PSPRECOMP_DEFJAM_NO_TRANSFER");
+                return text != nullptr && *text != 0 && *text != 48;
+            }();
+            if (!skip) {
+                // The list sets 0xB2/0xB3 for the source, not 0xB0/0xB1: those two
+                // still hold texture-setup values latched long before, and
+                // reading them named a RAM address that was never the source.
+                // Dumping the list words settled it - the source is VRAM.
                 const std::uint32_t src =
-                    ((g_registers[0xB1u] & 0x000F0000u) << 8u) | (g_registers[0xB0u] & 0x00FFFFF0u);
+                    ((g_registers[0xB3u] & 0x000F0000u) << 8u) | (g_registers[0xB2u] & 0x00FFFFF0u);
                 const std::uint32_t dst =
                     ((g_registers[0xB5u] & 0x000F0000u) << 8u) | (g_registers[0xB4u] & 0x00FFFFF0u);
                 const std::uint32_t size = g_registers[0xEEu];
                 const std::uint32_t width = (size & 0x3FFu) + 1u;
                 const std::uint32_t height = ((size >> 10u) & 0x3FFu) + 1u;
                 const std::uint32_t texel = data == 1u ? 4u : 2u;
-                std::uint32_t src_pitch = (g_registers[0xB1u] & 0xFFFFu) * texel;
+                std::uint32_t src_pitch = (g_registers[0xB3u] & 0xFFFFu) * texel;
                 const std::uint32_t dst_pitch = (g_registers[0xB5u] & 0xFFFFu) * texel;
                 if (src_pitch == 0u) {
                     src_pitch = width * texel;
