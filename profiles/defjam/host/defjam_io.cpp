@@ -359,6 +359,62 @@ bool is_device_path(const std::string &psp_path) {
 }
 
 // Performs an open and returns the new fd, or a negative PSP error.
+
+// Every file on the disc, indexed by size, built once on first use.
+//
+// This title addresses most of its content by sector, using a table of
+// (sector, size) pairs recorded when the disc was mastered. On a disc whose
+// files have since been laid out differently, every one of those sectors points
+// somewhere else while the sizes still describe the intended file: measured on
+// this run, 32 of 32 requests named a size matching exactly one real file and
+// 0 of 32 started at that file's first sector. Reading the requested sector
+// then returns unrelated bytes with no error anywhere, which is how a texture
+// ends up holding another file's compressed data.
+const std::map<std::uint32_t, std::vector<std::pair<std::uint32_t, std::string>>> &iso_files_by_size() {
+    static const auto index = [] {
+        std::map<std::uint32_t, std::vector<std::pair<std::uint32_t, std::string>>> out;
+        IsoEntry root;
+        if (!disc_available() || !iso_root(root)) return out;
+        std::vector<std::pair<IsoEntry, std::string>> pending{{root, std::string()}};
+        std::set<std::uint32_t> seen;
+        while (!pending.empty()) {
+            const auto [directory, prefix] = pending.back();
+            pending.pop_back();
+            if (!seen.insert(directory.sector).second) continue;
+            iso_walk_directory(directory, [&](const std::string &name, const IsoEntry &entry) {
+                if (name.size() == 1u && static_cast<unsigned char>(name[0]) <= 1u) return false;
+                std::string leaf = name;
+                const std::size_t version = leaf.find(';');
+                if (version != std::string::npos) leaf.erase(version);
+                if (entry.directory) {
+                    pending.push_back({entry, prefix + "/" + leaf});
+                } else if (entry.size != 0u) {
+                    out[entry.size].push_back({entry.sector, prefix + "/" + leaf});
+                }
+                return false;
+            });
+        }
+        return out;
+    }();
+    return index;
+}
+
+// How many reads were served from a different sector than the one asked for.
+std::uint64_t g_lbn_remapped = 0u;
+std::uint64_t g_lbn_unresolved = 0u;
+
+// True when a file of exactly this size starts at exactly this sector.
+bool iso_file_starts_here(std::uint32_t sector, std::uint32_t size) {
+    const auto &index = iso_files_by_size();
+    const auto found = index.find(size);
+    if (found == index.end()) return false;
+    for (const auto &[start, path] : found->second) {
+        if (start == sector) return true;
+    }
+    return false;
+}
+
+
 std::int32_t do_open(Runtime &rt, const std::string &psp_path, std::uint32_t flags) {
     if (is_device_path(psp_path)) {
         // Opened with no backing storage for now. Reads report end-of-media,
@@ -387,10 +443,33 @@ std::int32_t do_open(Runtime &rt, const std::string &psp_path, std::uint32_t fla
             runtime_log_line("sceIoOpen " + psp_path + " needs a disc layout, and there is none");
             return kErrorNoFile;
         }
+        // A sector that does not begin the file whose size was asked for is
+        // resolved by size instead, but only when the size names exactly one
+        // file: an ambiguous size is left alone rather than guessed at, and
+        // every redirection says so in the log.
+        std::uint32_t served_sector = lbn_sector;
+        if (!iso_file_starts_here(lbn_sector, lbn_size)) {
+            const auto &index = iso_files_by_size();
+            const auto found = index.find(lbn_size);
+            if (found != index.end() && found->second.size() == 1u) {
+                served_sector = found->second.front().first;
+                ++g_lbn_remapped;
+                runtime_log_line("sceIoOpen " + psp_path + " starts no file; " +
+                                 std::to_string(lbn_size) + " bytes matches only " +
+                                 found->second.front().second + " at sector " +
+                                 psprecomp::hex32(served_sector) + " -- reading that instead");
+            } else {
+                ++g_lbn_unresolved;
+                runtime_log_line("sceIoOpen " + psp_path + " starts no file and " +
+                                 std::to_string(lbn_size) + " bytes matches " +
+                                 std::to_string(found == index.end() ? 0u : found->second.size()) +
+                                 " files -- reading the sector as asked");
+            }
+        }
         FileHandle handle;
         handle.psp_path = psp_path;
         handle.from_disc = true;
-        handle.disc_offset = static_cast<std::uint64_t>(lbn_sector) * kSectorSize;
+        handle.disc_offset = static_cast<std::uint64_t>(served_sector) * kSectorSize;
         handle.size = lbn_size;
         if (handle.disc_offset >= disc_size_bytes()) {
             ++g_stats.failed_opens;
@@ -652,6 +731,8 @@ std::string read_covering(std::uint32_t address) {
 }
 
 IoStats io_stats() {
+    g_stats.lbn_remapped = g_lbn_remapped;
+    g_stats.lbn_unresolved = g_lbn_unresolved;
     IoStats stats = g_stats;
     stats.open_handles = static_cast<std::uint32_t>(g_files.size() + g_dirs.size());
     stats.disc_unreadable = g_disc.unreadable_files();

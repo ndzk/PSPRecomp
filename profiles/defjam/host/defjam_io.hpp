@@ -28,6 +28,10 @@ struct IoStats {
     std::uint64_t bytes_read{};
     std::uint64_t seeks{};
     std::uint64_t dir_opens{};
+    // Raw-sector opens whose sector began no file, and how many of those a
+    // unique size could resolve to the file the title actually meant.
+    std::uint64_t lbn_remapped{};
+    std::uint64_t lbn_unresolved{};
     std::uint64_t device_opens{};
     std::uint64_t device_reads{};
     std::uint64_t device_bytes_read{};

@@ -485,6 +485,8 @@ int main(int argc, char **argv) {
                   << " reads, " << io.device_bytes_read << " bytes\n"
                   << "  umd ioctls:         " << io.umd_ioctls << ", " << io.lbn_opens
                   << " raw-sector opens\n"
+                  << "  sector remaps:      " << io.lbn_remapped << " by size, "
+                  << io.lbn_unresolved << " left as asked" << "\n"
                   << "  medium queries:     " << io.medium_queries << "\n"
                   << "  open handles:       " << io.open_handles << "\n";
         if (io.disc_unreadable != 0u || io.disc_short_reads != 0u)
