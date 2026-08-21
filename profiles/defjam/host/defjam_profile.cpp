@@ -1389,6 +1389,22 @@ bool activate_next_thread(Runtime &rt, AllegrexContext &ctx, const char *reason)
     thread.state = ThreadState::Running;
     g_threads.current_uid = next;
     ++g_threads.switches;
+    // A timeline of who runs when, bounded to a window. A buffer that holds the
+    // wrong data at one instant is an ordering question, and ordering is not
+    // visible in totals -- only in the sequence.
+    static const std::pair<std::uint64_t, std::uint64_t> window = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_THREAD_LOG");
+        if (text == nullptr) return std::pair<std::uint64_t, std::uint64_t>{0u, 0u};
+        char *end = nullptr;
+        const std::uint64_t from = std::strtoull(text, &end, 0);
+        const std::uint64_t to = (end != nullptr && *end == ',') ? std::strtoull(end + 1, nullptr, 0)
+                                                                : from + 100000u;
+        return std::pair<std::uint64_t, std::uint64_t>{from, to};
+    }();
+    if (window.second != 0u && g_virtual_time_us >= window.first &&
+        g_virtual_time_us <= window.second) {
+        runtime_log_line("thread " + std::to_string(next) + " " + thread.name + " runs");
+    }
     ctx = thread.suspended;
     psprecomp::set_runtime_thread_identity(next, thread.name);
     // The interrupt lands on whoever was about to run, which is the thread
