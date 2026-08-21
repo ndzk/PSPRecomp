@@ -79,7 +79,10 @@ int main(int argc, char **argv) {
         const std::filesystem::path input = argv[1];
         const std::filesystem::path output = argc >= 3 ? argv[2] : "psp_report.json";
         std::uint32_t load_base = psprecomp::kDefaultPspUserLoadBase;
-        if (argc == 4) load_base = static_cast<std::uint32_t>(std::stoul(argv[3], nullptr, 0));
+        // argc >= 4, not == 4: with the optional NID CSV also present the
+        // load base used to be silently ignored, and an analysis of a PRX at a
+        // non-default base produced addresses off by the difference.
+        if (argc >= 4) load_base = static_cast<std::uint32_t>(std::stoul(argv[3], nullptr, 0));
 
         auto elf = psprecomp::Elf32Image::from_file(input);
         psprecomp::GuestMemory memory(32u * 1024u * 1024u);
