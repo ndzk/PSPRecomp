@@ -1032,6 +1032,23 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
                 }
                 table += " copies=" + std::to_string(found) + hits;
             }
+            // Where does a given marker word live? Registers can go stale at a
+            // call boundary, but memory cannot: this locates every structure
+            // carrying the marker, which is what says whether two subsystems
+            // share one buffer.
+            if (const char *word = std::getenv("PSPRECOMP_DEFJAM_FINDWORD")) {
+                const auto wanted = static_cast<std::uint32_t>(std::strtoul(word, nullptr, 0));
+                std::string where;
+                std::uint32_t seen = 0u;
+                for (std::uint32_t at = 0x08800000u; at + 4u <= 0x0A000000u && seen < 12u;
+                     at += 4u) {
+                    if (!rt.memory().contains(at, 4u)) continue;
+                    if (rt.memory().load32(at) != wanted) continue;
+                    ++seen;
+                    where += " " + psprecomp::hex32(at);
+                }
+                table += " marker=" + std::to_string(seen) + where;
+            }
             table += " first=";
             for (std::uint32_t k = 0; k < 6u; ++k) {
                 if (!rt.memory().contains(pixels + k * 4u, 4u)) break;
