@@ -964,6 +964,35 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
                      " distinct=" + std::to_string(distinct.size()) +
                      " alphas=" + std::to_string(alphas.size()) +
                      " opaque=" + std::to_string(opaque);
+            // If these bytes were copied here, the original is still somewhere.
+            // Search RAM and VRAM for the first four words: a hit names the
+            // source, and no hit anywhere says nothing ever wrote them.
+            if (std::getenv("PSPRECOMP_DEFJAM_FINDBYTES") != nullptr &&
+                rt.memory().contains(pixels, 16u)) {
+                std::uint32_t want[4];
+                for (std::uint32_t k = 0; k < 4u; ++k) {
+                    want[k] = rt.memory().load32(pixels + k * 4u);
+                }
+                std::string hits;
+                std::uint32_t found = 0u;
+                const std::pair<std::uint32_t, std::uint32_t> regions[] = {
+                    {0x08800000u, 0x0A000000u}, {0x04000000u, 0x04200000u}};
+                for (const auto &[from, to] : regions) {
+                    for (std::uint32_t at = from; at + 16u <= to && found < 8u; at += 4u) {
+                        if (at >= pixels && at < pixels + 262144u) continue;
+                        if (!rt.memory().contains(at, 16u)) continue;
+                        if (rt.memory().load32(at) != want[0]) continue;
+                        bool all = true;
+                        for (std::uint32_t k = 1; k < 4u && all; ++k) {
+                            all = rt.memory().load32(at + k * 4u) == want[k];
+                        }
+                        if (!all) continue;
+                        ++found;
+                        hits += " " + psprecomp::hex32(at);
+                    }
+                }
+                table += " copies=" + std::to_string(found) + hits;
+            }
             table += " first=";
             for (std::uint32_t k = 0; k < 6u; ++k) {
                 if (!rt.memory().contains(pixels + k * 4u, 4u)) break;
