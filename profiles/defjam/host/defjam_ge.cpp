@@ -276,6 +276,48 @@ GeExecution ge_execute_list(Runtime &runtime, GeListState &state, std::uint32_t 
                 }
                 runtime_log_line(line);
             }
+
+            // Performing the transfer, behind a switch, is the only way to
+            // decide whether the source address is right: if the copy produces
+            // a sane image the missing handler was the whole fault, and if it
+            // stays noise the operands themselves are wrong. Operand layout is
+            // the one observed at the single kick this title issues; anything
+            // it cannot account for is reported rather than assumed away.
+            if (std::getenv("PSPRECOMP_DEFJAM_DO_TRANSFER") != nullptr) {
+                const std::uint32_t src =
+                    ((g_registers[0xB1u] & 0x000F0000u) << 8u) | (g_registers[0xB0u] & 0x00FFFFF0u);
+                const std::uint32_t dst =
+                    ((g_registers[0xB5u] & 0x000F0000u) << 8u) | (g_registers[0xB4u] & 0x00FFFFF0u);
+                const std::uint32_t size = g_registers[0xEEu];
+                const std::uint32_t width = (size & 0x3FFu) + 1u;
+                const std::uint32_t height = ((size >> 10u) & 0x3FFu) + 1u;
+                const std::uint32_t texel = data == 1u ? 4u : 2u;
+                std::uint32_t src_pitch = (g_registers[0xB1u] & 0xFFFFu) * texel;
+                const std::uint32_t dst_pitch = (g_registers[0xB5u] & 0xFFFFu) * texel;
+                if (src_pitch == 0u) {
+                    src_pitch = width * texel;
+                    runtime_log_line("transfer: source pitch register is zero; using the width "
+                                     "instead, which is an assumption this run cannot check");
+                }
+                std::uint32_t copied = 0u;
+                for (std::uint32_t row = 0; row < height; ++row) {
+                    const std::uint32_t from = src + row * src_pitch;
+                    const std::uint32_t to = dst + row * dst_pitch;
+                    const std::uint32_t bytes = width * texel;
+                    if (!runtime.memory().contains(from, bytes) ||
+                        !runtime.memory().contains(to, bytes)) {
+                        break;
+                    }
+                    for (std::uint32_t at = 0; at < bytes; at += 4u) {
+                        runtime.memory().store32(to + at, runtime.memory().load32(from + at));
+                    }
+                    ++copied;
+                }
+                runtime_log_line("transfer: " + psprecomp::hex32(src) + " -> " +
+                                 psprecomp::hex32(dst) + ", " + std::to_string(width) + "x" +
+                                 std::to_string(height) + " at " + std::to_string(texel) +
+                                 " bytes, rows copied " + std::to_string(copied));
+            }
         }
 
         switch (command) {
