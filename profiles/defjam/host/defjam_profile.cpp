@@ -947,8 +947,23 @@ void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t targ
                     ++counted;
                 }
             }
+            // Real artwork keeps alpha in a few values (usually just 0xFF) and
+            // repeats colours; uninitialised or non-image bytes spread alpha
+            // over the whole range. That difference is the actual test.
+            std::set<std::uint32_t> alphas;
+            std::uint64_t opaque = 0u;
+            for (std::uint32_t value : distinct) alphas.insert((value >> 24u) & 0xFFu);
+            for (std::uint32_t y = 0; y < rows; ++y) {
+                for (std::uint32_t x = 0; x + 4u <= stride; x += 4u) {
+                    const std::uint32_t at = pixels + y * stride + x;
+                    if (!rt.memory().contains(at, 4u)) continue;
+                    if (((rt.memory().load32(at) >> 24u) & 0xFFu) == 0xFFu) ++opaque;
+                }
+            }
             table += " pixels=" + std::to_string(counted) +
-                     " distinct=" + std::to_string(distinct.size());
+                     " distinct=" + std::to_string(distinct.size()) +
+                     " alphas=" + std::to_string(alphas.size()) +
+                     " opaque=" + std::to_string(opaque);
             table += " first=";
             for (std::uint32_t k = 0; k < 6u; ++k) {
                 if (!rt.memory().contains(pixels + k * 4u, 4u)) break;
