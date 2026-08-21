@@ -306,9 +306,43 @@ Vertex read_vertex(const std::uint8_t *base, const VertexFormat &format) {
         // screen's text white. Measured in a fight: of 567 257 vertices with
         // normals, 565 376 have 0x53 set (99.7%), while the 286 161 without
         // normals are the interface.
-        if (vertex.has_normal && (registers[0x53u] & 1u) != 0u) {
-            const std::uint32_t material = registers[0x54u] & 0x00FFFFFFu;
-            if (material != 0u) {
+        // The third gate, 0x17 == 0, separates the warning screen's text from
+        // the arena walls. Measured, not understood: at the warning screen
+        // (text must stay dark, so the raw vertex colour must survive) 0x17
+        // reads 1; at the dark venue's walls (which must brighten, so the
+        // material must replace the colour) it reads 0; in the bright venue the
+        // draws with 0x17=1 carry no normals and never reach this gate. The
+        // earlier experiment that substituted when 0x17 was SET produced
+        // exactly the inverse of every one of those outcomes.
+        if (vertex.has_normal && (registers[0x53u] & 1u) != 0u && registers[0x17u] == 0u) {
+            // The warning screen's text passes this same gate, so substituting
+            // the material turned it white again. Whatever separates text from
+            // walls, it is not has_normal or 0x53; log the whole latched block
+            // for the first lit draws so the differing bit can be read off.
+            if (std::getenv("PSPRECOMP_DEFJAM_LIT_LOG") != nullptr) {
+                static std::uint32_t logged = 0u;
+                static std::uint32_t last_colour = 0xDEADBEEFu;
+                if (logged < 48u && vertex.color != last_colour) {
+                    ++logged;
+                    last_colour = vertex.color;
+                    std::string line = "lit draw: colour " + psprecomp::hex32(vertex.color);
+                    for (const std::uint32_t r :
+                         {0x17u, 0x18u, 0x1Du, 0x1Eu, 0x21u, 0x50u, 0x51u, 0x52u, 0x53u,
+                          0x56u, 0x5Du, 0xC2u, 0xC3u, 0xC4u, 0xC6u}) {
+                        line += "  " + psprecomp::hex32(r) + "=" + psprecomp::hex32(registers[r]);
+                    }
+                    runtime_log_line(line);
+                }
+            }
+            // The material colour is 0x56, not 0x54. Measured at lit wall draws
+            // in two venues: the dark venue carries dark vertex colours and
+            // 0x56 = 0xFFFFFF, the bright venue white vertex colours and
+            // 0x56 = 0x7F7F7F - exact inverses, with 0x5D tracking 0x56's
+            // intensity (0xFF / 0x7F) as its alpha. 0x54 and 0x55 read zero at
+            // every one of those draws, so the earlier substitution gated on
+            // 0x54 != 0 never fired, which is why the walls stayed black.
+            const std::uint32_t material = registers[0x56u] & 0x00FFFFFFu;
+            {
                 // The light direction is 0x63/0x64/0x65, identified by decoding
                 // them as the floats the GE carries in the top 24 bits and
                 // measuring the result: (-0.1116, 0.9443, -0.3108) has length
