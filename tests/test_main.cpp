@@ -1279,6 +1279,22 @@ int main() {
         test_chained_call_context_guard();
         test_nested_direct_chain_context_guard();
 
+        {
+            // ROUND.W.S breaks ties to even, as MIPS specifies. floor(x + 0.5)
+            // sent every exact half upward and disagreed with the default-mode
+            // path in the same header; both were aligned, and this holds them.
+            psprecomp::AllegrexContext fpu{};
+            require(fpu.fpu_float_to_word(0.5f, 0u) == 0u, "ROUND.W.S: 0.5 ties to even 0");
+            require(fpu.fpu_float_to_word(1.5f, 0u) == 2u, "ROUND.W.S: 1.5 ties to even 2");
+            require(fpu.fpu_float_to_word(2.5f, 0u) == 2u, "ROUND.W.S: 2.5 ties to even 2");
+            require(fpu.fpu_float_to_word(-0.5f, 0u) == 0u, "ROUND.W.S: -0.5 ties to even 0");
+            require(fpu.fpu_float_to_word_ct<0u>(2.5f) == 2u,
+                    "compile-time ROUND: 2.5 ties to even 2");
+            require(fpu.fpu_float_to_word(2.75f, 0u) == 3u, "ROUND.W.S: 2.75 rounds up");
+            require(fpu.fpu_float_to_word(2.25f, 0u) == 2u, "ROUND.W.S: 2.25 rounds down");
+            require(fpu.fpu_float_to_word(-3.5f, 1u) == 0xFFFFFFFDu, "TRUNC.W.S: -3.5 truncates to -3");
+        }
+
         psprecomp::GuestMemory mem;
         mem.store32(0x08800000u, 0x12345678u);
         require(mem.load32(0x88800000u) == 0x12345678u, "RAM alias translation failed");
