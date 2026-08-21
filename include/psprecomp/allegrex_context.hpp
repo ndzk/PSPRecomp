@@ -77,7 +77,10 @@ struct alignas(16) AllegrexContext {
 
         double converted{};
         switch (mode) {
-        case 0u: converted = std::floor(static_cast<double>(value) + 0.5); break; // ROUND.W.S
+        // Ties round to even, as MIPS ROUND.W.S specifies; floor(x + 0.5) sent
+        // exact halves upward and disagreed with this file's own default-mode
+        // path a few lines below.
+        case 0u: converted = round_ties_to_even(static_cast<double>(value)); break; // ROUND.W.S
         case 1u: converted = std::trunc(static_cast<double>(value)); break;       // TRUNC.W.S
         case 2u: converted = std::ceil(static_cast<double>(value)); break;        // CEIL.W.S
         case 3u: converted = std::floor(static_cast<double>(value)); break;       // FLOOR.W.S
@@ -114,7 +117,7 @@ struct alignas(16) AllegrexContext {
             if (input >= max_value) return static_cast<std::uint32_t>(std::numeric_limits<std::int32_t>::max());
             return static_cast<std::uint32_t>(static_cast<std::int32_t>(input));
         } else if constexpr (Mode == 0u) {
-            return static_cast<std::uint32_t>(clamp_fpu_word(std::floor(input + 0.5)));
+            return static_cast<std::uint32_t>(clamp_fpu_word(round_ties_to_even(input)));
         } else if constexpr (Mode == 2u) {
             return static_cast<std::uint32_t>(clamp_fpu_word(std::ceil(input)));
         } else {
