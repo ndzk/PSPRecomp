@@ -564,6 +564,17 @@ std::uint64_t g_slot_lost = 0u;
 std::uint64_t g_reach_samples = 0u;
 std::uint64_t g_reach_in_tree = 0u;
 std::uint64_t g_reach_detached = 0u;
+// A registry of blocks the guest allocator has handed out and not taken back.
+// Two owners writing one buffer is invisible in totals -- it only shows up as
+// the same address being handed out twice while still live.
+std::uint32_t g_live_alloc_pc = 0u;
+std::uint32_t g_live_free_pc = 0u;
+std::set<std::uint32_t> g_live_blocks;
+std::uint64_t g_live_allocs = 0u;
+std::uint64_t g_live_frees = 0u;
+std::uint64_t g_live_double = 0u;
+std::uint64_t g_live_unknown_free = 0u;
+std::size_t g_live_peak = 0u;
 std::uint64_t g_watch_hits = 0;
 
 // Addresses to report the argument registers at, from
@@ -826,6 +837,23 @@ void post_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t tar
     (void)rt;
     (void)ctx;
     (void)native_depth;
+    if (g_live_alloc_pc != 0u && target_pc == g_live_alloc_pc) {
+        const std::uint32_t block = ctx.gpr[2];
+        // v0 is a hot register and the runtime warns it can be stale at a
+        // chained boundary, so anything that is not a guest RAM address is not
+        // a block and must not be counted as one.
+        if (block >= 0x08800000u && block < 0x0A000000u) {
+            ++g_live_allocs;
+            if (!g_live_blocks.insert(block).second) {
+                ++g_live_double;
+                if (g_live_double <= 10u) {
+                    runtime_log_line("handed out again while live: " + psprecomp::hex32(block) +
+                                     " ra=" + psprecomp::hex32(ctx.gpr[31]));
+                }
+            }
+            if (g_live_blocks.size() > g_live_peak) g_live_peak = g_live_blocks.size();
+        }
+    }
     if (g_slot_filter_ra != 0u && g_watch_count_target != 0u &&
         target_pc == g_watch_count_target) {
         if (g_prev_slot != 0u) {
@@ -901,6 +929,17 @@ void post_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t tar
 void pre_chained_call_hook(Runtime &rt, AllegrexContext &ctx, std::uint32_t target_pc,
                            std::uint32_t native_depth) {
     (void)native_depth;
+    if (g_live_free_pc != 0u && target_pc == g_live_free_pc) {
+        ++g_live_frees;
+        // Argument registers are hot too, so they are only trustworthy on the
+        // way in. Reading them on return retired nothing at all: 15,750 frees
+        // matched no live block, which made every legitimate reuse look like a
+        // double hand-out.
+        if (g_live_blocks.erase(ctx.gpr[5]) == 0u && g_live_blocks.erase(ctx.gpr[4]) == 0u &&
+            g_live_blocks.erase(ctx.gpr[6]) == 0u) {
+            ++g_live_unknown_free;
+        }
+    }
     if (g_watch_count_target != 0u && target_pc == g_watch_count_target) {
         ++g_watch_count_total;
         ++g_watch_count_by_ra[ctx.gpr[31]];
@@ -1760,7 +1799,9 @@ void install_dispatch_traps() {
 }
 
 std::string watch_window_report() {
-    if (g_watch_window_entry == 0u && g_watch_count_target == 0u) return {};
+    if (g_watch_window_entry == 0u && g_watch_count_target == 0u && g_live_alloc_pc == 0u) {
+        return {};
+    }
     std::string text = "  watch window " + psprecomp::hex32(g_watch_window_entry) +
                        " entered " + std::to_string(g_watch_window_entries) + " times\n";
     if (g_watch_count_target != 0u) {
@@ -1769,6 +1810,13 @@ std::string watch_window_report() {
                 std::to_string(g_watch_count_passes) + " passes, per pass min " +
                 std::to_string(g_watch_count_min) + " max " +
                 std::to_string(g_watch_count_max) + "\n";
+    }
+    if (g_live_allocs != 0u || g_live_frees != 0u) {
+        text += "    live blocks: " + std::to_string(g_live_allocs) + " handed out, " +
+                std::to_string(g_live_frees) + " returned, still live " +
+                std::to_string(g_live_blocks.size()) + ", peak " + std::to_string(g_live_peak) +
+                ", handed out twice " + std::to_string(g_live_double) +
+                ", returned but never handed out " + std::to_string(g_live_unknown_free) + "\n";
     }
     if (g_reach_samples != 0u) {
         text += "    parents sampled " + std::to_string(g_reach_samples) + ", in tree " +
@@ -1801,8 +1849,14 @@ void install_memory_watch() {
     const char *text = std::getenv("PSPRECOMP_DEFJAM_WATCH");
     const char *window_only = std::getenv("PSPRECOMP_DEFJAM_WATCH_WINDOW");
     const char *count_only = std::getenv("PSPRECOMP_DEFJAM_WATCH_COUNT");
-    if ((text == nullptr || text[0] == 0) && (window_only == nullptr || window_only[0] == 0) &&
-        (count_only == nullptr || count_only[0] == 0)) {
+    // Every switch this function honours has to be named here, or setting only
+    // the newest one leaves without installing anything and reports a zero that
+    // looks like a measurement.
+    const char *live_alloc = std::getenv("PSPRECOMP_DEFJAM_LIVE_ALLOC");
+    const char *live_free = std::getenv("PSPRECOMP_DEFJAM_LIVE_FREE");
+    const auto unset = [](const char *value) { return value == nullptr || value[0] == 0; };
+    if (unset(text) && unset(window_only) && unset(count_only) && unset(live_alloc) &&
+        unset(live_free)) {
         return;
     }
 
@@ -1828,7 +1882,16 @@ void install_memory_watch() {
     if (const char *counted = std::getenv("PSPRECOMP_DEFJAM_WATCH_COUNT")) {
         g_watch_count_target = static_cast<std::uint32_t>(std::strtoul(counted, nullptr, 0));
     }
-    if (g_watches.empty() && g_watch_window_entry == 0u && g_watch_count_target == 0u) return;
+    if (const char *pc = std::getenv("PSPRECOMP_DEFJAM_LIVE_ALLOC")) {
+        g_live_alloc_pc = static_cast<std::uint32_t>(std::strtoul(pc, nullptr, 0));
+    }
+    if (const char *pc = std::getenv("PSPRECOMP_DEFJAM_LIVE_FREE")) {
+        g_live_free_pc = static_cast<std::uint32_t>(std::strtoul(pc, nullptr, 0));
+    }
+    if (g_watches.empty() && g_watch_window_entry == 0u && g_watch_count_target == 0u &&
+        g_live_alloc_pc == 0u && g_live_free_pc == 0u) {
+        return;
+    }
 
     std::string summary;
     for (const MemoryWatch &watch : g_watches) summary += " " + psprecomp::hex32(watch.address);
@@ -1845,7 +1908,8 @@ void install_memory_watch() {
         runtime_log_line("checking where returns to " + psprecomp::hex32(g_slot_filter_ra) +
                          " store their pointer");
     }
-    if (g_watch_window_entry != 0u || g_watch_count_target != 0u) {
+    if (g_watch_window_entry != 0u || g_watch_count_target != 0u ||
+        g_live_alloc_pc != 0u || g_live_free_pc != 0u) {
         psprecomp::set_runtime_pre_chained_call_hook(&pre_chained_call_hook);
         psprecomp::set_runtime_post_chained_call_hook(&post_chained_call_hook);
     }
