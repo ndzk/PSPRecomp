@@ -253,6 +253,12 @@ struct BlendCorrelation {
 // across 10,134 writes. Everything else in that block is already accounted for:
 // 0xB8 size, 0xC2 mode, 0xC3 format, 0xC5 palette format.
 constexpr std::uint8_t kTextureFunctionCandidate = 0xC4u;
+// Lighting enable. Identified from the command report: written 6052 times with
+// values 0 and 1, alongside four light enables at 0x18-0x1B.
+constexpr std::uint8_t kLightingEnable = 0x17u;
+// The per-draw material colour, identified by how often it is written and what
+// it carries: 581 901 writes, values 0x666666 and 0x808080.
+constexpr std::uint8_t kMaterialColour = 0x54u;
 
 std::map<std::uint32_t, std::pair<std::uint64_t, std::uint64_t>> g_texture_function;
 
@@ -794,6 +800,19 @@ std::uint32_t combine_texel(std::uint32_t texel, std::uint32_t vertex) {
     // tiles into exactly nothing, and multiplying a texel by a black vertex
     // colour would do precisely that.
     if (!texture_modulation_enabled()) return texel;
+    // Lighting, as far as this title actually configures it. The four light
+    // enables are set, but every light parameter at 0x60-0x73 is written once
+    // and left at zero, so no light source contributes anything; what remains is
+    // the material term, and that the title rewrites on almost every draw -
+    // 0x54, 581 901 writes, values 0x666666 and 0x808080. So with lighting on
+    // the colour the hardware would carry into the texture stage is the material
+    // grey, not the vertex colour, which here is the unlit base and measures
+    // (17,19,12) on arena walls.
+    //
+    // Gating on 0x17 alone was tried and reverted: the register latches, so it
+    // is still set when the interface is drawn, and skipping modulation there
+    // turned the warning screen's text white again. Substituting the material
+    // colour keeps the text modulated - the interface's material is white.
     if (ge_registers()[kTextureFunctionCandidate] == kTextureFunctionModulate) {
         return modulate(texel, vertex);
     }

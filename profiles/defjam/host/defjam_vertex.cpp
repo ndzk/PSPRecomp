@@ -212,9 +212,82 @@ Vertex read_vertex(const std::uint8_t *base, const VertexFormat &format) {
         vertex.v = read_texture_scalar(texture, format.texture, 1u, format.through);
         vertex.has_uv = true;
     }
+    if (format.normal_offset != kAbsent && format.normal != 0u) {
+        const std::uint8_t *normal = base + format.normal_offset;
+        // Normals use the same component encodings as positions, and are
+        // normalised the same way; "through" never applies, since a vertex
+        // already in screen space carries no normal to shade with.
+        vertex.nx = read_position_scalar(normal, format.normal, 0u, false);
+        vertex.ny = read_position_scalar(normal, format.normal, 1u, false);
+        vertex.nz = read_position_scalar(normal, format.normal, 2u, false);
+        vertex.has_normal = true;
+    }
     if (format.color_offset != kAbsent) {
         vertex.color = expand_color(base + format.color_offset, format.color);
         vertex.has_color = true;
+        // Lighting, as far as this title configures it. All four light enables
+        // are set, but every light parameter at 0x60-0x73 is written once and
+        // left at zero, so no light source contributes; what remains is the
+        // material term, which the title rewrites on almost every draw - 0x54,
+        // 581 901 writes, values 0x666666 and 0x808080. With lighting on, that
+        // is the colour the hardware carries into the texture stage, not the
+        // vertex colour, which here is the unlit base and measures (17,19,12)
+        // on arena walls. Done here so both backends see the same colour.
+        const std::array<std::uint32_t, 256> &registers = ge_registers();
+        // Which draws are shaded is decided by the vertex format, not by the
+        // lighting enable at 0x17: that register latches, so it is still set
+        // when the interface is drawn, and gating on it turned the warning
+        // screen's text white. Measured in a fight: of 567 257 vertices with
+        // normals, 565 376 have 0x53 set (99.7%), while the 286 161 without
+        // normals are the interface.
+        if (vertex.has_normal && (registers[0x53u] & 1u) != 0u) {
+            const std::uint32_t material = registers[0x54u] & 0x00FFFFFFu;
+            if (material != 0u) {
+                // The light direction is 0x63/0x64/0x65, identified by decoding
+                // them as the floats the GE carries in the top 24 bits and
+                // measuring the result: (-0.1116, 0.9443, -0.3108) has length
+                // 1.0004 and (-0.1134, 0.9458, -0.3139) has length 1.0030.
+                // Nothing but a direction is a unit vector. They are rewritten
+                // 57 262 times in a fight.
+                const auto as_float = [](std::uint32_t data) {
+                    const std::uint32_t bits = data << 8u;
+                    float value{};
+                    std::memcpy(&value, &bits, sizeof(value));
+                    return value;
+                };
+                const float lx = as_float(registers[0x63u]);
+                const float ly = as_float(registers[0x64u]);
+                const float lz = as_float(registers[0x65u]);
+                // The normal is in model space and the direction is not, so the
+                // world rotation has to be applied before they can be compared.
+                const GeMatrices &m = ge_matrices();
+                float nx = vertex.nx, ny = vertex.ny, nz = vertex.nz;
+                if (m.world_seen) {
+                    const float wx = m.world[0] * nx + m.world[3] * ny + m.world[6] * nz;
+                    const float wy = m.world[1] * nx + m.world[4] * ny + m.world[7] * nz;
+                    const float wz = m.world[2] * nx + m.world[5] * ny + m.world[8] * nz;
+                    nx = wx; ny = wy; nz = wz;
+                }
+                const float length = std::sqrt(nx * nx + ny * ny + nz * nz);
+                float diffuse = 0.0f;
+                if (length > 0.0001f) {
+                    diffuse = (nx * lx + ny * ly + nz * lz) / length;
+                    if (diffuse < 0.0f) diffuse = 0.0f;
+                }
+                // Ambient plus diffuse, both taken from the material. The light
+                // colour and any attenuation are NOT identified yet, so this
+                // assumes a white light at full strength; that assumption is
+                // the next thing to measure, not something established.
+                const auto shade = [&](std::uint32_t channel) {
+                    const float lit = static_cast<float>(channel) * (1.0f + diffuse);
+                    return static_cast<std::uint32_t>(lit > 255.0f ? 255.0f : lit);
+                };
+                const std::uint32_t r = shade(material & 0xFFu);
+                const std::uint32_t g = shade((material >> 8u) & 0xFFu);
+                const std::uint32_t b = shade((material >> 16u) & 0xFFu);
+                vertex.color = (vertex.color & 0xFF000000u) | (b << 16u) | (g << 8u) | r;
+            }
+        }
     }
     if (format.weight_offset != kAbsent && format.weight != 0u) {
         const std::uint8_t *weights = base + format.weight_offset;
@@ -838,6 +911,56 @@ void draw_clipped_triangle(Runtime &runtime, const ClipVertex &a, const ClipVert
             // formula, here is the frame with the thing left out. If it looks
             // right without it, the draw is wrong; if it looks emptier, the draw
             // belongs and only its strength is in question.
+            // The dark bars down the left and right of a fight.
+            //
+            // Measured off a captured frame rather than guessed at: the median
+            // column luminance runs 42, 44, 46 for x under 50, jumps to 165 at
+            // x=60, holds 100-200 across the middle, and drops back to 41, 39
+            // past x=430. Two vertical bars about 48 px wide, full height,
+            // sharp edged, leaving 384 px of scene between them.
+            //
+            // The overlay scan above cannot see them: it wants primitives
+            // spanning 380 px or more, and a 48 px bar never qualifies. That is
+            // why the black textures it did find were the wrong suspects.
+            // PSPRECOMP_DEFJAM_BARS=1 looks for the opposite shape - narrow,
+            // tall, and against a screen edge - and reports what draws it.
+            if (std::getenv("PSPRECOMP_DEFJAM_BARS") != nullptr) {
+                const float width = max_x - min_x;
+                const float height = max_y - min_y;
+                const bool against_edge = min_x <= 6.0f || max_x >= 474.0f;
+                if (onscreen && against_edge && width <= 140.0f && height >= 140.0f) {
+                    // Keyed on what the bar is, not on how many have been seen,
+                    // so the ones drawn while starting up take a few slots and
+                    // leave room for whatever a fight draws.
+                    static std::set<std::uint64_t> bars;
+                    const std::uint64_t kind =
+                        (static_cast<std::uint64_t>(texture.address) << 24u) ^
+                        (static_cast<std::uint64_t>(screen[0].color) << 2u) ^
+                        static_cast<std::uint64_t>(texture.enabled ? 1u : 0u);
+                    if (bars.size() < 24u && bars.insert(kind).second) {
+                        runtime_log_line(
+                            "bar: x " + std::to_string(static_cast<int>(min_x)) + ".." +
+                            std::to_string(static_cast<int>(max_x)) + "  y " +
+                            std::to_string(static_cast<int>(min_y)) + ".." +
+                            std::to_string(static_cast<int>(max_y)) + "  colour " +
+                            psprecomp::hex32(screen[0].color) + "  texture " +
+                            (texture.enabled ? psprecomp::hex32(texture.address) : std::string("none")) +
+                            " " + std::to_string(texture.width) + "x" +
+                            std::to_string(texture.height) + "  blend " +
+                            psprecomp::hex32(ge_registers()[0x1Du]) + "/" +
+                            psprecomp::hex32(ge_registers()[0xC6u]) + "  texfunc " +
+                            psprecomp::hex32(ge_registers()[0xC4u]));
+                        if (texture.enabled) {
+                            std::vector<std::uint32_t> texels;
+                            std::string error;
+                            if (decode_texture(runtime, texture, texels, error) && !texels.empty()) {
+                                dump_overlay_texture(texture, texels);
+                            }
+                        }
+                    }
+                }
+            }
+
             static const bool skip_overlays = [] {
                 const char *text = std::getenv("PSPRECOMP_DEFJAM_NO_OVERLAY");
                 return text != nullptr && text[0] != 0 && text[0] != 48;
@@ -857,11 +980,20 @@ void draw_clipped_triangle(Runtime &runtime, const ClipVertex &a, const ClipVert
                     if (decode_texture(runtime, texture, texels, error) && !texels.empty()) {
                         walls.insert(texture.address);
                         dump_overlay_texture(texture, texels);
+                        // Whether these draws are shaded, and how their texel
+                        // is combined, decides whether their near-black vertex
+                        // colour is meant to reach the screen at all. Reading
+                        // the colour alone left that open through several
+                        // rounds.
                         runtime_log_line("wall texture dumped: " +
                                          psprecomp::hex32(texture.address) + " " +
                                          std::to_string(texture.width) + "x" +
                                          std::to_string(texture.height) + "  vertex colour " +
-                                         psprecomp::hex32(screen[0].color));
+                                         psprecomp::hex32(screen[0].color) + "  normals " +
+                                         std::to_string(format.normal) + "  0x53 " +
+                                         std::to_string(ge_registers()[0x53u]) + "  texfunc " +
+                                         psprecomp::hex32(ge_registers()[0xC4u]) + "  0x17 " +
+                                         std::to_string(ge_registers()[0x17u]));
                     }
                 }
             }

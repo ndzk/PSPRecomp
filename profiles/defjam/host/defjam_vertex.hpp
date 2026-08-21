@@ -72,6 +72,11 @@ struct Vertex {
     // end. It stays 1 for a vertex that arrives already in screen space, which
     // leaves every 2D overlay exactly as it was.
     float inv_w{1.0f};
+    // The normal, when the format carries one. Decoded but never read until
+    // lighting needed it: a draw that carries normals is a draw the hardware
+    // shades, and without the vector there is nothing to shade with.
+    float nx{}, ny{}, nz{};
+    bool has_normal{};
     std::uint32_t color{0xFFFFFFFFu};   // ABGR8888
     bool has_uv{};
     bool has_color{};
