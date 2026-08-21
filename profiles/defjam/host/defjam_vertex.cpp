@@ -776,9 +776,9 @@ bool transform_to_screen(std::vector<Vertex> &vertices, std::uint32_t width, std
             // fault - the weights, the bone matrices, or how many of them are
             // live - is not decidable from the symptom, so the first one says
             // what it was handed.
-            static bool described = false;
-            if (!described) {
-                described = true;
+            static bool skinning_described = false;
+            if (!skinning_described) {
+                skinning_described = true;
                 std::string text = "first skinned vertex: weights";
                 for (std::uint8_t i = 0; i < vertex.weight_count; ++i) {
                     text += " " + std::to_string(vertex.weights[i]);
@@ -1073,11 +1073,11 @@ void draw_clipped_triangle(Runtime &runtime, const ClipVertex &a, const ClipVert
                 const bool flat = width < 1.0f || height < 1.0f;
                 if (flat) {
                     static std::set<std::uint64_t> seen;
-                    const std::uint64_t kind =
+                    const std::uint64_t collapse_kind =
                         (static_cast<std::uint64_t>(texture.address) << 20u) ^
                         (static_cast<std::uint64_t>(screen[0].color) << 3u) ^
                         (width < 1.0f ? 1u : 2u);
-                    if (seen.size() < 30u && seen.insert(kind).second) {
+                    if (seen.size() < 30u && seen.insert(collapse_kind).second) {
                         runtime_log_line(
                             "collapsed: screen x " + std::to_string(min_x) + ".." +
                             std::to_string(max_x) + "  y " + std::to_string(min_y) + ".." +
@@ -1110,11 +1110,11 @@ void draw_clipped_triangle(Runtime &runtime, const ClipVertex &a, const ClipVert
                     // so the ones drawn while starting up take a few slots and
                     // leave room for whatever a fight draws.
                     static std::set<std::uint64_t> bars;
-                    const std::uint64_t kind =
+                    const std::uint64_t bar_kind =
                         (static_cast<std::uint64_t>(texture.address) << 24u) ^
                         (static_cast<std::uint64_t>(screen[0].color) << 2u) ^
                         static_cast<std::uint64_t>(texture.enabled ? 1u : 0u);
-                    if (bars.size() < 24u && bars.insert(kind).second) {
+                    if (bars.size() < 24u && bars.insert(bar_kind).second) {
                         runtime_log_line(
                             "bar: x " + std::to_string(static_cast<int>(min_x)) + ".." +
                             std::to_string(static_cast<int>(max_x)) + "  y " +

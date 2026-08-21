@@ -1559,7 +1559,9 @@ std::uint32_t allocate_thread_stack(std::uint32_t size) {
     // thread control block below its own allocation.
     const std::uint64_t aligned = (static_cast<std::uint64_t>(size) + 0xFFull) & ~0xFFull;
     if (aligned == 0ull || aligned > g_threads.next_stack_top) return 0u;
-    const std::uint32_t bottom = g_threads.next_stack_top - aligned;
+    // The guard above keeps the subtraction in range, so the narrowing is
+    // deliberate; said explicitly so the compiler stops flagging it.
+    const auto bottom = static_cast<std::uint32_t>(g_threads.next_stack_top - aligned);
     if (bottom < g_partitions.next_address) return 0u;  // heap and stacks met
     g_threads.next_stack_top = bottom;
     return bottom;
@@ -1847,24 +1849,24 @@ void install_dispatch_traps() {
         std::size_t at = 0u;
         while (at <= spec.size()) {
             const std::size_t comma = spec.find(',', at);
-            std::string text =
+            std::string field =
                 spec.substr(at, comma == std::string::npos ? std::string::npos : comma - at);
             at = comma == std::string::npos ? spec.size() + 1u : comma + 1u;
-            if (text.empty()) continue;
+            if (field.empty()) continue;
             TrapShow item;
-            if (text.rfind("s:", 0u) == 0u) {
+            if (field.rfind("s:", 0u) == 0u) {
                 item.string = true;
-                text.erase(0u, 2u);
+                field.erase(0u, 2u);
             }
-            if (text.size() > 3u && text[0] == 'a' && text[1] >= '0' && text[1] <= '3' &&
-                text[2] == '+') {
+            if (field.size() > 3u && field[0] == 'a' && field[1] >= '0' && field[1] <= '3' &&
+                field[2] == '+') {
                 item.relative = true;
-                item.gpr = 4u + static_cast<std::uint32_t>(text[1] - '0');
-                item.offset = static_cast<std::uint32_t>(std::strtoul(text.c_str() + 3, nullptr, 0));
+                item.gpr = 4u + static_cast<std::uint32_t>(field[1] - '0');
+                item.offset = static_cast<std::uint32_t>(std::strtoul(field.c_str() + 3, nullptr, 0));
             } else {
                 // Parsed from the text with any "s:" already removed, so an
                 // absolute address can be asked for as a string too.
-                item.address = static_cast<std::uint32_t>(std::strtoul(text.c_str(), nullptr, 0));
+                item.address = static_cast<std::uint32_t>(std::strtoul(field.c_str(), nullptr, 0));
                 if (item.address == 0u) continue;
             }
             g_trap_shows.push_back(item);
