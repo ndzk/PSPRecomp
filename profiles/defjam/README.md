@@ -369,6 +369,8 @@ python golden_run.py --capture  re-baseline after an INTENDED visual change;
                                 silence a failure you have not understood
 python golden_run.py --parity   both backends over one schedule, pixel-exact;
                                 contract: every channel agrees within 2 steps
+python soak_check.py            an hour of guest time with a leak check and a
+                                budget-stop verdict; --minutes overrides
 ```
 
 Frames are captures of the user's own game content: they live in a temporary
