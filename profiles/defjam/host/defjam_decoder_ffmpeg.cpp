@@ -16,6 +16,7 @@ extern "C" {
 #include <libavutil/channel_layout.h>
 #include <libavutil/mem.h>
 #include <libavutil/opt.h>
+#include <libavutil/pixdesc.h>
 }
 
 namespace defjam {
@@ -256,11 +257,20 @@ private:
     // Moves the picture the decoder just produced into `out`, releasing the
     // frame either way.
     bool take_video(DecodedFrame &out, std::string &error) {
-        if (frame_->format != AV_PIX_FMT_YUV420P) {
-            error = "the H.264 stream decoded to an unexpected pixel format";
+        // yuvj420p is yuv420p with full-range values in the same plane
+        // layout; the title's later movies decode to it. Identified by running
+        // to the failing cutscene with the format name in the error, not
+        // assumed: the soak stopped at guest 515 s on exactly this.
+        const bool full_range = frame_->format == AV_PIX_FMT_YUVJ420P ||
+                                frame_->color_range == AVCOL_RANGE_JPEG;
+        if (frame_->format != AV_PIX_FMT_YUV420P && frame_->format != AV_PIX_FMT_YUVJ420P) {
+            const char *name = av_get_pix_fmt_name(static_cast<AVPixelFormat>(frame_->format));
+            error = std::string("the H.264 stream decoded to an unexpected pixel format: ") +
+                    (name != nullptr ? name : std::to_string(frame_->format).c_str());
             av_frame_unref(frame_);
             return false;
         }
+        out.full_range = full_range;
         out.width = static_cast<std::uint32_t>(frame_->width);
         out.height = static_cast<std::uint32_t>(frame_->height);
         out.y_stride = static_cast<std::uint32_t>(frame_->linesize[0]);

@@ -37,15 +37,23 @@ bool frame_to_abgr8888(const DecodedFrame &frame, std::uint32_t stride,
         std::uint32_t *target = out.data() + static_cast<std::size_t>(row) * stride;
 
         for (std::uint32_t column = 0; column < frame.width; ++column) {
-            // BT.601 limited range: luma spans 16..235 and chroma is centred on
-            // 128, so both are offset before scaling.
-            const std::int32_t c = static_cast<std::int32_t>(luma[column]) - 16;
             const std::int32_t d = static_cast<std::int32_t>(cb[column / 2u]) - 128;
             const std::int32_t e = static_cast<std::int32_t>(cr[column / 2u]) - 128;
-
-            const std::uint8_t r = clamp_to_byte((298 * c + 409 * e + 128) >> 8);
-            const std::uint8_t g = clamp_to_byte((298 * c - 100 * d - 208 * e + 128) >> 8);
-            const std::uint8_t b = clamp_to_byte((298 * c + 516 * d + 128) >> 8);
+            std::uint8_t r, g, b;
+            if (frame.full_range) {
+                // Full range: luma is already 0..255, only chroma is offset.
+                // 359/88/183/454 are 1.402, 0.344, 0.714 and 1.772 in 8.8.
+                const std::int32_t y = static_cast<std::int32_t>(luma[column]);
+                r = clamp_to_byte(y + ((359 * e + 128) >> 8));
+                g = clamp_to_byte(y - ((88 * d + 183 * e + 128) >> 8));
+                b = clamp_to_byte(y + ((454 * d + 128) >> 8));
+            } else {
+                // Studio range: luma spans 16..235, so it is offset and scaled.
+                const std::int32_t c = static_cast<std::int32_t>(luma[column]) - 16;
+                r = clamp_to_byte((298 * c + 409 * e + 128) >> 8);
+                g = clamp_to_byte((298 * c - 100 * d - 208 * e + 128) >> 8);
+                b = clamp_to_byte((298 * c + 516 * d + 128) >> 8);
+            }
 
             // ABGR8888 is little-endian RGBA in memory: red in the low byte.
             target[column] = 0xFF000000u | (static_cast<std::uint32_t>(b) << 16u) |

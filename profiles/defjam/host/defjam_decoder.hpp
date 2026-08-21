@@ -27,6 +27,10 @@ struct DecodedFrame {
     std::vector<std::uint8_t> v;
     std::uint32_t y_stride{};
     std::uint32_t uv_stride{};
+    // Whether the planes carry full-range values (0..255, the yuvj420p form
+    // this title's later movies decode to) rather than studio range (16..235).
+    // The conversion below owes the caller the right coefficients for each.
+    bool full_range{};
     // Presentation time, in the stream's own units, and whether the decoder
     // supplied one at all. A backend fed access units carrying no timestamps
     // has nothing to report here, and saying so is not the same as reporting
@@ -112,8 +116,10 @@ public:
 // buffer `stride` pixels wide. Written here rather than taken from a scaling
 // library so the profile depends on a decoder and nothing else.
 //
-// Uses the BT.601 limited-range coefficients that standard-definition H.264
-// content is encoded against.
+// Uses BT.601 coefficients; `frame.full_range` selects between the studio
+// form (luma 16..235) and the full-range form (0..255) that yuvj420p streams
+// carry. Feeding a full-range picture through the studio formula crushes
+// blacks and clips whites, which is a wrong picture delivered confidently.
 //
 // Returns false when the picture cannot be laid out as asked - an empty frame,
 // or a stride narrower than it. `out` is left as an opaque black field of the
