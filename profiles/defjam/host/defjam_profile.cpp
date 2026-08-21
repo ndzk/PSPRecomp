@@ -82,6 +82,14 @@ struct PartitionTable {
 // Returns 0 when none does, leaving the caller to extend the arena instead.
 std::uint32_t take_free_range(PartitionTable &table, std::uint32_t size,
                               std::uint32_t alignment) {
+    // Handing a freed range back out is what makes a stale guest pointer read
+    // someone else's data instead of its own. PSPRECOMP_DEFJAM_NO_REUSE=1 keeps
+    // every freed range parked so that difference can be measured, not guessed.
+    static const bool no_reuse = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_NO_REUSE");
+        return text != nullptr && *text != 0 && *text != 48;
+    }();
+    if (no_reuse) return 0u;
     for (auto it = table.free_ranges.begin(); it != table.free_ranges.end(); ++it) {
         const std::uint32_t start = it->first;
         const std::uint32_t length = it->second;
