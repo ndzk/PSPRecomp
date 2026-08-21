@@ -545,6 +545,20 @@ std::int32_t do_read(Runtime &rt, std::int32_t fd, std::uint32_t buffer, std::ui
         remember_read(buffer, static_cast<std::uint32_t>(got),
                       handle != nullptr ? handle->psp_path : std::string("?"));
         note_possible_bank(rt, buffer, static_cast<std::uint32_t>(got));
+        // Which read, if any, delivered the bytes now sitting at a given guest
+        // address. A buffer holding noise is either written by the game or read
+        // from the disc, and only the read log can tell those two apart.
+        static const std::uint32_t traced = [] {
+            const char *text = std::getenv("PSPRECOMP_DEFJAM_READ_INTO");
+            return text == nullptr ? 0u
+                                   : static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
+        }();
+        if (traced != 0u && traced >= buffer &&
+            traced < buffer + static_cast<std::uint32_t>(got)) {
+            runtime_log_line("read covers " + psprecomp::hex32(traced) + ": " +
+                             psprecomp::hex32(buffer) + " + " + std::to_string(got) + " from " +
+                             (handle != nullptr ? handle->psp_path : std::string("?")));
+        }
     }
     if (log_reads && got > 0) {
         const FileHandle *handle = file_at(fd);
