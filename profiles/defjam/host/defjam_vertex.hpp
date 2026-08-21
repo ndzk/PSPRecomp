@@ -155,6 +155,10 @@ void vertex_reset();
 
 [[nodiscard]] std::string vertex_report();
 
+// The painted-frame legend: which flat colour stands for which texture.
+void record_paint(std::uint32_t colour, std::uint32_t texture);
+[[nodiscard]] const std::vector<std::pair<std::uint32_t, std::uint32_t>> &paint_legend();
+
 // Called by the display-list interpreter for each PRIM.
 // Puts vertices through world, view and projection, leaving them in screen
 // pixels. Returns false when the primitive cannot be drawn - currently when any

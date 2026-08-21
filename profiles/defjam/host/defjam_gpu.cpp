@@ -926,7 +926,7 @@ bool gpu_draw(psprecomp::Runtime &runtime, std::uint32_t primitive,
     if (!g_gpu.active || !g_gpu.target) return false;
     if (vertices.size() < 2u) return false;
 
-    const bool textured = texture.enabled && texture.valid() && !clearing;
+    bool textured = texture.enabled && texture.valid() && !clearing;
     std::uint32_t slot = 0u;
     if (textured && !ensure_texture(runtime, texture, slot)) {
         ++g_gpu.stats.primitives_skipped;
@@ -947,8 +947,13 @@ bool gpu_draw(psprecomp::Runtime &runtime, std::uint32_t primitive,
     // run with the graphics backend on kept modulating whatever the switch
     // said, and a test of "is modulation what blacks the arena walls out" came
     // back negative while never having turned it off at all.
-    key.modulate = textured && texture_modulation_enabled() &&
-                   registers[kTextureFunction] == kModulate;
+    static const bool painting = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_PAINT");
+        return text != nullptr && text[0] != 0 && text[0] != 48;
+    }();
+    key.modulate = painting ? textured
+                            : (textured && texture_modulation_enabled() &&
+                               registers[kTextureFunction] == kModulate);
     key.depth_test = !clearing && (registers[0x23u] & 1u) != 0u;
     key.depth_write = (registers[0xE7u] & 1u) == 0u;
     key.compare = static_cast<std::uint8_t>(registers[0xDEu] & 7u);

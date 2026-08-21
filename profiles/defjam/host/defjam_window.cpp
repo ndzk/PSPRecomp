@@ -1,4 +1,5 @@
 #include "defjam_window.hpp"
+#include "defjam_vertex.hpp"
 
 #include "defjam_present_dx12.hpp"
 #ifdef __APPLE__
@@ -437,6 +438,83 @@ void window_set_status(const std::string &status) {
     g_state.status = status;
 }
 
+namespace {
+
+// A 3x5 bitmap for the sixteen hex digits, five rows of three bits each, most
+// significant row first. Small on purpose: the legend has to fit beside the
+// picture it explains, not cover it.
+constexpr std::uint16_t kHexFont[16] = {
+    0x7B6F, 0x2C97, 0x73E7, 0x73CF, 0x5BC9, 0x79CF, 0x79EF, 0x7252,
+    0x7BEF, 0x7BCF, 0x7BED, 0x6BAE, 0x7927, 0x6B6E, 0x79E7, 0x79E4,
+};
+
+void draw_glyph(std::byte *pixels, std::uint32_t width, std::uint32_t height, std::uint32_t x0,
+                std::uint32_t y0, std::uint8_t digit, std::uint32_t colour) {
+    const std::uint16_t bits = kHexFont[digit & 0xFu];
+    for (std::uint32_t row = 0; row < 5u; ++row) {
+        for (std::uint32_t column = 0; column < 3u; ++column) {
+            if ((bits >> (14u - (row * 3u + column)) & 1u) == 0u) continue;
+            for (std::uint32_t sy = 0; sy < 3u; ++sy) {
+                for (std::uint32_t sx = 0; sx < 3u; ++sx) {
+                    const std::uint32_t x = x0 + column * 3u + sx;
+                    const std::uint32_t y = y0 + row * 3u + sy;
+                    if (x >= width || y >= height) continue;
+                    auto *at = pixels + (static_cast<std::size_t>(y) * width + x) * 4u;
+                    at[0] = static_cast<std::byte>(colour & 0xFFu);
+                    at[1] = static_cast<std::byte>((colour >> 8u) & 0xFFu);
+                    at[2] = static_cast<std::byte>((colour >> 16u) & 0xFFu);
+                }
+            }
+        }
+    }
+}
+
+// The legend for a painted frame: one row per draw, a swatch of its colour and
+// the texture address it stands for, written straight onto the picture.
+void draw_paint_legend(std::byte *pixels, std::uint32_t width, std::uint32_t height) {
+    static const bool painting = [] {
+        const char *text = std::getenv("PSPRECOMP_DEFJAM_PAINT");
+        return text != nullptr && text[0] != 0 && text[0] != 48;
+    }();
+    if (!painting) return;
+    const auto &legend = paint_legend();
+    std::uint32_t y = 2u;
+    for (const auto &[colour, texture] : legend) {
+        if (y + 17u >= height) break;
+        // A dark strip behind the row, or white digits vanish over a pale wall.
+        for (std::uint32_t sy = 0; sy < 16u; ++sy) {
+            for (std::uint32_t sx = 0; sx < 100u; ++sx) {
+                const std::uint32_t px = 1u + sx;
+                const std::uint32_t py = y + sy;
+                if (px >= width || py >= height) continue;
+                auto *at = pixels + (static_cast<std::size_t>(py) * width + px) * 4u;
+                at[0] = static_cast<std::byte>(0);
+                at[1] = static_cast<std::byte>(0);
+                at[2] = static_cast<std::byte>(0);
+            }
+        }
+        for (std::uint32_t sy = 0; sy < 14u; ++sy) {
+            for (std::uint32_t sx = 0; sx < 12u; ++sx) {
+                const std::uint32_t px = 2u + sx;
+                const std::uint32_t py = y + sy;
+                if (px >= width || py >= height) continue;
+                auto *at = pixels + (static_cast<std::size_t>(py) * width + px) * 4u;
+                at[0] = static_cast<std::byte>(colour & 0xFFu);
+                at[1] = static_cast<std::byte>((colour >> 8u) & 0xFFu);
+                at[2] = static_cast<std::byte>((colour >> 16u) & 0xFFu);
+            }
+        }
+        for (std::uint32_t digit = 0; digit < 8u; ++digit) {
+            const std::uint8_t nibble =
+                static_cast<std::uint8_t>((texture >> ((7u - digit) * 4u)) & 0xFu);
+            draw_glyph(pixels, width, height, 17u + digit * 10u, y, nibble, 0x00FFFFFFu);
+        }
+        y += 18u;
+    }
+}
+
+}  // namespace
+
 void window_present(const psprecomp::GuestMemory &memory, std::uint32_t address,
                     std::uint32_t stride, std::uint32_t format, std::uint32_t width,
                     std::uint32_t height) {
@@ -462,6 +540,9 @@ void window_present(const psprecomp::GuestMemory &memory, std::uint32_t address,
     // backlog that makes the picture lag further behind the game the longer it
     // runs.
     if (g_state.frame_pending) g_state.dropped.fetch_add(1u, std::memory_order_relaxed);
+    // The legend goes on last, over the finished frame, so it is never hidden
+    // by what it explains.
+    draw_paint_legend(converted.data(), width, height);
     g_state.frame = std::move(converted);
     g_state.frame_width = width;
     g_state.frame_height = height;

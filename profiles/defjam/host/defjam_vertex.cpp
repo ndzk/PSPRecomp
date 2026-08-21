@@ -13,6 +13,25 @@
 #include <sstream>
 
 namespace defjam {
+
+namespace {
+// What each painted colour stands for, so a screenshot can be read back. Kept
+// small and in first-seen order: a legend nobody can read is no better than a
+// log nobody opens.
+std::vector<std::pair<std::uint32_t, std::uint32_t>> g_paint_legend;
+}
+
+void record_paint(std::uint32_t colour, std::uint32_t texture) {
+    for (const auto &entry : g_paint_legend) {
+        if (entry.first == colour) return;
+    }
+    if (g_paint_legend.size() < 14u) g_paint_legend.emplace_back(colour, texture);
+}
+
+const std::vector<std::pair<std::uint32_t, std::uint32_t>> &paint_legend() {
+    return g_paint_legend;
+}
+
 namespace {
 
 using psprecomp::Runtime;
@@ -234,6 +253,53 @@ Vertex read_vertex(const std::uint8_t *base, const VertexFormat &format) {
         // vertex colour, which here is the unlit base and measures (17,19,12)
         // on arena walls. Done here so both backends see the same colour.
         const std::array<std::uint32_t, 256> &registers = ge_registers();
+        // A map of the frame instead of a picture of it.
+        //
+        // PSPRECOMP_DEFJAM_PAINT=1 gives every draw a flat colour of its own,
+        // derived from the texture it would have used, and turns texturing off.
+        // Reading a screenshot then says which draw covers which part of the
+        // frame, which no amount of logging does: a log says what was drawn, a
+        // painted frame says where it landed.
+        // Highlighting one draw beats labelling them all. Text drawn into a
+        // 480x272 frame is three pixels wide and the window scales it up
+        // blurred, which made the legend unreadable however large it was;
+        // a single vivid colour survives any scaling.
+        //
+        // PSPRECOMP_DEFJAM_HIGHLIGHT=<texture address> paints that one draw
+        // magenta and leaves everything else alone.
+        static const std::uint32_t highlight = [] {
+            const char *text = std::getenv("PSPRECOMP_DEFJAM_HIGHLIGHT");
+            return text == nullptr ? 0u : static_cast<std::uint32_t>(std::strtoul(text, nullptr, 0));
+        }();
+        bool coloured_by_hand = false;
+        if (highlight != 0u && registers[0xA0u] == highlight) {
+            vertex.color = 0xFFFF00FFu;
+            coloured_by_hand = true;
+        }
+        static const bool painting = [] {
+            const char *text = std::getenv("PSPRECOMP_DEFJAM_PAINT");
+            return text != nullptr && text[0] != 0 && text[0] != 48;
+        }();
+        if (painting && !coloured_by_hand) {
+            const std::uint32_t id = registers[0xA0u] ^ (registers[0xA8u] << 3u);
+            std::uint32_t hash = id * 2654435761u;
+            hash ^= hash >> 13u;
+            // Bright and only lightly tinted: the frame has to stay playable,
+            // because a map nobody can navigate never reaches the fight it was
+            // built to explain. Painting flatly did exactly that.
+            const std::uint32_t r = 160u + (hash & 0x5Fu);
+            const std::uint32_t g = 160u + ((hash >> 8u) & 0x5Fu);
+            const std::uint32_t b = 160u + ((hash >> 16u) & 0x5Fu);
+            vertex.color = 0xFF000000u | (b << 16u) | (g << 8u) | r;
+            record_paint(vertex.color, registers[0xA0u]);
+            coloured_by_hand = true;
+        }
+        // Never return early from here: the weights are read after this block,
+        // and a skinned vertex without them collapses. Returning early to skip
+        // the shading below blacked the whole frame out.
+        if (coloured_by_hand) {
+            // deliberately falls through to the rest of the decode
+        } else
         // Which draws are shaded is decided by the vertex format, not by the
         // lighting enable at 0x17: that register latches, so it is still set
         // when the interface is drawn, and gating on it turned the warning
@@ -444,6 +510,30 @@ struct ClipVertex {
 // thousandth of w is far below one step of a sixteen bit depth buffer, so
 // nothing that should have been cut survives it.
 constexpr float kOnThePlane = 1.0f / 1024.0f;
+
+// Which screen rows transformed (non-through) geometry actually covers, and
+// where dropped primitives would have landed. The band above the crowd shows
+// nothing drawn in rows 40..107, and the open question is whether the title
+// never places 3D there or this path throws it away. A row histogram of what
+// was drawn, next to a row histogram of what was dropped, answers it directly.
+// Difference-array form: +1 at min row, -1 past max row, prefix-summed at
+// report time, so the cost per triangle is two increments.
+std::int64_t g_rows_drawn[274]{};
+std::int64_t g_rows_dropped[274]{};
+std::uint64_t g_drop_fully_behind = 0u;
+std::uint64_t g_drop_bad_w = 0u;
+std::uint64_t g_drop_to_screen = 0u;
+std::uint64_t g_drop_sprite_path = 0u;
+
+void note_rows(std::int64_t *bins, float min_y, float max_y) {
+    int lo = static_cast<int>(min_y);
+    int hi = static_cast<int>(max_y);
+    if (hi < 0 || lo > 271) return;
+    if (lo < 0) lo = 0;
+    if (hi > 271) hi = 271;
+    ++bins[lo];
+    --bins[hi + 1];
+}
 
 float near_distance(const ClipVertex &vertex) {
     return vertex.z + vertex.w * (1.0f + kOnThePlane);
@@ -674,6 +764,7 @@ bool transform_to_screen(std::vector<Vertex> &vertices, std::uint32_t width, std
         }
         if (!to_screen(matrices, vertex, width, height, sx, sy, sz)) {
             ++g_stats.behind_eye;
+            ++g_drop_to_screen;
             return false;   // drop the whole primitive rather than part of it
         }
         vertex.x = sx;
@@ -822,6 +913,7 @@ void draw_clipped_triangle(Runtime &runtime, const ClipVertex &a, const ClipVert
     const std::size_t produced = clip_against_near(in, 3u, out);
     if (produced < 3u) {
         ++g_stats.behind_eye;
+        ++g_drop_fully_behind;
         return;
     }
     if (produced > 3u) ++g_stats.clipped;
@@ -831,12 +923,21 @@ void draw_clipped_triangle(Runtime &runtime, const ClipVertex &a, const ClipVert
     for (std::size_t i = 0; i < produced; ++i) {
         if (!(out[i].w > 0.0f)) {
             ++g_stats.behind_eye;
+            ++g_drop_bad_w;
             return;
         }
     }
     static std::vector<Vertex> screen;
     screen.resize(produced);
     for (std::size_t i = 0; i < produced; ++i) screen[i] = to_screen_from_clip(out[i]);
+    {
+        float min_y = screen[0].y, max_y = screen[0].y;
+        for (std::size_t i = 1; i < produced; ++i) {
+            min_y = std::min(min_y, screen[i].y);
+            max_y = std::max(max_y, screen[i].y);
+        }
+        note_rows(g_rows_drawn, min_y, max_y);
+    }
 
     {
         const RenderTarget target = current_render_target();
@@ -924,6 +1025,48 @@ void draw_clipped_triangle(Runtime &runtime, const ClipVertex &a, const ClipVert
             // why the black textures it did find were the wrong suspects.
             // PSPRECOMP_DEFJAM_BARS=1 looks for the opposite shape - narrow,
             // tall, and against a screen edge - and reports what draws it.
+            // Geometry that arrives but covers nothing.
+            //
+            // Colouring the draws that are present cannot explain a region
+            // where nothing is drawn, and the painted frame showed the band
+            // above the crowd taking no tint at all. So look for the opposite:
+            // primitives whose vertices differ in clip space but land on the
+            // same screen pixel column or row. Those are submitted, counted,
+            // never skipped - and invisible.
+            if (std::getenv("PSPRECOMP_DEFJAM_COLLAPSE") != nullptr) {
+                const float width = max_x - min_x;
+                const float height = max_y - min_y;
+                const bool flat = width < 1.0f || height < 1.0f;
+                if (flat) {
+                    static std::set<std::uint64_t> seen;
+                    const std::uint64_t kind =
+                        (static_cast<std::uint64_t>(texture.address) << 20u) ^
+                        (static_cast<std::uint64_t>(screen[0].color) << 3u) ^
+                        (width < 1.0f ? 1u : 2u);
+                    if (seen.size() < 30u && seen.insert(kind).second) {
+                        runtime_log_line(
+                            "collapsed: screen x " + std::to_string(min_x) + ".." +
+                            std::to_string(max_x) + "  y " + std::to_string(min_y) + ".." +
+                            std::to_string(max_y) + "  colour " +
+                            psprecomp::hex32(screen[0].color) + "  texture " +
+                            (texture.enabled ? psprecomp::hex32(texture.address)
+                                             : std::string("none")) +
+                            "  through " + std::to_string(format.through ? 1 : 0) +
+                            "  inv_w " + std::to_string(screen[0].inv_w) + "/" +
+                            std::to_string(screen[1].inv_w) + "/" +
+                            std::to_string(screen[2].inv_w) +
+                            // Where the horizontal component is lost: if clip x
+                            // already matches across the three vertices the
+                            // transform is not to blame, and if it differs the
+                            // projection or the viewport is.
+                            "  clipx " + std::to_string(in[0].x) + "/" +
+                            std::to_string(in[1].x) + "/" + std::to_string(in[2].x) +
+                            "  clipw " + std::to_string(in[0].w) + "/" +
+                            std::to_string(in[1].w) + "/" + std::to_string(in[2].w));
+                    }
+                }
+            }
+
             if (std::getenv("PSPRECOMP_DEFJAM_BARS") != nullptr) {
                 const float width = max_x - min_x;
                 const float height = max_y - min_y;
@@ -990,10 +1133,24 @@ void draw_clipped_triangle(Runtime &runtime, const ClipVertex &a, const ClipVert
                                          std::to_string(texture.width) + "x" +
                                          std::to_string(texture.height) + "  vertex colour " +
                                          psprecomp::hex32(screen[0].color) + "  normals " +
-                                         std::to_string(format.normal) + "  0x53 " +
-                                         std::to_string(ge_registers()[0x53u]) + "  texfunc " +
-                                         psprecomp::hex32(ge_registers()[0xC4u]) + "  0x17 " +
-                                         std::to_string(ge_registers()[0x17u]));
+                                         std::to_string(format.normal) +
+                                         // The whole material and light block,
+                                         // latched at this draw. Identifying
+                                         // these registers one at a time from
+                                         // separate runs has produced three
+                                         // wrong reads; one draw, all values.
+                                         [] {
+                                             std::string regs;
+                                             for (const std::uint32_t r :
+                                                  {0x17u, 0x18u, 0x19u, 0x53u, 0x54u, 0x55u,
+                                                   0x56u, 0x57u, 0x58u, 0x5Bu, 0x5Cu, 0x5Du,
+                                                   0x5Fu, 0x62u, 0x63u, 0x64u, 0x65u, 0x66u,
+                                                   0x67u, 0x68u, 0xC4u}) {
+                                                 regs += "  " + psprecomp::hex32(r) + "=" +
+                                                         psprecomp::hex32(ge_registers()[r]);
+                                             }
+                                             return regs;
+                                         }());
                     }
                 }
             }
@@ -1176,6 +1333,18 @@ void transform_and_draw(Runtime &runtime, std::uint32_t primitive,
         for (std::size_t i = 0; i < clip.size(); ++i) {
             if (near_distance(clip[i]) <= 0.0f || clip[i].w <= 0.0001f) {
                 ++g_stats.behind_eye;
+                ++g_drop_sprite_path;
+                // Where this primitive would have landed, judged by the corners
+                // still in front of the eye - enough to say whether the sprite
+                // path is discarding anything aimed at the empty band.
+                float min_y = 1e9f, max_y = -1e9f;
+                for (std::size_t k = 0; k < clip.size(); ++k) {
+                    if (near_distance(clip[k]) <= 0.0f || clip[k].w <= 0.0001f) continue;
+                    const Vertex projected = to_screen_from_clip(clip[k]);
+                    min_y = std::min(min_y, projected.y);
+                    max_y = std::max(max_y, projected.y);
+                }
+                if (max_y >= min_y) note_rows(g_rows_dropped, min_y, max_y);
                 return;
             }
             screen[i] = to_screen_from_clip(clip[i]);
@@ -1305,6 +1474,24 @@ std::string vertex_report() {
     };
     // Both are screen coordinates: the extent is taken after the transform has
     // run, so the only difference is which path the draw took to get there.
+    {
+        out << "  3D coverage by screen row (prefix-summed, 16-row bands):\n";
+        std::int64_t drawn = 0, dropped = 0;
+        for (int band = 0; band < 17; ++band) {
+            std::int64_t drawn_band = 0, dropped_band = 0;
+            for (int row = band * 16; row < (band + 1) * 16 && row < 272; ++row) {
+                drawn += g_rows_drawn[row];
+                dropped += g_rows_dropped[row];
+                drawn_band += drawn;
+                dropped_band += dropped;
+            }
+            out << "    rows " << band * 16 << ".." << (band * 16 + 15) << "  drawn "
+                << drawn_band / 16 << "  dropped " << dropped_band / 16 << "\n";
+        }
+        out << "  drops by site: fully-behind " << g_drop_fully_behind << ", bad-w "
+            << g_drop_bad_w << ", to-screen " << g_drop_to_screen << ", sprite-path "
+            << g_drop_sprite_path << "\n";
+    }
     extent_line("  through extent:    ", stats.screen);
     extent_line("  transformed extent:", stats.model);
     out << "  vertex types:      ";
