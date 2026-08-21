@@ -2083,6 +2083,7 @@ void test_frame_conversion() {
     require(!defjam::frame_to_abgr8888(frame, 1u, pixels),
             "a too-narrow stride was not reported");
     require(pixels.size() == 1u * 2u, "a too-narrow stride still sized the buffer");
+
     require(pixels[0] == 0xFF000000u, "a too-narrow stride wrote pixels anyway");
 
     // Everything here indexes off the strides, so a frame whose planes do not
@@ -2104,6 +2105,29 @@ void test_frame_conversion() {
     ragged.v.clear();
     require(!defjam::frame_to_abgr8888(ragged, 4u, pixels),
             "a frame missing a chroma plane was accepted");
+
+    // Full range, the yuvj420p form the later movies decode to: 0 is black and
+    // 255 is white with no offset, and running these through the studio
+    // formula instead crushed 0 below black and pushed 255 past white. The
+    // soak found the stream, this holds the conversion.
+    defjam::DecodedFrame full;
+    full.width = 2u;
+    full.height = 1u;
+    full.y_stride = 2u;
+    full.uv_stride = 1u;
+    full.full_range = true;
+    full.y = {0u, 255u};
+    full.u = {128u};
+    full.v = {128u};
+    require(defjam::frame_to_abgr8888(full, 2u, pixels), "a full-range frame was refused");
+    require(pixels[0] == 0xFF000000u, "full-range black did not come out black");
+    require(pixels[1] == 0xFFFFFFFFu, "full-range white did not come out white");
+
+    // Mid grey stays mid grey in full range - the studio formula would lift
+    // 128 to 130 and the difference is exactly what this case pins.
+    full.y = {128u, 128u};
+    require(defjam::frame_to_abgr8888(full, 2u, pixels), "a full-range frame was refused");
+    require(((pixels[0] >> 8u) & 0xFFu) == 128u, "full-range mid grey moved");
 }
 
 // Vertex formats, using the three VTYPE words this title actually issues. The
